@@ -1,7 +1,7 @@
 import os
 import requests
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime,timedelta
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
 GREEN_API_ID    = os.environ.get("GREEN_API_ID", "7107665984")
