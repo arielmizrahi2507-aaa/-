@@ -1,0 +1,32 @@
+name: Deploy Shot IQ to GitHub Pages
+
+on:
+  push:
+    branches:
+      - claude/basketball-shot-analyzer-bhfnjk
+      - main
+    paths:
+      - "shot-analyzer/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish shot-analyzer/ to the gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: shot-analyzer
+          publish_branch: gh-pages
