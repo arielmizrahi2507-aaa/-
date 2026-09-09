@@ -19,7 +19,20 @@
         <div class="brand__subtitle">מנתח מכניקת זריקה מבוסס ראיית מחשב</div>
       </div>
     </div>
-    <div class="badge-live">100% בדפדפן שלך · אין העלאה לשרת</div>
+    <div class="account-slot">
+      <div class="badge-live">100% בדפדפן שלך · אין העלאה לשרת</div>
+      <div id="gsiButton" class="gsi-btn-wrap"></div>
+      <div id="accountChip" class="account-chip" style="display:none;" title="לחצו להתנתקות">
+        <img id="accountChipImg" src="" alt="" />
+        <div>
+          <div class="account-chip__name" id="accountChipName"></div>
+          <div class="account-chip__signout">התנתקות</div>
+        </div>
+      </div>
+      <div id="authNote" class="auth-note" style="display:none;">
+        התחברות עם גוגל דורשת הגדרת מזהה <bdi>Client ID</bdi> חד-פעמית (ראו <bdi>README</bdi>) - עד אז ההיסטוריה נשמרת מקומית בדפדפן.
+      </div>
+    </div>
   </div>
 
   <section class="hero">
@@ -98,6 +111,19 @@
       </div>
     </div>
 
+    <div class="section-title">🏅 תגים</div>
+    <div class="badge-grid" id="badgeGrid"></div>
+
+    <div class="section-title">📈 ההתקדמות שלי</div>
+    <div class="progress-card" id="progressCard">
+      <div class="progress-card__top">
+        <div class="progress-card__title">מגמת Shot IQ</div>
+        <div class="progress-card__count" id="progressCount"></div>
+      </div>
+      <div class="sparkline-wrap" id="sparklineWrap"></div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
     <div class="section-title">📊 דירוג לפי קטגוריה</div>
     <div class="attrs" id="attrsGrid"></div>
 
@@ -124,6 +150,11 @@
       <b>איך זה עובד:</b> האפליקציה מריצה מודל ראיית מחשב (MediaPipe Pose, מבית Google) ישירות
       בדפדפן שלכם כדי לזהות 33 נקודות ציון על הגוף, ומחשבת מהן זוויות מפרקים, קצב תנועה, יישור
       ואיזון. <b>הווידאו לא נשלח לשום שרת</b> - כל העיבוד מתבצע מקומית במכשיר שלכם.
+    </p>
+    <p>
+      <b>היסטוריה וחשבון גוגל:</b> כל ניתוח נשמר אוטומטית בדפדפן שלכם (גם בלי להתחבר), כדי לעקוב
+      אחרי ההתקדמות שלכם לאורך זמן. התחברות עם גוגל מזהה אתכם מול הדפדפן בלבד; סנכרון היסטוריה
+      אמיתי בין מכשירים דורש הגדרת פרויקט Firebase חינמי משלכם (ראו README).
     </p>
     <p>
       <b>מגבלות:</b> זהו כלי ניתוח מבוסס הערכה טכנולוגית, לא מכשיר מדידה מדעי מכויל, והוא אינו

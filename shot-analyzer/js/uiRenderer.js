@@ -44,7 +44,7 @@ export function drawSkeleton(ctx, landmarks, width, height) {
   ctx.clearRect(0, 0, width, height);
   if (!landmarks) return;
   ctx.lineWidth = Math.max(2, width * 0.004);
-  ctx.strokeStyle = "rgba(41,197,255,0.85)";
+  ctx.strokeStyle = "rgba(111,139,176,0.9)";
   ctx.beginPath();
   for (const [a, b] of SKELETON_CONNECTIONS) {
     const pa = landmarks[a];
@@ -55,7 +55,7 @@ export function drawSkeleton(ctx, landmarks, width, height) {
   }
   ctx.stroke();
 
-  ctx.fillStyle = "rgba(255,122,26,0.95)";
+  ctx.fillStyle = "rgba(232,168,49,0.95)";
   for (const p of landmarks) {
     if (!p) continue;
     ctx.beginPath();
@@ -74,11 +74,11 @@ function renderPlayerCard(report) {
 
   const score = report.overallScore;
   const tier = tierOf(score);
-  const colorMap = { elite: "var(--green)", good: "var(--blue)", avg: "var(--yellow)", weak: "var(--red)", unknown: "var(--ink-faint)" };
+  const colorMap = { elite: "var(--gold)", good: "var(--good)", avg: "var(--avg)", weak: "var(--danger)", unknown: "var(--ink-faint)" };
 
   requestAnimationFrame(() => {
     gauge.style.setProperty("--pct", score ?? 0);
-    gauge.style.setProperty("--gauge-color", colorMap[tier.cls] || colorMap[tier.key] || "var(--orange)");
+    gauge.style.setProperty("--gauge-color", colorMap[tier.cls] || colorMap[tier.key] || "var(--gold)");
   });
   gaugeValue.textContent = score != null ? Math.round(score) : "--";
 
@@ -108,7 +108,7 @@ function confidenceLabel(c) {
 }
 
 // -------------------------------------------------------------- attrs --
-function renderAttrs(report) {
+function renderAttrs(report, previousCategories) {
   const grid = document.getElementById("attrsGrid");
   grid.innerHTML = "";
   for (const [key, cat] of Object.entries(report.categories)) {
@@ -116,13 +116,19 @@ function renderAttrs(report) {
     if (!meta) continue;
     const tier = tierOf(cat.score);
     const card = el("div", "attr-card");
+    let deltaHtml = "";
+    const prevScore = previousCategories?.[key];
+    if (prevScore != null && cat.score != null) {
+      const d = Math.round(cat.score - prevScore);
+      if (d !== 0) deltaHtml = `<span class="attr-card__delta ${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d)}</span>`;
+    }
     card.appendChild(
       el(
         "div",
         "attr-card__top",
         `<div class="attr-card__name">${meta.icon} ${meta.shortLabel} ${
           cat.confidence !== "measured" ? '<span class="tag tag-cat">אומדן</span>' : ""
-        }</div><div class="attr-card__score score-${tier.cls}">${cat.score != null ? Math.round(cat.score) : "--"}</div>`
+        }</div><div class="attr-card__score score-${tier.cls}">${cat.score != null ? Math.round(cat.score) : "--"}${deltaHtml}</div>`
       )
     );
     const bar = el("div", "attr-bar");
@@ -279,11 +285,97 @@ export function renderFullReference(highlightIds = []) {
   }
 }
 
+// ------------------------------------------------------------- badges --
+export function renderBadges(badges) {
+  const grid = document.getElementById("badgeGrid");
+  if (!grid) return;
+  grid.innerHTML = "";
+  for (const b of badges) {
+    const locked = !b.tier;
+    const chip = el(
+      "div",
+      `badge-chip ${locked ? "locked" : ""}`,
+      `<div class="badge-chip__icon">${b.icon}</div>
+       <div class="badge-chip__name">${b.name}</div>
+       <div class="badge-chip__tier ${b.tier || ""}">${locked ? "נעול" : b.tierLabel}</div>
+       <div class="badge-chip__desc">${b.desc}</div>`
+    );
+    chip.dataset.tier = b.tier || "";
+    grid.appendChild(chip);
+  }
+}
+
+// ------------------------------------------------------------ progress --
+function sparklineSvg(history) {
+  const w = 600, h = 130, pad = 26;
+  const scores = history.map((h) => h.overallScore ?? 0);
+  const min = Math.min(...scores, 40);
+  const max = Math.max(...scores, 100);
+  const xStep = history.length > 1 ? (w - pad * 2) / (history.length - 1) : 0;
+  const yFor = (s) => h - pad - ((s - min) / (max - min || 1)) * (h - pad * 2);
+  const pts = scores.map((s, i) => `${(pad + i * xStep).toFixed(1)},${yFor(s).toFixed(1)}`).join(" ");
+  const lastX = pad + (scores.length - 1) * xStep;
+  const lastY = yFor(scores[scores.length - 1]);
+  const midY = yFor((min + max) / 2);
+  const dots = scores
+    .map((s, i) => `<circle cx="${(pad + i * xStep).toFixed(1)}" cy="${yFor(s).toFixed(1)}" r="2.5" fill="var(--bg-1)" stroke="var(--gold-2)" stroke-width="1.5" />`)
+    .join("");
+  return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;display:block;" role="img" aria-label="מגמת ציון Shot IQ לאורך זמן">
+    <line x1="${pad}" y1="${midY.toFixed(1)}" x2="${w - pad}" y2="${midY.toFixed(1)}" stroke="var(--card-border)" stroke-width="1" />
+    <polyline points="${pts}" fill="none" stroke="var(--gold)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" />
+    ${dots}
+    <circle cx="${lastX.toFixed(1)}" cy="${lastY.toFixed(1)}" r="4.5" fill="var(--gold)" />
+    <text x="${lastX.toFixed(1)}" y="${(lastY - 11).toFixed(1)}" text-anchor="middle" font-size="16" fill="var(--gold-2)" font-weight="700">${Math.round(scores[scores.length - 1])}</text>
+  </svg>`;
+}
+
+export function renderProgress(history) {
+  const wrap = document.getElementById("progressCard");
+  if (!wrap) return;
+  const sparkWrap = document.getElementById("sparklineWrap");
+  const countEl = document.getElementById("progressCount");
+  const listEl = document.getElementById("historyList");
+
+  if (!history.length) {
+    sparkWrap.innerHTML = `<div class="empty-history">עדיין אין זריקות שמורות. כל ניתוח אמיתי (לא מצב דוגמה) יתווסף לכאן אוטומטית, כדי שתוכלו לעקוב אחרי ההתקדמות שלכם לאורך זמן.</div>`;
+    countEl.textContent = "";
+    listEl.innerHTML = "";
+    return;
+  }
+
+  countEl.textContent = `${history.length} זריקות נשמרו`;
+  sparkWrap.innerHTML = sparklineSvg(history);
+
+  listEl.innerHTML = "";
+  const reversed = [...history].reverse().slice(0, 10);
+  reversed.forEach((h, i) => {
+    const prev = reversed[i + 1];
+    const delta = prev ? Math.round((h.overallScore ?? 0) - (prev.overallScore ?? 0)) : null;
+    const deltaCls = delta > 0 ? "up" : delta < 0 ? "down" : "";
+    const deltaStr = delta == null ? "" : delta === 0 ? "±0" : delta > 0 ? `▲ +${delta}` : `▼ ${delta}`;
+    const date = new Date(h.ts).toLocaleDateString("he-IL", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    listEl.appendChild(
+      el(
+        "div",
+        "history-row",
+        `<div class="history-row__score">${h.overallScore ?? "--"}</div>
+         <div class="history-row__date">${date}</div>
+         <div class="history-row__delta ${deltaCls}">${deltaStr}</div>`
+      )
+    );
+  });
+}
+
 // -------------------------------------------------------------- entry --
-export function renderReport(report) {
+export function renderReport(report, previousCategories) {
   const results = document.getElementById("results");
   renderPlayerCard(report);
-  renderAttrs(report);
+  renderAttrs(report, previousCategories);
   renderStrengths(report);
   renderFlaws(report);
   renderDrills(report);

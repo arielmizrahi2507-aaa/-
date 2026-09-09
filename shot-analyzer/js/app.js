@@ -4,8 +4,11 @@
 
 import { PoseEngine, PoseEngineError } from "./poseEngine.js";
 import { analyzeShot } from "./shotAnalyzer.js";
-import { renderReport, showLowConfidence, drawSkeleton, renderFullReference } from "./uiRenderer.js";
+import { renderReport, showLowConfidence, drawSkeleton, renderFullReference, renderBadges, renderProgress } from "./uiRenderer.js";
 import { DEMO_REPORT } from "./demoData.js";
+import { Auth } from "./auth.js";
+import { ShotHistory } from "./storage.js";
+import { evaluateBadges } from "./badges.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -33,8 +36,45 @@ let recorder = null;
 let recordedChunks = [];
 let busy = false;
 
+const auth = new Auth();
+const history = new ShotHistory();
+
+function currentUserId() {
+  return auth.user?.id || null;
+}
+
 // מציג את המדריך המקצועי המלא כבר בטעינת הדף, גם לפני כל ניתוח
 renderFullReference([]);
+renderProgress(history.getLocal(currentUserId()));
+
+// -------------------------------------------------------------- auth --
+const accountChip = $("accountChip");
+const accountChipImg = $("accountChipImg");
+const accountChipName = $("accountChipName");
+const gsiButtonWrap = $("gsiButton");
+const authNote = $("authNote");
+
+auth.onChange((user) => {
+  if (user) {
+    accountChip.style.display = "flex";
+    gsiButtonWrap.style.display = "none";
+    accountChipImg.src = user.picture || "";
+    accountChipName.textContent = user.name || user.email || "מחובר";
+    history.pullCloud(user.id).then((remote) => {
+      if (remote) renderProgress(history.getLocal(user.id));
+    });
+  } else {
+    accountChip.style.display = "none";
+    gsiButtonWrap.style.display = "";
+  }
+  renderProgress(history.getLocal(currentUserId()));
+});
+
+auth.init("gsiButton").then((ok) => {
+  if (!ok) authNote.style.display = "block";
+});
+
+accountChip.addEventListener("click", () => auth.signOut());
 
 // -------------------------------------------------------------- tabs --
 document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -128,6 +168,7 @@ btnDemo.addEventListener("click", () => {
   hideError();
   stage.classList.remove("active");
   renderReport(DEMO_REPORT);
+  renderBadges(evaluateBadges(DEMO_REPORT));
 });
 
 // ---------------------------------------------------------- core flow --
@@ -169,7 +210,13 @@ async function handleFile(fileOrBlob) {
     if (report.confidence === "low" || report.overallScore == null) {
       showLowConfidence(report);
     } else {
-      renderReport(report);
+      const userId = currentUserId();
+      const priorList = history.getLocal(userId);
+      const previousCategories = priorList.length ? priorList[priorList.length - 1].categories : null;
+      renderReport(report, previousCategories);
+      renderBadges(evaluateBadges(report));
+      const { list } = await history.save(userId, report);
+      renderProgress(list);
     }
   } catch (err) {
     console.error(err);
