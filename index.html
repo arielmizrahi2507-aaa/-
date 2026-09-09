@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SHOT IQ — מנתח זריקות כדורסל</title>
+<meta name="description" content="ניתוח מקצועי של מכניקת זריקה בכדורסל מתוך וידאו - מה טוב, מה לא, ואיך לתקן. הכל רץ בדפדפן שלך, ללא שרת." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏀</text></svg>" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="brand__mark">🏀</div>
+      <div>
+        <div class="brand__title">SHOT <span>IQ</span></div>
+        <div class="brand__subtitle">מנתח מכניקת זריקה מבוסס ראיית מחשב</div>
+      </div>
+    </div>
+    <div class="account-slot">
+      <div class="badge-live">100% בדפדפן שלך · אין העלאה לשרת</div>
+      <div id="gsiButton" class="gsi-btn-wrap"></div>
+      <div id="accountChip" class="account-chip" style="display:none;" title="לחצו להתנתקות">
+        <img id="accountChipImg" src="" alt="" />
+        <div>
+          <div class="account-chip__name" id="accountChipName"></div>
+          <div class="account-chip__signout">התנתקות</div>
+        </div>
+      </div>
+      <div id="authNote" class="auth-note" style="display:none;">
+        התחברות עם גוגל דורשת הגדרת מזהה <bdi>Client ID</bdi> חד-פעמית (ראו <bdi>README</bdi>) - עד אז ההיסטוריה נשמרת מקומית בדפדפן.
+      </div>
+    </div>
+  </div>
+
+  <section class="hero">
+    <h1>תן <span class="accent">לזריקה שלך</span> ציון, כמו בקלפי שחקן</h1>
+    <p>
+      העלו סרטון קצר של זריקה (רצוי מהצד, גוף מלא בפריים), וקבלו ניתוח ביומכני מפורט:
+      בסיס ויציבה, יישור מרפק, נקודת איסוף, שחרור וליווי, קשת מעוף, יד מכוונת, קצב וטיימינג -
+      עם ציון לכל קטגוריה, הסבר מה טוב ומה לא, ותוכנית תרגילים מותאמת אישית לתיקון.
+    </p>
+
+    <div class="tips">
+      <div class="tip"><b>📐 זווית צילום</b>הצילום הכי מדויק הוא מהצד (90°) לגובה המותניים בערך.</div>
+      <div class="tip"><b>🧍 גוף מלא בפריים</b>ודאו שכל הגוף נראה מהרגליים ועד למעלה, לאורך כל הזריקה.</div>
+      <div class="tip"><b>⏱️ אורך הקליפ</b>התחילו את הצילום רגע לפני קבלת/איסוף הכדור וסיימו כשנייה אחרי השחרור.</div>
+      <div class="tip"><b>💡 תאורה</b>תאורה טובה ואחידה משפרת משמעותית את דיוק זיהוי השלד.</div>
+    </div>
+
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="upload" role="tab">📁 העלאת סרטון</button>
+      <button class="tab-btn" data-tab="webcam" role="tab">🎥 הקלטה מהמצלמה</button>
+    </div>
+
+    <div class="panel active" id="panel-upload">
+      <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="העלאת קובץ וידאו">
+        <div class="dropzone__icon">⬆️</div>
+        <div class="dropzone__title">גררו לכאן קובץ וידאו, או לחצו לבחירה</div>
+        <div class="dropzone__sub">MP4 / MOV / WebM · מומלץ קליפ של 2-6 שניות</div>
+      </div>
+      <input type="file" id="fileInput" accept="video/*" class="visually-hidden" />
+    </div>
+
+    <div class="panel" id="panel-webcam">
+      <div class="cam-box">
+        <video id="webcamPreview" muted playsinline autoplay style="width:100%;max-width:480px;border-radius:14px;background:#000;"></video>
+        <div class="cam-controls">
+          <button class="btn btn-secondary" id="btnCamStart">📷 הפעל מצלמה</button>
+          <button class="btn btn-primary" id="btnCamRecord" disabled>⏺️ התחל הקלטה</button>
+          <button class="btn btn-danger" id="btnCamStop" disabled>⏹️ עצור הקלטה</button>
+        </div>
+        <div class="dropzone__sub" id="camStatus">לחצו על "הפעל מצלמה" כדי להתחיל.</div>
+      </div>
+    </div>
+
+    <div class="demo-row">
+      <button class="btn btn-ghost" id="btnDemo">✨ טען דוגמה לניתוח (בלי סרטון)</button>
+      <span class="divider">רוצים לראות איך זה נראה קודם? נסו את הדוגמה.</span>
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
+  </section>
+
+  <div class="stage" id="stage">
+    <video id="mainVideo" playsinline></video>
+    <canvas class="overlay" id="overlayCanvas"></canvas>
+    <div class="progress-overlay" id="progressOverlay" hidden>
+      <div class="spinner"></div>
+      <div class="progress-text" id="progressText">טוען מנוע ניתוח...</div>
+      <div class="progress-bar"><div class="progress-bar__fill" id="progressFill"></div></div>
+    </div>
+  </div>
+
+  <section id="results">
+    <div class="confidence-note" id="confidenceNote" style="display:none;"></div>
+
+    <div class="player-card">
+      <div class="gauge" id="gauge" style="--pct:0;">
+        <div class="gauge__inner">
+          <div class="gauge__value" id="gaugeValue">--</div>
+          <div class="gauge__label">SHOT IQ</div>
+        </div>
+      </div>
+      <div class="player-card__meta">
+        <h2 id="resultTitle">כרטיס הזריקה שלך</h2>
+        <p id="resultSub">ניתוח מבוסס על נקודות ציון שלד גוף שזוהו לאורך הקליפ.</p>
+        <div class="meta-chips" id="metaChips"></div>
+      </div>
+    </div>
+
+    <div class="section-title">🏅 תגים</div>
+    <div class="badge-grid" id="badgeGrid"></div>
+
+    <div class="section-title">📈 ההתקדמות שלי</div>
+    <div class="progress-card" id="progressCard">
+      <div class="progress-card__top">
+        <div class="progress-card__title">מגמת Shot IQ</div>
+        <div class="progress-card__count" id="progressCount"></div>
+      </div>
+      <div class="sparkline-wrap" id="sparklineWrap"></div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+
+    <div class="section-title">📊 דירוג לפי קטגוריה</div>
+    <div class="attrs" id="attrsGrid"></div>
+
+    <div class="section-title">✅ מה טוב</div>
+    <div class="strength-list" id="strengthList"></div>
+
+    <div class="section-title">⚠️ מה לא טוב — ומה לתקן</div>
+    <div class="flaw-list" id="flawList"></div>
+
+    <div class="section-title">🏋️ תוכנית תרגילים מותאמת</div>
+    <div class="drill-grid" id="drillGrid"></div>
+
+    <div class="section-title">📚 המדריך המלא — כל קטגוריה, כל טעות אפשרית</div>
+    <p style="color:var(--ink-dim);font-size:13px;max-width:760px;margin:-6px 0 16px;">
+      חלק מהמרכיבים (כמו הברשת אגודל עדינה או סיבוב אחורי מדויק) לא ניתנים למדידה מלאה מווידאו
+      של שלד גוף בלבד — לכן לכל הקטגוריות מובא כאן גם מדריך מקצועי מלא לבדיקה עצמית, מעבר למה
+      שנמדד אוטומטית למעלה.
+    </p>
+    <div class="accordion" id="fullReference"></div>
+  </section>
+
+  <footer>
+    <p>
+      <b>איך זה עובד:</b> האפליקציה מריצה מודל ראיית מחשב (MediaPipe Pose, מבית Google) ישירות
+      בדפדפן שלכם כדי לזהות 33 נקודות ציון על הגוף, ומחשבת מהן זוויות מפרקים, קצב תנועה, יישור
+      ואיזון. <b>הווידאו לא נשלח לשום שרת</b> - כל העיבוד מתבצע מקומית במכשיר שלכם.
+    </p>
+    <p>
+      <b>היסטוריה וחשבון גוגל:</b> כל ניתוח נשמר אוטומטית בדפדפן שלכם (גם בלי להתחבר), כדי לעקוב
+      אחרי ההתקדמות שלכם לאורך זמן. התחברות עם גוגל מזהה אתכם מול הדפדפן בלבד; סנכרון היסטוריה
+      אמיתי בין מכשירים דורש הגדרת פרויקט Firebase חינמי משלכם (ראו README).
+    </p>
+    <p>
+      <b>מגבלות:</b> זהו כלי ניתוח מבוסס הערכה טכנולוגית, לא מכשיר מדידה מדעי מכויל, והוא אינו
+      תחליף למאמן אנושי. דיוק המדדים תלוי באיכות הצילום, בזווית המצלמה ובתאורה. חלק מהמדדים
+      (יד מכוונת, סיבוב אחורי, כיוון מבט מדויק) מוצגים כאומדן בלבד או כידע מקצועי כללי.
+    </p>
+  </footer>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
