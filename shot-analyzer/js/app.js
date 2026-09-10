@@ -238,7 +238,7 @@ async function handleFile(fileOrBlob) {
     });
 
     setProgress(0.97, "מחשב ציונים ובונה דוח...");
-    const report = analyzeShot(frames);
+    const report = analyzeShot(frames, { width: mainVideo.videoWidth, height: mainVideo.videoHeight });
 
     mainVideo.controls = true;
     progressOverlay.hidden = true;
