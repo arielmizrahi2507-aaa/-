@@ -99,7 +99,10 @@ function zoneFor(courtX, courtY) {
 }
 
 function nowForDatetimeInput() {
-  const d = new Date();
+  return isoForDatetimeInput(Date.now());
+}
+function isoForDatetimeInput(ms) {
+  const d = new Date(ms);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
   return d.toISOString().slice(0, 16);
 }
@@ -108,7 +111,7 @@ function nowForDatetimeInput() {
  * מרנדר את בורר "איפה ומתי" לתוך container, וקורא ל-onSave({location, takenAt})
  * כשהמשתמש שומר. מחזיר { destroy() }.
  */
-export function renderCourtPicker(container, { onSave } = {}) {
+export function renderCourtPicker(container, { onSave, initialLocation, initialTakenAt } = {}) {
   container.innerHTML = "";
   const wrap = el("div", { class: "court-picker" });
 
@@ -134,7 +137,7 @@ export function renderCourtPicker(container, { onSave } = {}) {
   const timeInput = document.createElement("input");
   timeInput.type = "datetime-local";
   timeInput.className = "court-picker__time";
-  timeInput.value = nowForDatetimeInput();
+  timeInput.value = initialTakenAt ? isoForDatetimeInput(initialTakenAt) : nowForDatetimeInput();
   timeLabel.appendChild(timeInput);
   controls.appendChild(timeLabel);
 
@@ -153,6 +156,17 @@ export function renderCourtPicker(container, { onSave } = {}) {
   container.appendChild(wrap);
 
   let currentLocation = null;
+
+  if (initialLocation) {
+    const courtX = initialLocation.xPct * COURT_W;
+    const courtY = initialLocation.yPct * COURT_L;
+    marker.setAttribute("cx", courtX);
+    marker.setAttribute("cy", toSvgY(courtY));
+    marker.style.display = "";
+    infoBox.textContent = `📍 ${initialLocation.zone} · כ-${initialLocation.distanceM.toFixed(1)} מ' מהסל`;
+    currentLocation = initialLocation;
+    saveBtn.disabled = false;
+  }
 
   function pickAt(evt) {
     const pt = svg.createSVGPoint();

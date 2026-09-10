@@ -385,6 +385,9 @@ a { color: var(--steel-accent); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: rgba(255,255,255,.02); border: 1px solid var(--card-border); padding: 8px 12px; font-size: 12.5px;
 }
+.history-row--clickable { cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.history-row--clickable:hover, .history-row--clickable:focus-visible { background: rgba(232,168,49,.06); border-color: rgba(232,168,49,.35); outline: none; }
+.history-row__chevron { color: var(--ink-faint); font-size: 16px; }
 .history-row__score { font-family: "Teko", sans-serif; font-size: 18px; font-weight: 700; color: var(--gold-2); width: 34px; text-align: center; }
 .history-row__date { color: var(--ink-dim); flex: 1; }
 .history-row__delta { font-size: 11.5px; font-weight: 700; }

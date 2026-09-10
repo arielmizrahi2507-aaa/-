@@ -367,15 +367,18 @@ export function renderProgress(history) {
       hour: "2-digit",
       minute: "2-digit",
     });
-    listEl.appendChild(
-      el(
-        "div",
-        "history-row",
-        `<div class="history-row__score">${h.overallScore ?? "--"}</div>
-         <div class="history-row__date">${date}</div>
-         <div class="history-row__delta ${deltaCls}">${deltaStr}</div>`
-      )
+    const row = el(
+      "div",
+      "history-row history-row--clickable",
+      `<div class="history-row__score">${h.overallScore ?? "--"}</div>
+       <div class="history-row__date">${date}</div>
+       <div class="history-row__delta ${deltaCls}">${deltaStr}</div>
+       <div class="history-row__chevron">›</div>`
     );
+    row.dataset.id = h.id;
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
+    listEl.appendChild(row);
   });
 }
 

@@ -183,10 +183,12 @@ function hideShotExtras() {
   replayStage.innerHTML = "";
 }
 
-function renderShotExtras({ frames, report, entryId, userId }) {
+function renderShotExtras({ frames, report, entryId, userId, initialLocation, initialTakenAt }) {
   shotExtras.classList.add("active");
 
   renderCourtPicker(courtMapStage, {
+    initialLocation,
+    initialTakenAt,
     onSave: async ({ location, takenAt }) => {
       if (!entryId) return;
       const updated = await history.updateLocation(userId, entryId, { location, takenAt });
@@ -202,6 +204,59 @@ function renderShotExtras({ frames, report, entryId, userId }) {
     replayStage.innerHTML = `<div class="replay-error">⚠️ ${msg}</div>`;
   });
 }
+
+// ------------------------------------------------------ open past shot --
+// לוחצים על שורה בהיסטוריה -> נכנסים לזריקה הישנה ורואים שוב הכל: הדוח,
+// המפה, הסרטון המקורי והאנימציה - בדיוק כמו בזמן הניתוח המקורי. פרטים
+// מלאים נשמרים רק ל-15 הזריקות האחרונות (ראו storage.js), אז זריקות ישנות
+// יותר מציגות רק את הציון שכבר קיים ברשימה.
+async function openHistoryEntry(id) {
+  if (busy) return;
+  hideError();
+  const userId = currentUserId();
+  const list = history.getLocal(userId);
+  const idx = list.findIndex((e) => e.id === id);
+  const summary = idx >= 0 ? list[idx] : null;
+
+  const detail = await history.getDetail(id);
+  if (!detail) {
+    showError("הפרטים המלאים של הזריקה הזו כבר לא נשמרים (נשמר רק ל-15 הזריקות האחרונות) - רק הציון שלה נותר בהיסטוריה.");
+    return;
+  }
+
+  if (detail.videoBlob) {
+    stage.classList.add("active");
+    mainVideo.controls = true;
+    mainVideo.src = URL.createObjectURL(detail.videoBlob);
+  } else {
+    stage.classList.remove("active");
+  }
+
+  const previousCategories = idx > 0 ? list[idx - 1].categories : null;
+  renderReport(detail.report, previousCategories);
+  renderBadges(evaluateBadges(detail.report));
+  renderShotExtras({
+    frames: detail.frames || [],
+    report: detail.report,
+    entryId: id,
+    userId,
+    initialLocation: summary?.location || null,
+    initialTakenAt: summary?.takenAt || null,
+  });
+}
+
+$("historyList").addEventListener("click", (e) => {
+  const row = e.target.closest(".history-row--clickable");
+  if (row?.dataset.id) openHistoryEntry(row.dataset.id);
+});
+$("historyList").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest(".history-row--clickable");
+  if (row?.dataset.id) {
+    e.preventDefault();
+    openHistoryEntry(row.dataset.id);
+  }
+});
 
 // -------------------------------------------------------------- demo --
 btnDemo.addEventListener("click", () => {
@@ -264,7 +319,7 @@ async function handleFile(fileOrBlob) {
       const previousCategories = priorList.length ? priorList[priorList.length - 1].categories : null;
       renderReport(report, previousCategories);
       renderBadges(evaluateBadges(report));
-      const { entry, list } = await history.save(userId, report);
+      const { entry, list } = await history.save(userId, report, { frames, videoBlob: fileOrBlob });
       renderProgress(list);
       renderShotExtras({ frames, report, entryId: entry.id, userId });
     }
