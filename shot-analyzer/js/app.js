@@ -14,6 +14,11 @@ import { ShotReplay, ShotReplayError } from "./shotReplay.js";
 
 const $ = (id) => document.getElementById(id);
 
+// גבול עליון סביר לאורך קליפ: הניתוח מניח זריקה בודדת, לא סשן שלם, ונדגם
+// ב-15 פריימים לשנייה (seek אמיתי לכל פריים) - סרטון ארוך מדי גם ייקח המון
+// זמן וגם כנראה יבלבל את זיהוי שלב הטעינה/שחרור (שמניח תנועה אחת רציפה).
+const MAX_CLIP_SECONDS = 12;
+
 const dropzone = $("dropzone");
 const fileInput = $("fileInput");
 const stage = $("stage");
@@ -225,6 +230,13 @@ async function handleFile(fileOrBlob) {
     await waitFor(mainVideo, "loadedmetadata");
     overlayCanvas.width = mainVideo.videoWidth;
     overlayCanvas.height = mainVideo.videoHeight;
+
+    if (mainVideo.duration > MAX_CLIP_SECONDS) {
+      throw new PoseEngineError(
+        `הסרטון ארוך מדי (${Math.round(mainVideo.duration)} שניות). האפליקציה מנתחת זריקה בודדת מקליפ קצר ` +
+          `(מומלץ 2-6 שניות) - חתכו את הסרטון לקטע שמתחיל רגע לפני קבלת/איסוף הכדור ומסתיים כשנייה אחרי השחרור, ונסו שוב.`
+      );
+    }
 
     if (!engine) {
       engine = new PoseEngine();
