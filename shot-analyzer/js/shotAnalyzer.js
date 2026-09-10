@@ -1,9 +1,16 @@
 // ============================================================================
 // shotAnalyzer.js
 // ----------------------------------------------------------------------------
-// מנוע הביומכניקה: לוקח סדרת פריימים עם נקודות ציון של שלד (מ-poseEngine)
-// ומחשב מדדים אמיתיים - זוויות מרפק וברך, יישור, בסיס, קצב, אומדן זווית
-// שחרור וכו' - וממפה אותם לציונים ולטעויות מתוך knowledgeBase.js.
+// מנוע הביומכניקה: לוקח סדרת פריימים עם worldLandmarks (נקודות שלד
+// תלת-ממדיות, ראו poseEngine.js) ומחשב מדדים אמיתיים - זוויות מרפק וברך,
+// יישור, בסיס, קצב, אומדן זווית שחרור וכו' - וממפה אותם לציונים ולטעויות
+// מתוך knowledgeBase.js.
+//
+// חשוב: כל המדידות הגיאומטריות מחושבות בתלת-ממד אמיתי (מטרים, במערכת צירים
+// אנטומית של הגוף - ראו bodyGeometry.js), ולא כהשלכה דו-ממדית על מישור
+// התמונה. לכן הניתוח לא תלוי בזווית שממנה צולם הסרטון (מהצד, מלפנים, וכו') -
+// בשונה מגרסה מוקדמת יותר של הכלי שמדדה זוויות/מרחקים על פיקסלים של התמונה,
+// ולכן דייקה בעיקר בצילום מהצד.
 //
 // חשוב לשקיפות: לא כל היבט של הזריקה ניתן למדידה מהימנה מווידאו של שלד
 // גוף בלבד (בלי מעקב אחרי הכדור עצמו ובלי נקודות ציון של האצבעות). לכן כל
@@ -13,24 +20,7 @@
 // ============================================================================
 
 import { LM } from "./poseEngine.js";
-
-// ---------------------------------------------------------------- geometry --
-const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-
-function angleAt(a, b, c) {
-  // הזווית בנקודה b, בין הקטעים b->a ו-b->c, במעלות
-  const v1 = { x: a.x - b.x, y: a.y - b.y };
-  const v2 = { x: c.x - b.x, y: c.y - b.y };
-  const dot = v1.x * v2.x + v1.y * v2.y;
-  const mag = Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y);
-  if (mag === 0) return null;
-  const cos = Math.max(-1, Math.min(1, dot / mag));
-  return (Math.acos(cos) * 180) / Math.PI;
-}
-
-function toPx(lm, width, height) {
-  return { x: lm.x * width, y: lm.y * height, v: lm.visibility ?? 1 };
-}
+import { computeBodyBasis, buildTransformedFrames, angleAt3D, dist3, mid3 } from "./bodyGeometry.js";
 
 function mean(arr) {
   return arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
@@ -54,27 +44,31 @@ function rangeScore(value, lo, hi, tolerance) {
 }
 
 // ---------------------------------------------------------- frame decoding --
-function decodeFrames(rawFrames, width, height) {
-  return rawFrames.map((f) => {
-    const lm = f.landmarks;
-    const get = (i) => (lm[i] ? toPx(lm[i], width, height) : null);
-    return {
-      t: f.t,
-      nose: get(LM.NOSE),
-      lShoulder: get(LM.LEFT_SHOULDER),
-      rShoulder: get(LM.RIGHT_SHOULDER),
-      lElbow: get(LM.LEFT_ELBOW),
-      rElbow: get(LM.RIGHT_ELBOW),
-      lWrist: get(LM.LEFT_WRIST),
-      rWrist: get(LM.RIGHT_WRIST),
-      lHip: get(LM.LEFT_HIP),
-      rHip: get(LM.RIGHT_HIP),
-      lKnee: get(LM.LEFT_KNEE),
-      rKnee: get(LM.RIGHT_KNEE),
-      lAnkle: get(LM.LEFT_ANKLE),
-      rAnkle: get(LM.RIGHT_ANKLE),
-    };
-  });
+// פורש נקודות ציון תלת-ממדיות בסיסיות (worldLandmarks) לפי מערכת הצירים
+// האנטומית המשותפת (x=ימין הגוף, y=למעלה, z=קדימה, במטרים) - ראו
+// bodyGeometry.js. שים לב: y חיובי = למעלה (בשונה מקואורדינטות פיקסלים
+// שבהן y חיובי = למטה).
+function decode3DFrames(rawFrames) {
+  const basis = computeBodyBasis(rawFrames);
+  if (!basis) return null;
+  const transformed = buildTransformedFrames(rawFrames, basis);
+  const pick = (points, idx) => points[idx] || null;
+  return transformed.map((f) => ({
+    t: f.t,
+    nose: pick(f.points, LM.NOSE),
+    lShoulder: pick(f.points, LM.LEFT_SHOULDER),
+    rShoulder: pick(f.points, LM.RIGHT_SHOULDER),
+    lElbow: pick(f.points, LM.LEFT_ELBOW),
+    rElbow: pick(f.points, LM.RIGHT_ELBOW),
+    lWrist: pick(f.points, LM.LEFT_WRIST),
+    rWrist: pick(f.points, LM.RIGHT_WRIST),
+    lHip: pick(f.points, LM.LEFT_HIP),
+    rHip: pick(f.points, LM.RIGHT_HIP),
+    lKnee: pick(f.points, LM.LEFT_KNEE),
+    rKnee: pick(f.points, LM.RIGHT_KNEE),
+    lAnkle: pick(f.points, LM.LEFT_ANKLE),
+    rAnkle: pick(f.points, LM.RIGHT_ANKLE),
+  }));
 }
 
 function isFrameUsable(fr) {
@@ -109,34 +103,52 @@ function otherSide(fr, s) {
   return side(fr, s === "right" ? "left" : "right");
 }
 
+// -------------------------------------------------------- two-handed check --
+// זריקה/הטלה בשתי ידיים (למשל heave מהחזה) לא תואמת את ההנחה של המנוע
+// (יד זורקת אחת + יד מכוונת אחת): בזריקה רגילה היד המכוונת נשארת קרוב לגוף
+// עם טווח תנועה אנכי קטן בהרבה מיד הזריקה, בעוד שבהטלה דו-ידנית שתי הידיים
+// עולות יחד באותו טווח בערך. זה הסימן העיקרי - המרחק בין הידיים לא נבדק
+// (יכול להיות צר או רחב כאחד בהטלה דו-ידנית, תלוי איך אוחזים בכדור).
+function detectTwoHanded(decoded, phases) {
+  const win = decoded.slice(phases.dipIdx, phases.releaseIdx + 1);
+  if (win.length < 3) return false;
+
+  const lY = win.map((f) => f.lWrist?.y).filter((v) => v != null);
+  const rY = win.map((f) => f.rWrist?.y).filter((v) => v != null);
+  if (lY.length < 3 || rY.length < 3) return false;
+  const lRange = Math.max(...lY) - Math.min(...lY);
+  const rRange = Math.max(...rY) - Math.min(...rY);
+  const rangeRatio = Math.min(lRange, rRange) / (Math.max(lRange, rRange) || 1);
+
+  return rangeRatio > 0.6;
+}
+
 // ----------------------------------------------------------- phase finding --
 // מוצא את פריים ה"טעינה/איסוף" (הנקודה הנמוכה ביותר של שורש כף היד לפני
-// העלייה הסופית) ואת פריים ה"שחרור" (שיא היישור/הגובה לפני הירידה).
+// העלייה הסופית) ואת פריים ה"שחרור" (שיא הגובה לפני הירידה). y חיובי=למעלה.
 function findPhases(frames, shootingSide) {
   const n = frames.length;
   const wristY = frames.map((f) => side(f, shootingSide).wrist?.y ?? null);
 
-  // דילוג על פריימים חסרים בקצוות
   let firstValid = 0;
   while (firstValid < n && wristY[firstValid] == null) firstValid++;
   let lastValid = n - 1;
   while (lastValid >= 0 && wristY[lastValid] == null) lastValid--;
   if (firstValid >= lastValid) return null;
 
-  // פריים ה"שחרור" המועמד: הגובה המרבי (y מינימלי) של שורש כף היד בכל הקליפ
+  // פריים ה"שחרור" המועמד: הגובה המרבי (y מקסימלי) של שורש כף היד בכל הקליפ
   let releaseIdx = firstValid;
   for (let i = firstValid; i <= lastValid; i++) {
-    if (wristY[i] != null && wristY[i] < wristY[releaseIdx]) releaseIdx = i;
+    if (wristY[i] != null && wristY[i] > wristY[releaseIdx]) releaseIdx = i;
   }
 
-  // פריים ה"טעינה" (dip): נקודת ה-y המקסימלי (הכי נמוך) של שורש כף היד,
+  // פריים ה"טעינה" (dip): נקודת ה-y המינימלי (הכי נמוך) של שורש כף היד,
   // שמופיעה *לפני* פריים השחרור
   let dipIdx = firstValid;
   for (let i = firstValid; i <= releaseIdx; i++) {
-    if (wristY[i] != null && wristY[i] > wristY[dipIdx]) dipIdx = i;
+    if (wristY[i] != null && wristY[i] < wristY[dipIdx]) dipIdx = i;
   }
 
-  // אם הטעינה והשחרור זהים (קליפ שמתחיל כבר בעלייה) - קח את תחילת הקליפ כטעינה
   if (dipIdx === releaseIdx) dipIdx = firstValid;
 
   return {
@@ -148,15 +160,17 @@ function findPhases(frames, shootingSide) {
 }
 
 // -------------------------------------------------------------- main entry --
-export function analyzeShot(rawFrames, { width, height }) {
-  const decoded = decodeFrames(rawFrames, width, height).filter(isFrameUsable);
+export function analyzeShot(rawFrames) {
+  const basisUsable = rawFrames.filter((f) => f.worldLandmarks);
+  const decodedAll = basisUsable.length ? decode3DFrames(basisUsable) : null;
+  const decoded = (decodedAll || []).filter(isFrameUsable);
 
-  if (decoded.length < 8) {
+  if (!decodedAll || decoded.length < 8) {
     return {
       confidence: "low",
       confidenceNote:
-        "זוהו מעט מדי פריימים עם שלד גוף ברור. ודאו שהשחקן נראה בבירור " +
-        "(גוף מלא, תאורה טובה) ונסו שוב עם סרטון יציב יותר, רצוי מהצד.",
+        "זוהו מעט מדי פריימים עם שלד גוף תלת-ממדי ברור. ודאו שהשחקן נראה בבירור " +
+        "(גוף מלא, תאורה טובה) ונסו שוב עם סרטון יציב יותר.",
       overallScore: null,
       categories: {},
       topFlaws: [],
@@ -185,14 +199,16 @@ export function analyzeShot(rawFrames, { width, height }) {
   const setup = decoded[phases.setupIdx];
   const dip = decoded[phases.dipIdx];
   const release = decoded[phases.releaseIdx];
-  // יחידת נרמול לגודל הגוף בפיקסלים. רוחב כתפיים בלבד אינו אמין מספיק כי
-  // בצילום מהצד (הזווית המומלצת) הוא עלול להצטמצם כמעט לאפס - לכן נעזרים
-  // גם באורך הגו (כתף-ירך) כגיבוי, שנשאר יציב יחסית גם בזווית צד.
-  const shoulderWidthSetup = dist(setup.lShoulder, setup.rShoulder);
-  const shoulderMidSetup = { x: (setup.lShoulder.x + setup.rShoulder.x) / 2, y: (setup.lShoulder.y + setup.rShoulder.y) / 2 };
-  const hipMidSetup = { x: (setup.lHip.x + setup.rHip.x) / 2, y: (setup.lHip.y + setup.rHip.y) / 2 };
-  const torsoLenSetup = dist(shoulderMidSetup, hipMidSetup);
-  const scale = Math.max(shoulderWidthSetup, torsoLenSetup * 0.55, height * 0.05);
+
+  // יחידת נרמול לגודל הגוף, במטרים: רוחב כתפיים או אורך גו (הגבוה מביניהם),
+  // עם רצפה קבועה כדי להימנע מרגישות קיצונית אם מדד אחד יוצא כמעט אפס.
+  const shoulderWidthSetup = dist3(setup.lShoulder, setup.rShoulder);
+  const shoulderMidSetup = mid3(setup.lShoulder, setup.rShoulder);
+  const hipMidSetup = mid3(setup.lHip, setup.rHip);
+  const torsoLenSetup = dist3(shoulderMidSetup, hipMidSetup);
+  const scale = Math.max(shoulderWidthSetup, torsoLenSetup * 0.55, 0.25);
+
+  const twoHanded = detectTwoHanded(decoded, phases);
 
   const categories = {};
   const allFlaws = [];
@@ -207,34 +223,30 @@ export function analyzeShot(rawFrames, { width, height }) {
 
   // ------------------------------------------------------------ BALANCE --
   {
-    const baseWidth = dist(setup.lAnkle || setup.lHip, setup.rAnkle || setup.rHip);
-    const baseRatio = baseWidth / scale; // ~1.0 = בערך רוחב כתפיים
+    const baseWidth = dist3(setup.lAnkle || setup.lHip, setup.rAnkle || setup.rHip);
+    const baseRatio = baseWidth / scale;
     const baseScore = rangeScore(baseRatio, 0.85, 1.45, 0.6);
 
-    const kneeAngles = [dip.lKnee && dip.lHip && dip.lAnkle ? angleAt(dip.lHip, dip.lKnee, dip.lAnkle) : null,
-      dip.rKnee && dip.rHip && dip.rAnkle ? angleAt(dip.rHip, dip.rKnee, dip.rAnkle) : null]
-      .filter((v) => v != null);
+    const kneeAngles = [
+      dip.lKnee && dip.lHip && dip.lAnkle ? angleAt3D(dip.lHip, dip.lKnee, dip.lAnkle) : null,
+      dip.rKnee && dip.rHip && dip.rAnkle ? angleAt3D(dip.rHip, dip.rKnee, dip.rAnkle) : null,
+    ].filter((v) => v != null);
     const kneeAngle = kneeAngles.length ? mean(kneeAngles) : null;
     const kneeScore = rangeScore(kneeAngle, 100, 155, 35);
 
-    const hipCenterSetup = { x: (setup.lHip.x + setup.rHip.x) / 2, y: (setup.lHip.y + setup.rHip.y) / 2 };
-    const shoulderCenterRelease = {
-      x: (release.lShoulder.x + release.rShoulder.x) / 2,
-      y: (release.lShoulder.y + release.rShoulder.y) / 2,
-    };
-    const hipCenterRelease = { x: (release.lHip.x + release.rHip.x) / 2, y: (release.lHip.y + release.rHip.y) / 2 };
-    const torsoLeanPx = shoulderCenterRelease.x - hipCenterRelease.x;
-    const torsoLeanRatio = Math.abs(torsoLeanPx) / scale;
+    const shoulderMidRelease = mid3(release.lShoulder, release.rShoulder);
+    const hipMidRelease = mid3(release.lHip, release.rHip);
+    // נטייה אופקית אמיתית (לכל כיוון - קדימה/אחורה/צד) של פלג הגוף העליון,
+    // ולא רק לאורך ציר אחד של התמונה כמו בגרסה דו-ממדית.
+    const torsoLeanDist = Math.hypot(shoulderMidRelease.x - hipMidRelease.x, shoulderMidRelease.z - hipMidRelease.z);
+    const torsoLeanRatio = torsoLeanDist / scale;
     const leanScore = rangeScore(torsoLeanRatio, 0, 0.22, 0.55);
 
-    const ankleCenterSetup = {
-      x: ((setup.lAnkle || setup.lHip).x + (setup.rAnkle || setup.rHip).x) / 2,
-    };
+    const ankleCenterSetup = mid3(setup.lAnkle || setup.lHip, setup.rAnkle || setup.rHip);
     const endFr = decoded[Math.min(phases.releaseIdx + 3, decoded.length - 1)];
-    const ankleCenterEnd = {
-      x: ((endFr.lAnkle || endFr.lHip).x + (endFr.rAnkle || endFr.rHip).x) / 2,
-    };
-    const driftRatio = Math.abs(ankleCenterEnd.x - ankleCenterSetup.x) / scale;
+    const ankleCenterEnd = mid3(endFr.lAnkle || endFr.lHip, endFr.rAnkle || endFr.rHip);
+    const driftDist = Math.hypot(ankleCenterEnd.x - ankleCenterSetup.x, ankleCenterEnd.z - ankleCenterSetup.z);
+    const driftRatio = driftDist / scale;
     const driftScore = rangeScore(driftRatio, 0, 0.35, 0.7);
 
     const metrics = [
@@ -271,25 +283,28 @@ export function analyzeShot(rawFrames, { width, height }) {
   // ---------------------------------------------------------- ALIGNMENT --
   {
     const s = side(dip, shootingSide);
-    const elbowOffset = s.elbow && s.wrist ? Math.abs(s.elbow.x - s.wrist.x) : null;
-    const upperArmLen = s.shoulder && s.elbow ? dist(s.shoulder, s.elbow) : scale * 0.5;
+    const upperArmLen = s.shoulder && s.elbow ? dist3(s.shoulder, s.elbow) : scale * 0.5;
+    // "יישור" נבדק במישור האופקי (ימין-שמאל + קדימה-אחורה) ביחס לקו האנכי -
+    // כלומר האם המרפק ממש מתחת לשורש כף היד/לכתף, מכל זווית שהיא.
+    const elbowOffset = s.elbow && s.wrist ? Math.hypot(s.elbow.x - s.wrist.x, s.elbow.z - s.wrist.z) : null;
     const elbowStackRatio = elbowOffset != null ? elbowOffset / (upperArmLen || 1) : null;
     const stackScore = rangeScore(elbowStackRatio, 0, 0.35, 0.7);
 
-    const elbowFromShoulder = s.elbow && s.shoulder ? Math.abs(s.elbow.x - s.shoulder.x) : null;
+    const elbowFromShoulder = s.elbow && s.shoulder ? Math.hypot(s.elbow.x - s.shoulder.x, s.elbow.z - s.shoulder.z) : null;
     const flareRatio = elbowFromShoulder != null ? elbowFromShoulder / (upperArmLen || 1) : null;
     const flareScore = rangeScore(flareRatio, 0, 0.5, 0.8);
 
-    // יציבות קו הכתפיים לאורך הפאזה (פרוקסי בלבד - לא "ריבוע מול הסל" אמיתי)
+    // יציבות קו הכתפיים (סיבוב סביב הציר האנכי) לאורך הפאזה - האם השחקן
+    // נשאר "מרובע" מול המטרה, נמדד במישור האופקי האמיתי (לא בהשלכת תמונה).
     const windowFrames = decoded.slice(phases.dipIdx, phases.releaseIdx + 1);
     const shoulderAngles = windowFrames
-      .map((f) => (f.lShoulder && f.rShoulder ? Math.atan2(f.rShoulder.y - f.lShoulder.y, f.rShoulder.x - f.lShoulder.x) * (180 / Math.PI) : null))
+      .map((f) => (f.lShoulder && f.rShoulder ? Math.atan2(f.rShoulder.z - f.lShoulder.z, f.rShoulder.x - f.lShoulder.x) * (180 / Math.PI) : null))
       .filter((v) => v != null);
     const shoulderStability = shoulderAngles.length > 1 ? stdev(shoulderAngles) : 0;
     const stabilityScore = rangeScore(shoulderStability, 0, 6, 10);
 
     const metrics = [
-      { label: "יישור מרפק-שורש כף יד (אנכי)", value: elbowStackRatio, unit: "יחס", score: stackScore },
+      { label: "יישור מרפק-שורש כף יד", value: elbowStackRatio, unit: "יחס", score: stackScore },
       { label: "פתיחת מרפק מהכתף (Flare)", value: flareRatio, unit: "יחס", score: flareScore },
       { label: "יציבות קו כתפיים לאורך התנועה", value: shoulderStability, unit: "° סטיית תקן", score: stabilityScore },
     ];
@@ -316,18 +331,17 @@ export function analyzeShot(rawFrames, { width, height }) {
   let hitchInfo = null;
   {
     const s = side(dip, shootingSide);
-    const pocketRel = s.wrist && s.hip && s.shoulder ? (s.hip.y - s.wrist.y) / (s.hip.y - s.shoulder.y || 1) : null;
-    // 0 = בגובה המותן, 1 = בגובה הכתף. שלילי = מתחת למותן, מעל 1 = מעל הכתף
+    // 0 = בגובה המותן, 1 = בגובה הכתף (y חיובי = למעלה)
+    const pocketRel = s.wrist && s.hip && s.shoulder ? (s.wrist.y - s.hip.y) / (s.shoulder.y - s.hip.y || 1) : null;
     const pocketScore = rangeScore(pocketRel, 0.15, 1.05, 0.6);
 
-    // חישוב מהירות אנכית של שורש כף היד בין הטעינה לשחרור לזיהוי "היצ'"
     const win = decoded.slice(phases.dipIdx, phases.releaseIdx + 1);
     const vy = [];
     for (let i = 1; i < win.length; i++) {
       const wA = side(win[i - 1], shootingSide).wrist;
       const wB = side(win[i], shootingSide).wrist;
       const dt = (win[i].t - win[i - 1].t) / 1000 || 1 / 30;
-      if (wA && wB) vy.push((wA.y - wB.y) / dt); // חיובי = עולה
+      if (wA && wB) vy.push((wB.y - wA.y) / dt); // חיובי = עולה
     }
     let plateauFrames = 0;
     let maxPlateau = 0;
@@ -369,15 +383,14 @@ export function analyzeShot(rawFrames, { width, height }) {
   // ----------------------------------------------------- RELEASE/FOLLOW-THRU --
   {
     const sRelease = side(release, shootingSide);
-    const elbowExt = sRelease.shoulder && sRelease.elbow && sRelease.wrist ? angleAt(sRelease.shoulder, sRelease.elbow, sRelease.wrist) : null;
+    const elbowExt = sRelease.shoulder && sRelease.elbow && sRelease.wrist ? angleAt3D(sRelease.shoulder, sRelease.elbow, sRelease.wrist) : null;
     const extScore = rangeScore(elbowExt, 155, 180, 30);
 
-    // ליווי: לכמה זמן אחרי השחרור המרפק נשאר מיושר ושורש כף היד נשאר גבוה
     let holdMs = 0;
     for (let i = phases.releaseIdx; i < decoded.length - 1; i++) {
       const fr = decoded[i];
       const sFr = side(fr, shootingSide);
-      const ang = sFr.shoulder && sFr.elbow && sFr.wrist ? angleAt(sFr.shoulder, sFr.elbow, sFr.wrist) : null;
+      const ang = sFr.shoulder && sFr.elbow && sFr.wrist ? angleAt3D(sFr.shoulder, sFr.elbow, sFr.wrist) : null;
       if (ang != null && ang > 140) {
         holdMs = fr.t - release.t;
       } else {
@@ -424,13 +437,15 @@ export function analyzeShot(rawFrames, { width, height }) {
     const wB = side(before, shootingSide).wrist;
     const wR = side(release, shootingSide).wrist;
     let launchAngle = null;
-    if (wB && wR && (release.t - before.t) > 0) {
-      const dx = Math.abs(wR.x - wB.x);
-      const dyUp = wB.y - wR.y; // חיובי אם שורש כף היד עלה
-      launchAngle = (Math.atan2(Math.max(dyUp, 0.001), Math.max(dx, 0.001)) * 180) / Math.PI;
+    if (wB && wR && release.t - before.t > 0) {
+      // כיוון השחרור האמיתי במרחב (למעלה מול קדימה), ולא רק תזוזה על ציר
+      // אחד של התמונה - עובד מכל זווית צילום.
+      const dUp = wR.y - wB.y;
+      const dForward = Math.abs(wR.z - wB.z);
+      launchAngle = (Math.atan2(Math.max(dUp, 0.001), Math.max(dForward, 0.001)) * 180) / Math.PI;
     }
     const arcScore = rangeScore(launchAngle, 40, 58, 20);
-    const metrics = [{ label: "אומדן זווית שחרור (מבוסס מסלול שורש כף היד)", value: launchAngle, unit: "°", score: arcScore }];
+    const metrics = [{ label: "אומדן זווית שחרור (מבוסס מסלול שורש כף היד, תלת-ממדי)", value: launchAngle, unit: "°", score: arcScore }];
     const score = arcScore != null ? Math.round(arcScore) : null;
     categories.arc = { score, confidence: "estimated", metrics, flaws: [] };
 
@@ -452,14 +467,14 @@ export function analyzeShot(rawFrames, { width, height }) {
   {
     const sGuide = otherSide(dip, shootingSide);
     const sShoot = side(dip, shootingSide);
-    const handsDistDip = sGuide.wrist && sShoot.wrist ? dist(sGuide.wrist, sShoot.wrist) / scale : null;
+    const handsDistDip = sGuide.wrist && sShoot.wrist ? dist3(sGuide.wrist, sShoot.wrist) / scale : null;
     const proximityScore = rangeScore(handsDistDip, 0.1, 0.55, 0.6);
 
     const guideAtRelease = otherSide(release, shootingSide).wrist;
     const guideAtDip = sGuide.wrist;
     let detachRatio = null;
     if (guideAtRelease && guideAtDip) {
-      detachRatio = dist(guideAtRelease, guideAtDip) / scale;
+      detachRatio = dist3(guideAtRelease, guideAtDip) / scale;
     }
 
     const metrics = [
@@ -481,9 +496,12 @@ export function analyzeShot(rawFrames, { width, height }) {
   // -------------------------------------------------------------------- HEAD --
   {
     const win = decoded.slice(phases.dipIdx, Math.min(phases.releaseIdx + 3, decoded.length - 1));
-    const noseX = win.map((f) => f.nose?.x).filter((v) => v != null);
-    const noseY = win.map((f) => f.nose?.y).filter((v) => v != null);
-    const headStability = noseX.length > 1 ? (stdev(noseX) + stdev(noseY)) / 2 / scale : null;
+    const noses = win.map((f) => f.nose).filter((v) => v != null);
+    let headStability = null;
+    if (noses.length > 1) {
+      const noseMean = { x: mean(noses.map((p) => p.x)), y: mean(noses.map((p) => p.y)), z: mean(noses.map((p) => p.z)) };
+      headStability = mean(noses.map((p) => dist3(p, noseMean))) / scale;
+    }
     const headScore = rangeScore(headStability, 0, 0.05, 0.12);
     const metrics = [{ label: "יציבות ראש לאורך התנועה", value: headStability, unit: "יחס", score: headScore }];
     const score = headScore != null ? Math.round(headScore) : null;
@@ -522,10 +540,14 @@ export function analyzeShot(rawFrames, { width, height }) {
     confidence,
     confidenceNote:
       confidence !== "high"
-        ? "חלק מהפריימים בסרטון לא אפשרו זיהוי שלד ברור (תאורה/זווית צילום/חלק מהגוף מחוץ לפריים). התוצאות עדיין " +
-          "רלוונטיות, אך מומלץ לצלם שוב מהצד, עם כל הגוף בפריים, לתוצאה מדויקת יותר."
+        ? "חלק מהפריימים בסרטון לא אפשרו זיהוי שלד ברור (תאורה/חסימה/חלק מהגוף מחוץ לפריים). התוצאות עדיין " +
+          "רלוונטיות, אך מומלץ לצלם שוב עם כל הגוף בפריים, לתוצאה מדויקת יותר."
         : null,
     shootingSide,
+    twoHanded,
+    twoHandedWarning: twoHanded
+      ? "⚠️ נראה שזו זריקה/הטלה בשתי ידיים - המנוע בנוי לנתח זריקת יד אחת עם יד מכוונת (guide hand), ולכן התוצאות עשויות שלא לשקף נכון את התנועה הזו."
+      : null,
     overallScore,
     categories,
     phases: { setupT: setup.t, dipT: dip.t, releaseT: release.t },
