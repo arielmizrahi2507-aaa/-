@@ -9,6 +9,8 @@ import { DEMO_REPORT } from "./demoData.js";
 import { Auth } from "./auth.js";
 import { ShotHistory } from "./storage.js";
 import { evaluateBadges } from "./badges.js";
+import { renderCourtPicker } from "./courtMap.js";
+import { ShotReplay, ShotReplayError } from "./shotReplay.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -35,6 +37,10 @@ let camStream = null;
 let recorder = null;
 let recordedChunks = [];
 let busy = false;
+let currentReplay = null;
+const shotExtras = $("shotExtras");
+const courtMapStage = $("courtMapStage");
+const replayStage = $("replayStage");
 
 const auth = new Auth();
 const history = new ShotHistory();
@@ -163,10 +169,40 @@ btnCamStop.addEventListener("click", () => {
   recorder?.stop();
 });
 
+// ----------------------------------------------------- location + replay --
+function hideShotExtras() {
+  currentReplay?.destroy();
+  currentReplay = null;
+  shotExtras.classList.remove("active");
+  courtMapStage.innerHTML = "";
+  replayStage.innerHTML = "";
+}
+
+function renderShotExtras({ frames, report, entryId, userId }) {
+  shotExtras.classList.add("active");
+
+  renderCourtPicker(courtMapStage, {
+    onSave: async ({ location, takenAt }) => {
+      if (!entryId) return;
+      const updated = await history.updateLocation(userId, entryId, { location, takenAt });
+      if (updated) renderProgress(history.getLocal(userId));
+    },
+  });
+
+  currentReplay?.destroy();
+  currentReplay = new ShotReplay(replayStage);
+  currentReplay.mount(frames, { shootingSide: report.shootingSide, phases: report.phases }).catch((err) => {
+    console.error(err);
+    const msg = err instanceof ShotReplayError ? err.message : "לא הצלחנו לבנות אנימציית תלת-ממד לקליפ הזה.";
+    replayStage.innerHTML = `<div class="replay-error">⚠️ ${msg}</div>`;
+  });
+}
+
 // -------------------------------------------------------------- demo --
 btnDemo.addEventListener("click", () => {
   hideError();
   stage.classList.remove("active");
+  hideShotExtras();
   renderReport(DEMO_REPORT);
   renderBadges(evaluateBadges(DEMO_REPORT));
 });
@@ -209,14 +245,16 @@ async function handleFile(fileOrBlob) {
 
     if (report.confidence === "low" || report.overallScore == null) {
       showLowConfidence(report);
+      hideShotExtras();
     } else {
       const userId = currentUserId();
       const priorList = history.getLocal(userId);
       const previousCategories = priorList.length ? priorList[priorList.length - 1].categories : null;
       renderReport(report, previousCategories);
       renderBadges(evaluateBadges(report));
-      const { list } = await history.save(userId, report);
+      const { entry, list } = await history.save(userId, report);
       renderProgress(list);
+      renderShotExtras({ frames, report, entryId: entry.id, userId });
     }
   } catch (err) {
     console.error(err);

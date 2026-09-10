@@ -29,6 +29,8 @@ function summarize(report) {
     shootingSide: report.shootingSide,
     categories,
     topFlawIds: (report.topFlaws || []).map((f) => f.id),
+    location: null, // { xPct, yPct, distanceM, zone } - נקבע אחר כך ע"י courtMap.js
+    takenAt: null, // מתי הזריקה בפועל בוצעה (ms) - נפרד מ-ts שהוא זמן השמירה
   };
 }
 
@@ -82,6 +84,29 @@ export class ShotHistory {
       }
     }
     return { entry, list };
+  }
+
+  async updateLocation(userId, entryId, { location, takenAt }) {
+    const list = this.getLocal(userId);
+    const entry = list.find((e) => e.id === entryId);
+    if (!entry) return null;
+    entry.location = location;
+    entry.takenAt = takenAt;
+    try {
+      localStorage.setItem(keyFor(userId), JSON.stringify(list));
+    } catch (e) {
+      /* localStorage מלא/חסום - העדכון עדיין ישמש בסשן הנוכחי */
+    }
+    await this.cloudReady;
+    if (this.cloud && userId) {
+      try {
+        const ref = this.cloud.doc(this.cloud.db, "users", userId, "shots", entryId);
+        await this.cloud.setDoc(ref, entry);
+      } catch (e) {
+        // כשל בסנכרון ענן לא אמור לשבור את העדכון המקומי שכבר הצליח
+      }
+    }
+    return entry;
   }
 
   async pullCloud(userId) {
