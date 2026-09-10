@@ -85,6 +85,18 @@
     <div class="error-box" id="errorBox"></div>
   </section>
 
+  <section id="historySection">
+    <div class="section-title">📈 ההתקדמות שלי</div>
+    <div class="progress-card" id="progressCard">
+      <div class="progress-card__top">
+        <div class="progress-card__title">מגמת Shot IQ</div>
+        <div class="progress-card__count" id="progressCount"></div>
+      </div>
+      <div class="sparkline-wrap" id="sparklineWrap"></div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </section>
+
   <div class="stage" id="stage">
     <video id="mainVideo" playsinline></video>
     <canvas class="overlay" id="overlayCanvas"></canvas>
@@ -127,16 +139,6 @@
 
     <div class="section-title">🏅 תגים</div>
     <div class="badge-grid" id="badgeGrid"></div>
-
-    <div class="section-title">📈 ההתקדמות שלי</div>
-    <div class="progress-card" id="progressCard">
-      <div class="progress-card__top">
-        <div class="progress-card__title">מגמת Shot IQ</div>
-        <div class="progress-card__count" id="progressCount"></div>
-      </div>
-      <div class="sparkline-wrap" id="sparklineWrap"></div>
-      <div class="history-list" id="historyList"></div>
-    </div>
 
     <div class="section-title">📊 דירוג לפי קטגוריה</div>
     <div class="attrs" id="attrsGrid"></div>
