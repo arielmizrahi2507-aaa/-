@@ -165,7 +165,9 @@ export class ShotHistory {
       }
     }
     if (extra && (extra.frames || extra.videoBlob)) {
-      saveDetailRecord({ id: entry.id, ts: entry.ts, report, frames: extra.frames || null, videoBlob: extra.videoBlob || null });
+      // ממתינים לכתיבה כדי שברגע ש-save() מסתיים, "להיכנס" לזריקה הזו מיד
+      // (מה-UI) כבר ימצא את הפרטים המלאים ב-IndexedDB, לא ייתקל במרוץ.
+      await saveDetailRecord({ id: entry.id, ts: entry.ts, report, frames: extra.frames || null, videoBlob: extra.videoBlob || null });
     }
     return { entry, list };
   }
