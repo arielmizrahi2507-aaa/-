@@ -8,8 +8,15 @@
 const CDN_VERSION = "1.0.1";
 const VISION_MODULE_URL = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${CDN_VERSION}`;
 const WASM_BASE = `${VISION_MODULE_URL}/wasm`;
+// "lite" (במקום "full") - הרבה יותר מהיר להרצה, ובשילוב עם דגימת הפריים
+// בגודל מוקטן (ראו DETECT_MAX_DIM למטה) ההבדל בדיוק זניח לצורך המדדים כאן.
 const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task";
+  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+// גודל מקסימלי (בפיקסלים, לצלע הארוכה) שאליו מקטינים כל פריים לפני זיהוי.
+// סרטוני טלפון מצולמים לרוב ב-4K (למשל 2160×3840) - הרצת המודל על כל פיקסל
+// שם מיותרת לגמרי (הנקודות שהמודל מחזיר מנורמלות ל-0-1 בכל מקרה) ומאיטה
+// כל פריים משמעותית, במיוחד יחד עם ה-seek שכבר יקר בפני עצמו בוידאו גדול.
+const DETECT_MAX_DIM = 640;
 
 // אינדקסים של נקודות הציון במודל ה-Pose של MediaPipe (33 נקודות)
 export const LM = {
@@ -166,6 +173,17 @@ export class PoseEngine {
     videoEl.muted = true;
     videoEl.playsInline = true;
 
+    // מקטינים כל פריים לפני הזיהוי (ראו DETECT_MAX_DIM) - קריטי בעיקר
+    // לסרטוני טלפון שמצולמים ב-4K, שם הרצת המודל (ואפילו רק ציור הפריים)
+    // בגודל המקורי איטית משמעותית בלי שום תועלת בדיוק.
+    const vw = videoEl.videoWidth || 1;
+    const vh = videoEl.videoHeight || 1;
+    const downscale = Math.min(1, DETECT_MAX_DIM / Math.max(vw, vh));
+    const detectCanvas = document.createElement("canvas");
+    detectCanvas.width = Math.max(1, Math.round(vw * downscale));
+    detectCanvas.height = Math.max(1, Math.round(vh * downscale));
+    const detectCtx = detectCanvas.getContext("2d", { willReadFrequently: true });
+
     // 15 פריימים לשנייה מספיק ליישוב שלבי הזריקה (טעינה/שחרור) בבירור,
     // ומכפיל בערך פי 2 את מהירות הניתוח לעומת 30 - כל פריים דורש seek
     // אמיתי (המתנה לפענוח הווידאו), לא רק דגימת מסגרת שכבר מוצגת.
@@ -183,7 +201,8 @@ export class PoseEngine {
       lastTs = tMs;
 
       try {
-        const result = this.landmarker.detectForVideo(videoEl, tMs);
+        detectCtx.drawImage(videoEl, 0, 0, detectCanvas.width, detectCanvas.height);
+        const result = this.landmarker.detectForVideo(detectCanvas, tMs);
         if (result?.landmarks?.length) {
           const worldLandmarks = result.worldLandmarks?.[0] || null;
           frames.push({ t: tMs, landmarks: result.landmarks[0], worldLandmarks });
