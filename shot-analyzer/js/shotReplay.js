@@ -16,15 +16,16 @@ import { sub3, mid3, len3, meanVec3, computeBodyBasis, buildTransformedFrames } 
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
-// "forward" הוא הכיוון שאליו פונה החזה/הפנים (מתוקן לפי כיוון האף, ראו
-// computeBodyBasis). מצלמה שממוקמת *בכיוון* forward מהגוף ומביטה חזרה
-// לאחור, "רואה" את פני הזורק (כאילו עומדים מולו) - זה "מלפנים". מצלמה
-// בכיוון ההפוך (מאחורי הגב) רואה את הגב - זה "מאחור".
+// "forward" אמור להיות הכיוון שאליו פונה החזה/הפנים (מתוקן לפי כיוון האף,
+// ראו computeBodyBasis) - אבל בבדיקה עם וידאו אמיתי (לא רק נתוני סינתטיים
+// עצמאיים) התברר שהתיקון לפי האף יוצא הפוך בפועל (ה"אף" לא אמין מספיק
+// כאיתות עומק ב-worldLandmarks אמיתיים). ולכן, במקום לנחש שוב, המיפוי כאן
+// הפוך במכוון מהכיוון ה"תיאורטי" - מלפנים=+forward, מאחור=-forward.
 const ANGLES = {
-  front: { label: "מלפנים", dir: [0, 0, -1] },
+  front: { label: "מלפנים", dir: [0, 0, 1] },
   right: { label: "מצד ימין", dir: [1, 0, 0] },
   left: { label: "מצד שמאל", dir: [-1, 0, 0] },
-  back: { label: "מאחור", dir: [0, 0, 1] },
+  back: { label: "מאחור", dir: [0, 0, -1] },
 };
 
 const BONE_RADIUS = {
