@@ -38,16 +38,17 @@
   <section class="hero">
     <h1>תן <span class="accent">לזריקה שלך</span> ציון, כמו בקלפי שחקן</h1>
     <p>
-      העלו סרטון קצר של זריקה (רצוי מהצד, גוף מלא בפריים), וקבלו ניתוח ביומכני מפורט:
+      העלו סרטון קצר של זריקת יד אחת (מכל זווית - גוף מלא בפריים), וקבלו ניתוח ביומכני מפורט:
       בסיס ויציבה, יישור מרפק, נקודת איסוף, שחרור וליווי, קשת מעוף, יד מכוונת, קצב וטיימינג -
       עם ציון לכל קטגוריה, הסבר מה טוב ומה לא, ותוכנית תרגילים מותאמת אישית לתיקון.
     </p>
 
     <div class="tips">
-      <div class="tip"><b>📐 זווית צילום</b>הצילום הכי מדויק הוא מהצד (90°) לגובה המותניים בערך.</div>
+      <div class="tip"><b>📐 זווית צילום</b>הניתוח תלת-ממדי ועובד מכל זווית (מהצד, מלפנים, מהאלכסון) - לא חייבים דווקא מהצד.</div>
       <div class="tip"><b>🧍 גוף מלא בפריים</b>ודאו שכל הגוף נראה מהרגליים ועד למעלה, לאורך כל הזריקה.</div>
       <div class="tip"><b>⏱️ אורך הקליפ</b>התחילו את הצילום רגע לפני קבלת/איסוף הכדור וסיימו כשנייה אחרי השחרור.</div>
       <div class="tip"><b>💡 תאורה</b>תאורה טובה ואחידה משפרת משמעותית את דיוק זיהוי השלד.</div>
+      <div class="tip"><b>🤾 זריקת יד אחת</b>הניתוח מניח זריקה ביד אחת עם יד מכוונת. זריקה/הטלה בשתי ידיים תזוהה ותסומן באזהרה.</div>
     </div>
 
     <div class="tabs" role="tablist">
@@ -84,6 +85,18 @@
     <div class="error-box" id="errorBox"></div>
   </section>
 
+  <section id="historySection">
+    <div class="section-title">📈 ההתקדמות שלי</div>
+    <div class="progress-card" id="progressCard">
+      <div class="progress-card__top">
+        <div class="progress-card__title">מגמת Shot IQ</div>
+        <div class="progress-card__count" id="progressCount"></div>
+      </div>
+      <div class="sparkline-wrap" id="sparklineWrap"></div>
+      <div class="history-list" id="historyList"></div>
+    </div>
+  </section>
+
   <div class="stage" id="stage">
     <video id="mainVideo" playsinline></video>
     <canvas class="overlay" id="overlayCanvas"></canvas>
@@ -96,6 +109,7 @@
 
   <section id="results">
     <div class="confidence-note" id="confidenceNote" style="display:none;"></div>
+    <div class="confidence-note two-handed-note" id="twoHandedNote" style="display:none;"></div>
 
     <div class="player-card">
       <div class="gauge" id="gauge" style="--pct:0;">
@@ -111,18 +125,20 @@
       </div>
     </div>
 
+    <div id="shotExtras">
+      <div class="section-title">📍 איפה ומתי זרקת</div>
+      <div class="court-picker-card">
+        <div id="courtMapStage"></div>
+      </div>
+
+      <div class="section-title">🎬 צפו בזריקה שלכם - מכל זווית</div>
+      <div class="replay-card">
+        <div id="replayStage"></div>
+      </div>
+    </div>
+
     <div class="section-title">🏅 תגים</div>
     <div class="badge-grid" id="badgeGrid"></div>
-
-    <div class="section-title">📈 ההתקדמות שלי</div>
-    <div class="progress-card" id="progressCard">
-      <div class="progress-card__top">
-        <div class="progress-card__title">מגמת Shot IQ</div>
-        <div class="progress-card__count" id="progressCount"></div>
-      </div>
-      <div class="sparkline-wrap" id="sparklineWrap"></div>
-      <div class="history-list" id="historyList"></div>
-    </div>
 
     <div class="section-title">📊 דירוג לפי קטגוריה</div>
     <div class="attrs" id="attrsGrid"></div>

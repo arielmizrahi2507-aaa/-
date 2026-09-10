@@ -101,6 +101,14 @@ function renderPlayerCard(report) {
   } else {
     note.style.display = "none";
   }
+
+  const twoHandedNote = document.getElementById("twoHandedNote");
+  if (report.twoHandedWarning) {
+    twoHandedNote.style.display = "block";
+    twoHandedNote.textContent = report.twoHandedWarning;
+  } else {
+    twoHandedNote.style.display = "none";
+  }
 }
 
 function confidenceLabel(c) {
@@ -359,27 +367,39 @@ export function renderProgress(history) {
       hour: "2-digit",
       minute: "2-digit",
     });
-    listEl.appendChild(
-      el(
-        "div",
-        "history-row",
-        `<div class="history-row__score">${h.overallScore ?? "--"}</div>
-         <div class="history-row__date">${date}</div>
-         <div class="history-row__delta ${deltaCls}">${deltaStr}</div>`
-      )
+    const row = el(
+      "div",
+      "history-row history-row--clickable",
+      `<div class="history-row__score">${h.overallScore ?? "--"}</div>
+       <div class="history-row__date">${date}</div>
+       <div class="history-row__delta ${deltaCls}">${deltaStr}</div>
+       <div class="history-row__chevron">›</div>`
     );
+    row.dataset.id = h.id;
+    row.setAttribute("role", "button");
+    row.tabIndex = 0;
+    listEl.appendChild(row);
   });
 }
 
 // -------------------------------------------------------------- entry --
+// report עשוי להגיע ממקורות שונים (ניתוח חי, IndexedDB לזריקה ישנה) - נורמליזציה
+// הגנתית כאן כדי שדוח חסר-שדה יתדרדר בעדינות (מציג "כלום לא נמצא") במקום
+// לזרוק שגיאה שעוצרת את שאר הרינדור באמצע (ואז נראה כאילו "רק הציון" מוצג).
 export function renderReport(report, previousCategories) {
   const results = document.getElementById("results");
-  renderPlayerCard(report);
-  renderAttrs(report, previousCategories);
-  renderStrengths(report);
-  renderFlaws(report);
-  renderDrills(report);
-  renderFullReference(report.topFlaws.map((f) => f.id));
+  const safeReport = {
+    ...report,
+    categories: report.categories || {},
+    topFlaws: report.topFlaws || [],
+    strengths: report.strengths || [],
+  };
+  renderPlayerCard(safeReport);
+  renderAttrs(safeReport, previousCategories);
+  renderStrengths(safeReport);
+  renderFlaws(safeReport);
+  renderDrills(safeReport);
+  renderFullReference(safeReport.topFlaws.map((f) => f.id));
   results.classList.add("active");
   results.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -392,6 +412,7 @@ export function showLowConfidence(report) {
   const note = document.getElementById("confidenceNote");
   note.style.display = "block";
   note.textContent = "⚠️ " + (report.confidenceNote || "");
+  document.getElementById("twoHandedNote").style.display = "none";
   document.getElementById("attrsGrid").innerHTML = "";
   document.getElementById("strengthList").innerHTML = "";
   document.getElementById("flawList").innerHTML = "";

@@ -191,6 +191,8 @@ a { color: var(--steel-accent); }
 #results { display: none; margin-top: 30px; }
 #results.active { display: block; }
 
+#historySection { margin-top: 8px; }
+
 .section-title {
   display: flex; align-items: center; gap: 10px; margin: 34px 0 14px; font-size: 13px;
   font-weight: 700; color: var(--ink-dim); text-transform: uppercase; letter-spacing: 1.5px;
@@ -200,6 +202,9 @@ a { color: var(--steel-accent); }
 .confidence-note {
   background: rgba(224,178,59,.07); border: 1px solid rgba(224,178,59,.3); border-inline-start: 3px solid var(--avg); color: #ffe08a;
   padding: 10px 14px; font-size: 13px; margin-bottom: 18px;
+}
+.confidence-note.two-handed-note {
+  background: rgba(239,74,90,.07); border-color: rgba(239,74,90,.3); border-inline-start-color: var(--danger); color: #ffb3ba;
 }
 
 /* player card header */
@@ -295,6 +300,59 @@ a { color: var(--steel-accent); }
 .drill-card__tags { margin-top: 8px; display: flex; gap: 5px; flex-wrap: wrap; }
 .drill-tag { font-size: 10px; color: var(--ink-faint); background: rgba(255,255,255,.04); padding: 2px 8px; }
 
+/* ---------------------------------------------------- shot location + replay -- */
+#shotExtras { display: none; }
+#shotExtras.active { display: block; }
+
+.court-picker-card, .replay-card {
+  background: var(--card); border: 1px solid var(--card-border); border-top: 2px solid var(--steel-accent);
+  padding: 20px; box-shadow: var(--shadow);
+}
+
+.court-picker { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.court-svg-box { width: 100%; max-width: 360px; }
+.court-svg { width: 100%; height: auto; display: block; cursor: crosshair; touch-action: none; }
+.court-floor { fill: rgba(111,139,176,.05); stroke: var(--steel-accent); stroke-width: .08; }
+.court-line { fill: none; stroke: var(--steel-accent); stroke-width: .06; opacity: .75; }
+.court-line--fill { fill: rgba(111,139,176,.06); }
+.court-line--three { stroke: rgba(232,168,49,.55); }
+.court-backboard { stroke: var(--ink-dim); stroke-width: .1; }
+.court-rim { fill: none; stroke: var(--gold); stroke-width: .09; }
+.court-marker { fill: var(--gold); stroke: var(--gold-ink); stroke-width: .06; filter: drop-shadow(0 0 6px rgba(232,168,49,.7)); }
+
+.court-picker__info { font-size: 13px; color: var(--ink-dim); text-align: center; min-height: 18px; }
+.court-picker__controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; justify-content: center; }
+.court-picker__time-label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-dim); }
+.court-picker__time {
+  background: var(--card-2); border: 1px solid var(--card-border); color: var(--ink);
+  padding: 8px 10px; font-family: inherit; font-size: 13px;
+}
+.court-picker__saved { font-size: 12.5px; color: var(--good); font-weight: 700; }
+
+.replay-wrap { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.angle-btns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.angle-btn {
+  background: rgba(255,255,255,.03); border: 1px solid var(--card-border); color: var(--ink-dim);
+  padding: 8px 16px; font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit; letter-spacing: .2px;
+  transition: all .15s ease;
+}
+.angle-btn:hover { color: var(--ink); border-color: rgba(111,139,176,.5); }
+.angle-btn.active { background: linear-gradient(135deg, var(--steel-accent), #4f6a8f); color: var(--ink); border-color: transparent; }
+.replay-canvas-box {
+  width: 100%; max-width: 480px; aspect-ratio: 4 / 3; background: radial-gradient(circle at 50% 30%, #171b23, #0a0c10);
+  border: 1px solid var(--card-border); overflow: hidden;
+}
+.replay-canvas-box canvas { display: block; width: 100%; height: 100%; }
+.replay-controls { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 480px; flex-wrap: wrap; justify-content: center; }
+.replay-playbtn { padding: 8px 14px; font-size: 15px; }
+.replay-scrub { flex: 1; min-width: 140px; accent-color: var(--gold); }
+.replay-speed {
+  background: var(--card-2); border: 1px solid var(--card-border); color: var(--ink);
+  padding: 7px 10px; font-family: inherit; font-size: 12.5px;
+}
+.replay-note { font-size: 11.5px; color: var(--ink-faint); text-align: center; max-width: 480px; line-height: 1.5; }
+.replay-error { color: var(--danger); font-size: 13px; text-align: center; padding: 20px; }
+
 /* badges (2K MyPlayer style) */
 .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .badge-chip {
@@ -327,6 +385,9 @@ a { color: var(--steel-accent); }
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: rgba(255,255,255,.02); border: 1px solid var(--card-border); padding: 8px 12px; font-size: 12.5px;
 }
+.history-row--clickable { cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.history-row--clickable:hover, .history-row--clickable:focus-visible { background: rgba(232,168,49,.06); border-color: rgba(232,168,49,.35); outline: none; }
+.history-row__chevron { color: var(--ink-faint); font-size: 16px; }
 .history-row__score { font-family: "Teko", sans-serif; font-size: 18px; font-weight: 700; color: var(--gold-2); width: 34px; text-align: center; }
 .history-row__date { color: var(--ink-dim); flex: 1; }
 .history-row__delta { font-size: 11.5px; font-weight: 700; }

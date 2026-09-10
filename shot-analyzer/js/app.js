@@ -9,8 +9,15 @@ import { DEMO_REPORT } from "./demoData.js";
 import { Auth } from "./auth.js";
 import { ShotHistory } from "./storage.js";
 import { evaluateBadges } from "./badges.js";
+import { renderCourtPicker } from "./courtMap.js";
+import { ShotReplay, ShotReplayError } from "./shotReplay.js";
 
 const $ = (id) => document.getElementById(id);
+
+// גבול עליון סביר לאורך קליפ: הניתוח מניח זריקה בודדת, לא סשן שלם, ונדגם
+// ב-15 פריימים לשנייה (seek אמיתי לכל פריים) - סרטון ארוך מדי גם ייקח המון
+// זמן וגם כנראה יבלבל את זיהוי שלב הטעינה/שחרור (שמניח תנועה אחת רציפה).
+const MAX_CLIP_SECONDS = 12;
 
 const dropzone = $("dropzone");
 const fileInput = $("fileInput");
@@ -35,6 +42,10 @@ let camStream = null;
 let recorder = null;
 let recordedChunks = [];
 let busy = false;
+let currentReplay = null;
+const shotExtras = $("shotExtras");
+const courtMapStage = $("courtMapStage");
+const replayStage = $("replayStage");
 
 const auth = new Auth();
 const history = new ShotHistory();
@@ -163,10 +174,100 @@ btnCamStop.addEventListener("click", () => {
   recorder?.stop();
 });
 
+// ----------------------------------------------------- location + replay --
+function hideShotExtras() {
+  currentReplay?.destroy();
+  currentReplay = null;
+  shotExtras.classList.remove("active");
+  courtMapStage.innerHTML = "";
+  replayStage.innerHTML = "";
+}
+
+function renderShotExtras({ frames, report, entryId, userId, initialLocation, initialTakenAt }) {
+  shotExtras.classList.add("active");
+
+  renderCourtPicker(courtMapStage, {
+    initialLocation,
+    initialTakenAt,
+    onSave: async ({ location, takenAt }) => {
+      if (!entryId) return;
+      const updated = await history.updateLocation(userId, entryId, { location, takenAt });
+      if (updated) renderProgress(history.getLocal(userId));
+    },
+  });
+
+  currentReplay?.destroy();
+  currentReplay = new ShotReplay(replayStage);
+  currentReplay.mount(frames, { shootingSide: report.shootingSide, phases: report.phases }).catch((err) => {
+    console.error(err);
+    const msg = err instanceof ShotReplayError ? err.message : "לא הצלחנו לבנות אנימציית תלת-ממד לקליפ הזה.";
+    replayStage.innerHTML = `<div class="replay-error">⚠️ ${msg}</div>`;
+  });
+}
+
+// ------------------------------------------------------ open past shot --
+// לוחצים על שורה בהיסטוריה -> נכנסים לזריקה הישנה ורואים שוב הכל: הדוח,
+// המפה, הסרטון המקורי והאנימציה - בדיוק כמו בזמן הניתוח המקורי. פרטים
+// מלאים נשמרים רק ל-15 הזריקות האחרונות (ראו storage.js), אז זריקות ישנות
+// יותר מציגות רק את הציון שכבר קיים ברשימה.
+async function openHistoryEntry(id) {
+  if (busy) return;
+  hideError();
+  const userId = currentUserId();
+  const list = history.getLocal(userId);
+  const idx = list.findIndex((e) => e.id === id);
+  const summary = idx >= 0 ? list[idx] : null;
+
+  const detail = await history.getDetail(id);
+  if (!detail) {
+    showError("הפרטים המלאים של הזריקה הזו כבר לא נשמרים (נשמר רק ל-15 הזריקות האחרונות) - רק הציון שלה נותר בהיסטוריה.");
+    return;
+  }
+
+  try {
+    if (detail.videoBlob) {
+      stage.classList.add("active");
+      mainVideo.controls = true;
+      mainVideo.src = URL.createObjectURL(detail.videoBlob);
+    } else {
+      stage.classList.remove("active");
+    }
+
+    const previousCategories = idx > 0 ? list[idx - 1].categories : null;
+    renderReport(detail.report, previousCategories);
+    renderBadges(evaluateBadges(detail.report));
+    renderShotExtras({
+      frames: detail.frames || [],
+      report: detail.report,
+      entryId: id,
+      userId,
+      initialLocation: summary?.location || null,
+      initialTakenAt: summary?.takenAt || null,
+    });
+  } catch (err) {
+    console.error("openHistoryEntry failed:", err);
+    showError("אירעה שגיאה בהצגת הזריקה הזו. נסו לרענן את הדף ולנסות שוב.");
+  }
+}
+
+$("historyList").addEventListener("click", (e) => {
+  const row = e.target.closest(".history-row--clickable");
+  if (row?.dataset.id) openHistoryEntry(row.dataset.id);
+});
+$("historyList").addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  const row = e.target.closest(".history-row--clickable");
+  if (row?.dataset.id) {
+    e.preventDefault();
+    openHistoryEntry(row.dataset.id);
+  }
+});
+
 // -------------------------------------------------------------- demo --
 btnDemo.addEventListener("click", () => {
   hideError();
   stage.classList.remove("active");
+  hideShotExtras();
   renderReport(DEMO_REPORT);
   renderBadges(evaluateBadges(DEMO_REPORT));
 });
@@ -190,6 +291,13 @@ async function handleFile(fileOrBlob) {
     overlayCanvas.width = mainVideo.videoWidth;
     overlayCanvas.height = mainVideo.videoHeight;
 
+    if (mainVideo.duration > MAX_CLIP_SECONDS) {
+      throw new PoseEngineError(
+        `הסרטון ארוך מדי (${Math.round(mainVideo.duration)} שניות). האפליקציה מנתחת זריקה בודדת מקליפ קצר ` +
+          `(מומלץ 2-6 שניות) - חתכו את הסרטון לקטע שמתחיל רגע לפני קבלת/איסוף הכדור ומסתיים כשנייה אחרי השחרור, ונסו שוב.`
+      );
+    }
+
     if (!engine) {
       engine = new PoseEngine();
       await engine.init((msg) => setProgress(0.02, msg));
@@ -209,14 +317,16 @@ async function handleFile(fileOrBlob) {
 
     if (report.confidence === "low" || report.overallScore == null) {
       showLowConfidence(report);
+      hideShotExtras();
     } else {
       const userId = currentUserId();
       const priorList = history.getLocal(userId);
       const previousCategories = priorList.length ? priorList[priorList.length - 1].categories : null;
       renderReport(report, previousCategories);
       renderBadges(evaluateBadges(report));
-      const { list } = await history.save(userId, report);
+      const { entry, list } = await history.save(userId, report, { frames, videoBlob: fileOrBlob });
       renderProgress(list);
+      renderShotExtras({ frames, report, entryId: entry.id, userId });
     }
   } catch (err) {
     console.error(err);
