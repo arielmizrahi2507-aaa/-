@@ -112,22 +112,41 @@ function otherSide3D(fr, s) {
 }
 
 // זריקה/הטלה בשתי ידיים (למשל heave מהחזה) לא תואמת את ההנחה של המנוע
-// (יד זורקת אחת + יד מכוונת אחת): בזריקה רגילה היד המכוונת נשארת קרוב לגוף
-// עם טווח תנועה אנכי קטן בהרבה מיד הזריקה, בעוד שבהטלה דו-ידנית שתי הידיים
-// עולות יחד באותו טווח בערך. זה הסימן העיקרי - המרחק בין הידיים לא נבדק
-// (יכול להיות צר או רחב כאחד בהטלה דו-ידנית, תלוי איך אוחזים בכדור).
-function detectTwoHanded(decoded, phases, wristOf) {
+// (יד זורקת אחת + יד מכוונת אחת). חשוב: גם בזריקה רגילה לגמרי ליד המכוונת
+// יש טווח תנועה אנכי לא מבוטל - שתי הידיים בדרך כלל עולות יחד בשלב הטעינה,
+// והיד המכוונת "נפרדת" מהכדור רק סמוך לשחרור עצמו. לכן טווח תנועה דומה
+// בלבד (כפי שנבדק כאן בעבר) לא מספיק ותפס גם זריקות יד-אחת תקינות. הסימן
+// המכריע האמיתי הוא אם הפער האנכי בין הידיים גדל משמעותית מהטעינה לשחרור:
+// בזריקת יד אחת הפער גדל (יד הזריקה ממשיכה לעלות אחרי שהמכוונת נפרדה),
+// ואילו בהטלה דו-ידנית שתי הידיים נעות יחד עד הסוף והפער נשאר דומה.
+function detectTwoHanded(decoded, phases, wristOf, shootingSide, scale) {
   const win = decoded.slice(phases.dipIdx, phases.releaseIdx + 1);
   if (win.length < 3) return false;
 
-  const lY = win.map((f) => wristOf(f, "left")?.y).filter((v) => v != null);
-  const rY = win.map((f) => wristOf(f, "right")?.y).filter((v) => v != null);
-  if (lY.length < 3 || rY.length < 3) return false;
-  const lRange = Math.max(...lY) - Math.min(...lY);
-  const rRange = Math.max(...rY) - Math.min(...rY);
-  const rangeRatio = Math.min(lRange, rRange) / (Math.max(lRange, rRange) || 1);
+  const guideSide = shootingSide === "left" ? "right" : "left";
+  const shootY = win.map((f) => wristOf(f, shootingSide)?.y).filter((v) => v != null);
+  const guideY = win.map((f) => wristOf(f, guideSide)?.y).filter((v) => v != null);
+  if (shootY.length < 3 || guideY.length < 3) return false;
 
-  return rangeRatio > 0.6;
+  const shootRange = Math.max(...shootY) - Math.min(...shootY);
+  const guideRange = Math.max(...guideY) - Math.min(...guideY);
+  const rangeRatio = Math.min(guideRange, shootRange) / (Math.max(guideRange, shootRange) || 1);
+  // שער בסיסי: ליד המכוונת חייב להיות טווח תנועה משמעותי, גם ביחס לגודל
+  // הגוף וגם ביחס ליד הזריקה - אחרת זו כנראה רק רעש/תנועה קטנה של יד
+  // מכוונת רגילה, לא הטלה דו-ידנית.
+  if (rangeRatio < 0.6 || guideRange / (scale || 1) < 0.08) return false;
+
+  const shoot0 = wristOf(win[0], shootingSide)?.y;
+  const guide0 = wristOf(win[0], guideSide)?.y;
+  const shootN = wristOf(win[win.length - 1], shootingSide)?.y;
+  const guideN = wristOf(win[win.length - 1], guideSide)?.y;
+  if (shoot0 == null || guide0 == null || shootN == null || guideN == null) return false;
+
+  const gapStart = Math.abs(shoot0 - guide0);
+  const gapEnd = Math.abs(shootN - guideN);
+  const gapGrowth = (gapEnd - gapStart) / (scale || 1);
+
+  return gapGrowth < 0.35;
 }
 
 // מוצא את פריים ה"טעינה/איסוף" (הנקודה הנמוכה ביותר של שורש כף היד לפני
@@ -185,7 +204,7 @@ function analyzeShotFrom3D(rawFrames) {
   const torsoLenSetup = dist3(shoulderMidSetup, hipMidSetup);
   const scale = Math.max(shoulderWidthSetup, torsoLenSetup * 0.55, 0.25);
 
-  const twoHanded = detectTwoHanded(decoded, phases, (f, s) => (s === "left" ? f.lWrist : f.rWrist));
+  const twoHanded = detectTwoHanded(decoded, phases, (f, s) => (s === "left" ? f.lWrist : f.rWrist), shootingSide, scale);
 
   const categories = {};
   const allFlaws = [];
@@ -624,7 +643,7 @@ function analyzeShotFrom2D(rawFrames, width, height) {
   const torsoLenSetup = dist2D(shoulderMidSetup, hipMidSetup);
   const scale = Math.max(shoulderWidthSetup, torsoLenSetup * 0.55, height * 0.05);
 
-  const twoHanded = detectTwoHanded(decoded, phases, (f, s) => (s === "left" ? f.lWrist : f.rWrist));
+  const twoHanded = detectTwoHanded(decoded, phases, (f, s) => (s === "left" ? f.lWrist : f.rWrist), shootingSide, scale);
 
   const categories = {};
   const allFlaws = [];
