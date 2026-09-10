@@ -101,6 +101,14 @@ function renderPlayerCard(report) {
   } else {
     note.style.display = "none";
   }
+
+  const twoHandedNote = document.getElementById("twoHandedNote");
+  if (report.twoHandedWarning) {
+    twoHandedNote.style.display = "block";
+    twoHandedNote.textContent = report.twoHandedWarning;
+  } else {
+    twoHandedNote.style.display = "none";
+  }
 }
 
 function confidenceLabel(c) {
@@ -392,6 +400,7 @@ export function showLowConfidence(report) {
   const note = document.getElementById("confidenceNote");
   note.style.display = "block";
   note.textContent = "⚠️ " + (report.confidenceNote || "");
+  document.getElementById("twoHandedNote").style.display = "none";
   document.getElementById("attrsGrid").innerHTML = "";
   document.getElementById("strengthList").innerHTML = "";
   document.getElementById("flawList").innerHTML = "";

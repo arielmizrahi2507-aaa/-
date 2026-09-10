@@ -12,6 +12,7 @@
 // ============================================================================
 
 import { LM, SKELETON_CONNECTIONS } from "./poseEngine.js";
+import { sub3, mid3, len3, meanVec3, computeBodyBasis, buildTransformedFrames } from "./bodyGeometry.js";
 
 const THREE_URL = "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
@@ -44,60 +45,6 @@ function boneKind(a, b) {
   return "default";
 }
 
-// ------------------------------------------------------------ 3-vector math --
-const sub3 = (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
-const add3 = (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
-const scale3 = (a, s) => ({ x: a.x * s, y: a.y * s, z: a.z * s });
-const dot3 = (a, b) => a.x * b.x + a.y * b.y + a.z * b.z;
-const mid3 = (a, b) => scale3(add3(a, b), 0.5);
-const len3 = (a) => Math.hypot(a.x, a.y, a.z);
-const normalize3 = (a) => {
-  const l = len3(a);
-  return l > 1e-9 ? scale3(a, 1 / l) : { x: 0, y: 1, z: 0 };
-};
-const cross3 = (a, b) => ({
-  x: a.y * b.z - a.z * b.y,
-  y: a.z * b.x - a.x * b.z,
-  z: a.x * b.y - a.y * b.x,
-});
-function meanVec3(list) {
-  let acc = { x: 0, y: 0, z: 0 };
-  for (const v of list) acc = add3(acc, v);
-  return scale3(acc, 1 / (list.length || 1));
-}
-
-// ---------------------------------------------------- anatomical basis --
-// בונה מערכת צירים משלנו (ימין הגוף / למעלה / קדימה) מתוך וקטורים אנטומיים
-// יחסיים בלבד - כך שהיא לא תלויה במוסכמת הצירים הפנימית של MediaPipe.
-function computeBodyBasis(frames, fromIdx, toIdx) {
-  const ups = [];
-  const rights = [];
-  const noseDirs = [];
-  for (let i = fromIdx; i <= toIdx; i++) {
-    const wl = frames[i]?.worldLandmarks;
-    if (!wl) continue;
-    const lS = wl[LM.LEFT_SHOULDER], rS = wl[LM.RIGHT_SHOULDER];
-    const lH = wl[LM.LEFT_HIP], rH = wl[LM.RIGHT_HIP];
-    if (!lS || !rS || !lH || !rH) continue;
-    const shoulderMid = mid3(lS, rS);
-    const hipMid = mid3(lH, rH);
-    ups.push(sub3(shoulderMid, hipMid));
-    rights.push(sub3(rS, lS));
-    const nose = wl[LM.NOSE];
-    if (nose) noseDirs.push(sub3(nose, shoulderMid));
-  }
-  if (!ups.length) return null;
-  const up = normalize3(meanVec3(ups));
-  const rightRaw = meanVec3(rights);
-  const right = normalize3(sub3(rightRaw, scale3(up, dot3(rightRaw, up))));
-  let forward = normalize3(cross3(up, right));
-  if (noseDirs.length) {
-    const noseDir = meanVec3(noseDirs);
-    if (dot3(forward, noseDir) < 0) forward = scale3(forward, -1);
-  }
-  return { up, right, forward };
-}
-
 function findNearestIndex(frames, targetT) {
   let best = 0;
   let bestDiff = Infinity;
@@ -113,33 +60,6 @@ function findNearestIndex(frames, targetT) {
 
 const HEAD_INDICES = [LM.NOSE, LM.LEFT_EYE, LM.RIGHT_EYE, LM.LEFT_EAR, LM.RIGHT_EAR];
 const USED_INDICES = [...new Set(Object.values(LM))];
-
-// פורש כל פריים גולמי למערכת הצירים האנטומית המשותפת, עם "החזקת" הערך
-// האחרון הידוע לכל נקודה שנעלמה זמנית (חסימה/זיהוי חלקי) כדי למנוע קפיצות.
-function buildTransformedFrames(rawFrames, basis) {
-  const last = {};
-  const out = [];
-  for (const f of rawFrames) {
-    const wl = f.worldLandmarks;
-    const lH = wl?.[LM.LEFT_HIP];
-    const rH = wl?.[LM.RIGHT_HIP];
-    const hipMid = lH && rH ? mid3(lH, rH) : null;
-    const points = {};
-    for (const idx of USED_INDICES) {
-      const p = wl?.[idx];
-      if (p && hipMid) {
-        const rel = sub3(p, hipMid);
-        const transformed = { x: dot3(rel, basis.right), y: dot3(rel, basis.up), z: dot3(rel, basis.forward) };
-        points[idx] = transformed;
-        last[idx] = transformed;
-      } else if (last[idx]) {
-        points[idx] = last[idx];
-      }
-    }
-    out.push({ t: f.t, points });
-  }
-  return out;
-}
 
 function computeBounds(transformedFrames) {
   const min = { x: Infinity, y: Infinity, z: Infinity };

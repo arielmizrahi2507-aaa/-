@@ -201,6 +201,9 @@ a { color: var(--steel-accent); }
   background: rgba(224,178,59,.07); border: 1px solid rgba(224,178,59,.3); border-inline-start: 3px solid var(--avg); color: #ffe08a;
   padding: 10px 14px; font-size: 13px; margin-bottom: 18px;
 }
+.confidence-note.two-handed-note {
+  background: rgba(239,74,90,.07); border-color: rgba(239,74,90,.3); border-inline-start-color: var(--danger); color: #ffb3ba;
+}
 
 /* player card header */
 .player-card {
