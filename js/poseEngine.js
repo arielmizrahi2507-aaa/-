@@ -166,7 +166,10 @@ export class PoseEngine {
     videoEl.muted = true;
     videoEl.playsInline = true;
 
-    const SAMPLE_FPS = 30;
+    // 15 פריימים לשנייה מספיק ליישוב שלבי הזריקה (טעינה/שחרור) בבירור,
+    // ומכפיל בערך פי 2 את מהירות הניתוח לעומת 30 - כל פריים דורש seek
+    // אמיתי (המתנה לפענוח הווידאו), לא רק דגימת מסגרת שכבר מוצגת.
+    const SAMPLE_FPS = 15;
     const frameCount = Math.max(1, Math.round(duration * SAMPLE_FPS));
     const frames = [];
     let lastTs = -1;
