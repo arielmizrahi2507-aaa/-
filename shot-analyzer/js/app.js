@@ -224,25 +224,30 @@ async function openHistoryEntry(id) {
     return;
   }
 
-  if (detail.videoBlob) {
-    stage.classList.add("active");
-    mainVideo.controls = true;
-    mainVideo.src = URL.createObjectURL(detail.videoBlob);
-  } else {
-    stage.classList.remove("active");
-  }
+  try {
+    if (detail.videoBlob) {
+      stage.classList.add("active");
+      mainVideo.controls = true;
+      mainVideo.src = URL.createObjectURL(detail.videoBlob);
+    } else {
+      stage.classList.remove("active");
+    }
 
-  const previousCategories = idx > 0 ? list[idx - 1].categories : null;
-  renderReport(detail.report, previousCategories);
-  renderBadges(evaluateBadges(detail.report));
-  renderShotExtras({
-    frames: detail.frames || [],
-    report: detail.report,
-    entryId: id,
-    userId,
-    initialLocation: summary?.location || null,
-    initialTakenAt: summary?.takenAt || null,
-  });
+    const previousCategories = idx > 0 ? list[idx - 1].categories : null;
+    renderReport(detail.report, previousCategories);
+    renderBadges(evaluateBadges(detail.report));
+    renderShotExtras({
+      frames: detail.frames || [],
+      report: detail.report,
+      entryId: id,
+      userId,
+      initialLocation: summary?.location || null,
+      initialTakenAt: summary?.takenAt || null,
+    });
+  } catch (err) {
+    console.error("openHistoryEntry failed:", err);
+    showError("אירעה שגיאה בהצגת הזריקה הזו. נסו לרענן את הדף ולנסות שוב.");
+  }
 }
 
 $("historyList").addEventListener("click", (e) => {

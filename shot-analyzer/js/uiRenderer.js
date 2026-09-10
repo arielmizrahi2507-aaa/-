@@ -383,14 +383,23 @@ export function renderProgress(history) {
 }
 
 // -------------------------------------------------------------- entry --
+// report עשוי להגיע ממקורות שונים (ניתוח חי, IndexedDB לזריקה ישנה) - נורמליזציה
+// הגנתית כאן כדי שדוח חסר-שדה יתדרדר בעדינות (מציג "כלום לא נמצא") במקום
+// לזרוק שגיאה שעוצרת את שאר הרינדור באמצע (ואז נראה כאילו "רק הציון" מוצג).
 export function renderReport(report, previousCategories) {
   const results = document.getElementById("results");
-  renderPlayerCard(report);
-  renderAttrs(report, previousCategories);
-  renderStrengths(report);
-  renderFlaws(report);
-  renderDrills(report);
-  renderFullReference(report.topFlaws.map((f) => f.id));
+  const safeReport = {
+    ...report,
+    categories: report.categories || {},
+    topFlaws: report.topFlaws || [],
+    strengths: report.strengths || [],
+  };
+  renderPlayerCard(safeReport);
+  renderAttrs(safeReport, previousCategories);
+  renderStrengths(safeReport);
+  renderFlaws(safeReport);
+  renderDrills(safeReport);
+  renderFullReference(safeReport.topFlaws.map((f) => f.id));
   results.classList.add("active");
   results.scrollIntoView({ behavior: "smooth", block: "start" });
 }
