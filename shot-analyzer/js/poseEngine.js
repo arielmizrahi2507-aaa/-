@@ -122,7 +122,11 @@ export class PoseEngine {
 
   /**
    * מריץ זיהוי שלד על אלמנט וידאו (קובץ שהועלה או הקלטה) פריים-אחר-פריים,
-   * תוך כדי ניגון בזמן אמת. מחזיר מערך של { t (ms), landmarks }.
+   * תוך כדי ניגון בזמן אמת. מחזיר מערך של { t (ms), landmarks, worldLandmarks }.
+   * worldLandmarks הן קואורדינטות תלת-ממדיות מטריות (מטרים, מרכזן במפרק
+   * הירכיים) - בשונה מ-landmarks הרגילות שהן קואורדינטות דו-ממדיות מנורמלות
+   * לפריים התמונה. אלה הנתונים שמאפשרים לשחזר את הזריקה כאנימציה תלת-ממדית
+   * ולצפות בה מזוויות שלא צולמו במקור (ראו js/shotReplay.js).
    */
   async processVideoElement(videoEl, { onProgress, onFrame } = {}) {
     if (!this.ready) throw new PoseEngineError("מנוע הזיהוי עדיין לא מוכן");
@@ -137,7 +141,8 @@ export class PoseEngine {
       try {
         const result = this.landmarker.detectForVideo(videoEl, tMs);
         if (result?.landmarks?.length) {
-          frames.push({ t: tMs, landmarks: result.landmarks[0] });
+          const worldLandmarks = result.worldLandmarks?.[0] || null;
+          frames.push({ t: tMs, landmarks: result.landmarks[0], worldLandmarks });
           onFrame?.(result.landmarks[0], tMs);
         }
       } catch (e) {
