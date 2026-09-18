@@ -395,11 +395,13 @@
 
   function markTransactionPaid(id) {
     var t = state.transactions.find(function (x) { return x.id === id; });
-    if (!t) return;
+    if (!t) return false;
+    if (!window.confirm('לאשר שקיבלת את התשלום מ' + t.clientName + '?')) return false;
     t.paid = true;
     t.seen = true;
     saveTransactions();
     renderAll();
+    return true;
   }
 
   function deleteTransactionById(id) {
@@ -414,8 +416,7 @@
 
   function handleMarkPaid() {
     if (!activeDetailId) return;
-    markTransactionPaid(activeDetailId);
-    closeDetailModal();
+    if (markTransactionPaid(activeDetailId)) closeDetailModal();
   }
 
   function handleEditFeeToggle() {

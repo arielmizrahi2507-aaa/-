@@ -212,7 +212,7 @@ html, body {
 }
 
 .month-column {
-  flex: 0 0 250px;
+  flex: 0 0 280px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -269,14 +269,14 @@ html, body {
 
 .tx-square {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
   border: 1px solid var(--border);
   background: #fff;
   padding: 0;
-  font-size: 0.75rem;
-  line-height: 18px;
+  font-size: 0.9rem;
+  line-height: 24px;
   cursor: default;
   color: #fff;
 }
@@ -317,18 +317,18 @@ html, body {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 4px;
 }
 
 .tx-icon-btn {
   flex: 0 0 auto;
-  width: 22px;
-  height: 22px;
-  border-radius: 4px;
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
   border: 1px solid var(--border);
   background: #fff;
   color: var(--muted);
-  font-size: 0.75rem;
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
   padding: 0;
@@ -369,8 +369,10 @@ html, body {
 
 .modal-close {
   position: absolute;
-  top: 10px;
-  left: 12px;
+  top: 6px;
+  left: 6px;
+  width: 36px;
+  height: 36px;
   background: none;
   border: none;
   font-size: 1.4rem;
