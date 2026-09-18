@@ -1,13 +1,18 @@
 :root {
-  --primary: #2A5BB7;
-  --primary-dark: #1f4790;
-  --danger: #D64545;
-  --warning: #E08A2E;
-  --success: #2E8B57;
-  --border: #dbe1ea;
-  --bg: #f5f7fb;
-  --text: #222;
-  --muted: #6b7280;
+  --navy: #0E2C4A;
+  --navy-2: #17436B;
+  --gold: #C9A560;
+  --gold-dark: #AD8A50;
+  --primary: #0E2C4A;
+  --primary-dark: #0A2038;
+  --danger: #B6483C;
+  --warning: #C98A2E;
+  --success: #35785A;
+  --border: #E5DFC9;
+  --bg: #F4EEE0;
+  --ivory: #F4EEE0;
+  --text: #232323;
+  --muted: #8A8676;
 }
 
 * { box-sizing: border-box; }
@@ -18,9 +23,9 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: var(--bg);
+  background: var(--ivory);
   color: var(--text);
-  font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  font-family: 'Heebo', "Segoe UI", Arial, Helvetica, sans-serif;
   overflow: hidden;
 }
 
@@ -31,80 +36,99 @@ html, body {
   overflow: hidden;
 }
 
-/* ---------- Clock bar ---------- */
-.clock-bar {
+/* ---------- Hero (clock / add button / logo / stats) ---------- */
+.hero {
+  flex: 0 0 auto;
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
+  padding: 14px 24px 20px;
+  position: relative;
+}
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle at 15% 85%, rgba(201,165,96,0.15), transparent 45%);
+  pointer-events: none;
+}
+
+.hero-top {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-clock-group {
+  display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 6px 16px;
   font-size: 0.8rem;
-  color: var(--muted);
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  flex: 0 0 auto;
+  color: rgba(244,238,224,0.6);
 }
 
 .refresh-btn {
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid rgba(244,238,224,0.35);
   border-radius: 5px;
   width: 22px;
   height: 22px;
   font-size: 0.9rem;
   line-height: 1;
   cursor: pointer;
-  color: var(--muted);
+  color: rgba(244,238,224,0.7);
   padding: 0;
 }
-.refresh-btn:hover { background: #eef2fb; color: var(--primary); border-color: var(--primary); }
+.refresh-btn:hover { background: rgba(244,238,224,0.12); color: var(--gold); border-color: var(--gold); }
 
-/* ---------- Header ---------- */
-.header-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  flex: 0 0 auto;
-  gap: 12px;
+.hero-brand {
+  text-align: center;
+  margin-top: -8px;
+  position: relative;
+  z-index: 2;
 }
-
-.brand { display: flex; align-items: center; }
-
 .brand-logo {
-  height: 58px;
-  width: auto;
+  width: 260px;
+  max-width: 70%;
   display: block;
+  margin: 0 auto;
+}
+.hero-tagline {
+  color: rgba(244,238,224,0.85);
+  font-size: 0.9rem;
+  letter-spacing: 0.03em;
+  margin-top: -8px;
+  font-weight: 500;
 }
 
 /* ---------- Buttons ---------- */
 .btn-primary {
-  background: var(--primary);
-  color: #fff;
+  background: var(--gold);
+  color: var(--navy);
   border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
+  border-radius: 999px;
+  padding: 9px 18px;
   font-size: 0.9rem;
+  font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
 }
-.btn-primary:hover { background: var(--primary-dark); }
+.btn-primary:hover { background: var(--gold-dark); }
 .btn-primary:disabled { opacity: 0.6; cursor: default; }
-.btn-primary.small { padding: 5px 10px; font-size: 0.8rem; }
+.btn-primary.small { padding: 6px 12px; font-size: 0.8rem; }
 
 .btn-secondary {
   background: #fff;
-  color: var(--primary);
-  border: 1px solid var(--primary);
-  border-radius: 6px;
+  color: var(--navy);
+  border: 1px solid var(--navy);
+  border-radius: 999px;
   padding: 7px 14px;
   font-size: 0.85rem;
   cursor: pointer;
   white-space: nowrap;
 }
-.btn-secondary:hover { background: #eef2fb; }
+.btn-secondary:hover { background: #F0ECDD; }
 
 .scroll-btn {
   background: none;
@@ -116,12 +140,12 @@ html, body {
   color: var(--text);
   white-space: nowrap;
 }
-.scroll-btn:hover { background: #eef2fb; }
+.scroll-btn:hover { background: #F0ECDD; }
 
 .link-btn {
   background: none;
   border: none;
-  color: var(--primary);
+  color: var(--navy);
   cursor: pointer;
   font-size: 0.8rem;
   text-decoration: underline;
@@ -129,37 +153,55 @@ html, body {
 }
 .link-btn.danger { color: var(--danger); margin-top: 14px; display: block; }
 
-/* ---------- Goal bar ---------- */
-.goal-bar {
+/* ---------- Stat row (goal / yearly / earned) ---------- */
+.stat-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 10px 16px;
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  flex: 0 0 auto;
+  gap: 14px;
+  margin-top: 18px;
+  position: relative;
+  z-index: 2;
 }
+.stat-tile {
+  flex: 1;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(201,165,96,0.35);
+  border-radius: 10px;
+  padding: 12px 18px;
+  backdrop-filter: blur(2px);
+}
+.stat-tile .label {
+  font-size: 0.72rem;
+  color: rgba(244,238,224,0.65);
+  display: block;
+}
+.stat-tile .value {
+  font-weight: 700;
+  font-size: 1.35rem;
+  color: #fff;
+  margin-top: 4px;
+  display: block;
+}
+.stat-tile .value.green { color: #8FD1AC; }
 
 .goal-select-wrap {
   position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
 }
 
-.goal-label { font-size: 0.9rem; color: var(--muted); }
+.goal-label { font-size: 0.72rem; color: rgba(244,238,224,0.65); }
 
 .goal-value {
-  background: #eef2fb;
-  border: 1px solid var(--primary);
-  color: var(--primary);
-  border-radius: 6px;
-  padding: 6px 12px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  background: none;
+  border: none;
+  color: var(--gold);
+  padding: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
   cursor: pointer;
+  font-family: inherit;
 }
 
 .goal-dropdown {
@@ -169,7 +211,7 @@ html, body {
   background: #fff;
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.25);
   z-index: 20;
   display: flex;
   flex-direction: column;
@@ -184,12 +226,13 @@ html, body {
   padding: 10px 14px;
   font-size: 0.9rem;
   cursor: pointer;
+  color: var(--text);
 }
-.goal-dropdown > button:hover { background: #f0f3fa; }
+.goal-dropdown > button:hover { background: #F7F4EC; }
 
 .goal-dropdown-divider { border-top: 1px solid var(--border); margin: 2px 0; }
 
-.goal-custom-toggle { color: var(--primary); }
+.goal-custom-toggle { color: var(--navy); }
 
 .goal-custom-row {
   display: flex;
@@ -206,23 +249,13 @@ html, body {
   font-size: 0.9rem;
 }
 
-.yearly-estimate {
-  font-size: 0.85rem;
-  color: var(--muted);
-  display: flex;
-  gap: 6px;
-  align-items: center;
-}
-.yearly-estimate strong { color: var(--text); font-size: 0.95rem; }
-.earned-stat strong { color: var(--success); }
-
 /* ---------- Months section ---------- */
 .months-section {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 10px 16px 16px;
+  padding: 16px 24px;
 }
 
 .months-controls {
@@ -253,9 +286,10 @@ html, body {
   display: flex;
   flex-direction: column;
   background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px;
+  border: none;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(14,44,74,0.1);
   scroll-snap-align: start;
 }
 
@@ -263,8 +297,9 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-weight: 600;
-  font-size: 0.95rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--navy);
   margin-bottom: 2px;
 }
 
@@ -307,9 +342,9 @@ html, body {
   flex: 0 0 auto;
   width: 26px;
   height: 26px;
-  border-radius: 5px;
+  border-radius: 7px;
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--border);
   padding: 0;
   font-size: 0.9rem;
   line-height: 24px;
@@ -327,19 +362,19 @@ html, body {
   cursor: pointer;
 }
 .tx-square.new {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--gold);
+  border-color: var(--gold);
 }
 .tx-square:disabled { cursor: default; }
 
 .tx-name {
-  background: #eef2fb;
+  background: #F7F4EC;
   border: 1px solid var(--border);
   border-radius: 6px;
   text-align: right;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text);
+  color: var(--navy);
   cursor: pointer;
   padding: 6px 10px;
   flex: 1 1 auto;
@@ -348,7 +383,7 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tx-name:hover { color: var(--primary); border-color: var(--primary); }
+.tx-name:hover { color: var(--gold-dark); border-color: var(--gold); }
 .tx-name.paid-text { color: var(--muted); text-decoration: line-through; }
 
 .tx-actions {
@@ -371,7 +406,7 @@ html, body {
   cursor: pointer;
   padding: 0;
 }
-.tx-icon-btn:hover { background: #eef2fb; }
+.tx-icon-btn:hover { background: #F7F4EC; }
 .tx-icon-btn:disabled { opacity: 0.4; cursor: default; }
 .tx-icon-btn.paid:hover { color: var(--success); border-color: var(--success); }
 .tx-icon-btn.postpone:hover { color: var(--primary); border-color: var(--primary); }
@@ -504,6 +539,7 @@ html, body {
   .app { height: auto; min-height: 100vh; overflow: visible; }
   .months-section { min-height: 60vh; }
   .transactions-list { max-height: 45vh; }
-  .header-main { flex-wrap: wrap; }
-  .goal-bar { flex-direction: column; align-items: flex-start; }
+  .hero-top { flex-wrap: wrap; }
+  .stat-row { flex-direction: column; }
+  .brand-logo { width: 220px; }
 }
