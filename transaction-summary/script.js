@@ -584,15 +584,20 @@
     return Array.prototype.slice.call(document.querySelectorAll('.month-column'));
   }
 
-  function getClosestColumnIndex(columns, track) {
+  // Finds whichever column currently sits at the scroll container's "start" edge
+  // (the edge that scrollIntoView({inline:'start'}) aligns to - the right edge in
+  // this RTL layout). Must match the alignment used by scrollMonths()/goToToday()
+  // below, or repeated clicks drift: with several columns visible at once,
+  // "closest to the visual center" is a *different* column than "the one currently
+  // aligned to start", so re-deriving position from the center silently skips
+  // forward on every click instead of stepping back.
+  function getStartAlignedColumnIndex(columns, track) {
     var trackRect = track.getBoundingClientRect();
-    var trackCenter = trackRect.left + trackRect.width / 2;
     var closest = 0;
     var closestDist = Infinity;
     columns.forEach(function (col, i) {
       var rect = col.getBoundingClientRect();
-      var center = rect.left + rect.width / 2;
-      var dist = Math.abs(center - trackCenter);
+      var dist = Math.abs(rect.right - trackRect.right);
       if (dist < closestDist) {
         closestDist = dist;
         closest = i;
@@ -606,7 +611,7 @@
     var columns = getColumns();
     if (!columns.length) return;
 
-    var currentIndex = getClosestColumnIndex(columns, track);
+    var currentIndex = getStartAlignedColumnIndex(columns, track);
     var targetIndex = Math.max(0, Math.min(columns.length - 1, currentIndex + direction));
     columns[targetIndex].scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
   }
