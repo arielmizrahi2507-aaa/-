@@ -213,8 +213,11 @@
           if (t.paid) {
             square.classList.add('paid');
             square.textContent = '✓';
-            square.title = 'שולם';
-            square.disabled = true;
+            square.title = 'שולם - לחצו לביטול הסימון';
+            square.addEventListener('click', function (e) {
+              e.stopPropagation();
+              unmarkTransactionPaid(t.id);
+            });
           } else if (t.id === data.overageId) {
             square.classList.add('overage');
             square.textContent = '!';

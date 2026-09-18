@@ -290,6 +290,7 @@ html, body {
 .tx-square.paid {
   background: var(--success);
   border-color: var(--success);
+  cursor: pointer;
 }
 .tx-square.new {
   background: var(--primary);
