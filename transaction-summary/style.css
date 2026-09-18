@@ -439,6 +439,31 @@ html, body {
 }
 .legend-swatch-text { flex: 0 0 auto; font-size: 1rem; margin-top: 1px; }
 
+/* ---------- Fee-exceeds-goal decision + split payments ---------- */
+.decision-options { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+
+.split-rows { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+.split-row { display: flex; align-items: center; gap: 8px; }
+.split-row .split-amount-input {
+  flex: 0 0 100px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.9rem;
+}
+.split-row .split-date-input {
+  flex: 1 1 auto;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 0.9rem;
+}
+.split-total-row { font-size: 0.9rem; margin: 6px 0 4px; }
+#splitCurrentTotal { color: var(--success); }
+#splitCurrentTotal.mismatch { color: var(--danger); }
+
 /* ---------- Mobile ---------- */
 @media (max-width: 700px) {
   html, body { height: auto; overflow: auto; }

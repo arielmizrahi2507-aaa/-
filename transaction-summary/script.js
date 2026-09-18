@@ -16,6 +16,7 @@
   var activeDetailId = null;
   var quickPostponeId = null;
   var pendingConfirmCallback = null;
+  var pendingDraft = null;
 
   // ---------- Persistence ----------
   function loadState() {
@@ -363,23 +364,203 @@
       return;
     }
 
-    var tx = {
+    var draft = { clientName: clientName, type: type, fee: Number(fee), dueDate: dueDate, phone: phone };
+
+    if (draft.fee > state.settings.monthlyGoal) {
+      pendingDraft = draft;
+      closeAddForm();
+      openFeeExceedsGoalModal();
+      return;
+    }
+
+    closeAddForm();
+    createTransactionFromDraft(draft);
+  }
+
+  function buildTransaction(draft) {
+    return {
       id: uid(),
-      clientName: clientName,
-      type: type,
-      fee: Number(fee),
-      dueDate: dueDate,
-      phone: phone,
+      clientName: draft.clientName,
+      type: draft.type,
+      fee: draft.fee,
+      dueDate: draft.dueDate,
+      phone: draft.phone,
       paid: false,
       seen: false,
       createdAt: Date.now()
     };
+  }
 
+  function createTransactionFromDraft(draft) {
+    var tx = buildTransaction(draft);
     state.transactions.push(tx);
     saveTransactions();
-    closeAddForm();
     renderAll();
     scrollToMonthOfDate(tx.dueDate);
+    return tx;
+  }
+
+  // ---------- Single transaction whose fee alone exceeds the monthly goal ----------
+  // Reaching the goal is the whole point of the app, so a transaction that alone
+  // already blows past it at creation time gets a choice up front instead of
+  // silently becoming just another overage flag: change the details, split it
+  // into several smaller payments, or keep it as one transaction (in which case
+  // everything behaves exactly like the regular overage flow already does).
+  function openFeeExceedsGoalModal() {
+    if (!pendingDraft) return;
+    document.getElementById('feeExceedsGoalMessage').textContent =
+      'שכ"ט העסקה (' + formatMoney(pendingDraft.fee) + ') גבוה בעצמו מהיעד החודשי שקבעת (' +
+      formatMoney(state.settings.monthlyGoal) + '). מה תרצה לעשות?';
+    document.getElementById('feeExceedsGoalModal').classList.remove('hidden');
+  }
+
+  function closeFeeExceedsGoalModal() {
+    document.getElementById('feeExceedsGoalModal').classList.add('hidden');
+  }
+
+  function handleChangeDetails() {
+    closeFeeExceedsGoalModal();
+    if (!pendingDraft) return;
+    document.getElementById('clientName').value = pendingDraft.clientName;
+    document.getElementById('type').value = pendingDraft.type;
+    document.getElementById('fee').value = pendingDraft.fee;
+    document.getElementById('dueDate').value = pendingDraft.dueDate;
+    document.getElementById('dueDate').min = currentMonthStartStr();
+    document.getElementById('phone').value = pendingDraft.phone;
+    pendingDraft = null;
+    document.getElementById('addFormModal').classList.remove('hidden');
+    document.getElementById('fee').focus();
+  }
+
+  function handleKeepAsSingle() {
+    closeFeeExceedsGoalModal();
+    if (pendingDraft) createTransactionFromDraft(pendingDraft);
+    pendingDraft = null;
+  }
+
+  function handleChooseSplit() {
+    closeFeeExceedsGoalModal();
+    openSplitPaymentsModal();
+  }
+
+  // ---------- Split payments builder ----------
+  function addMonthsToDateStr(dateStr, n) {
+    var year = Number(dateStr.slice(0, 4));
+    var monthIndex = Number(dateStr.slice(5, 7)) - 1;
+    var target = addMonths(new Date(year, monthIndex, 1), n);
+    return clampDateToMonth(dateStr, target.getFullYear(), target.getMonth());
+  }
+
+  function addSplitRow(amount, dateStr) {
+    var container = document.getElementById('splitRows');
+    var row = document.createElement('div');
+    row.className = 'split-row';
+
+    var amountInput = document.createElement('input');
+    amountInput.type = 'number';
+    amountInput.min = '0';
+    amountInput.step = '1';
+    amountInput.className = 'split-amount-input';
+    amountInput.value = amount != null ? amount : '';
+    amountInput.addEventListener('input', updateSplitTotal);
+    row.appendChild(amountInput);
+
+    var dateInput = document.createElement('input');
+    dateInput.type = 'date';
+    dateInput.className = 'split-date-input';
+    dateInput.min = currentMonthStartStr();
+    dateInput.value = dateStr || '';
+    row.appendChild(dateInput);
+
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'tx-icon-btn delete';
+    removeBtn.title = 'הסרת תשלום';
+    removeBtn.textContent = '✕';
+    removeBtn.addEventListener('click', function () {
+      row.remove();
+      updateSplitTotal();
+    });
+    row.appendChild(removeBtn);
+
+    container.appendChild(row);
+  }
+
+  function updateSplitTotal() {
+    var rows = document.querySelectorAll('#splitRows .split-row');
+    var sum = 0;
+    rows.forEach(function (row) {
+      sum += Number(row.querySelector('.split-amount-input').value) || 0;
+    });
+    var totalEl = document.getElementById('splitCurrentTotal');
+    totalEl.textContent = formatMoney(sum);
+    var matches = pendingDraft && Math.abs(sum - pendingDraft.fee) < 0.01 && rows.length >= 1;
+    totalEl.classList.toggle('mismatch', !matches);
+    document.getElementById('splitError').classList.add('hidden');
+  }
+
+  function openSplitPaymentsModal() {
+    if (!pendingDraft) return;
+    document.getElementById('splitClientLabel').textContent = pendingDraft.clientName;
+    document.getElementById('splitTotalLabel').textContent = formatMoney(pendingDraft.fee);
+    document.getElementById('splitRows').innerHTML = '';
+
+    var firstAmount = Math.round(pendingDraft.fee / 2);
+    var secondAmount = pendingDraft.fee - firstAmount;
+    addSplitRow(firstAmount, pendingDraft.dueDate);
+    addSplitRow(secondAmount, addMonthsToDateStr(pendingDraft.dueDate, 1));
+    updateSplitTotal();
+
+    document.getElementById('splitError').classList.add('hidden');
+    document.getElementById('splitPaymentsModal').classList.remove('hidden');
+  }
+
+  function closeSplitPaymentsModal() {
+    document.getElementById('splitPaymentsModal').classList.add('hidden');
+  }
+
+  function handleBackFromSplit() {
+    closeSplitPaymentsModal();
+    openFeeExceedsGoalModal();
+  }
+
+  function handleConfirmSplit() {
+    if (!pendingDraft) return;
+    var rows = document.querySelectorAll('#splitRows .split-row');
+    var installments = [];
+    var allValid = rows.length >= 1;
+
+    rows.forEach(function (row) {
+      var amount = Number(row.querySelector('.split-amount-input').value);
+      var date = row.querySelector('.split-date-input').value;
+      if (!amount || amount <= 0 || !date || date < currentMonthStartStr()) allValid = false;
+      installments.push({ fee: amount, dueDate: date });
+    });
+
+    var sum = installments.reduce(function (acc, inst) { return acc + (inst.fee || 0); }, 0);
+    if (!allValid || Math.abs(sum - pendingDraft.fee) > 0.01) {
+      document.getElementById('splitError').classList.remove('hidden');
+      return;
+    }
+
+    var draft = pendingDraft;
+    installments.forEach(function (inst, idx) {
+      var tx = buildTransaction({
+        clientName: draft.clientName,
+        type: draft.type,
+        fee: inst.fee,
+        dueDate: inst.dueDate,
+        phone: draft.phone
+      });
+      tx.createdAt = Date.now() + idx;
+      state.transactions.push(tx);
+    });
+    saveTransactions();
+    renderAll();
+    scrollToMonthOfDate(installments[0].dueDate);
+
+    pendingDraft = null;
+    closeSplitPaymentsModal();
   }
 
   // ---------- Detail modal ----------
@@ -724,6 +905,8 @@
     if (e.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) closeConfirmModal();
     else if (!document.getElementById('legendModal').classList.contains('hidden')) closeLegendModal();
+    else if (!document.getElementById('splitPaymentsModal').classList.contains('hidden')) handleBackFromSplit();
+    else if (!document.getElementById('feeExceedsGoalModal').classList.contains('hidden')) handleChangeDetails();
     else if (!document.getElementById('quickPostponeModal').classList.contains('hidden')) closeQuickPostponeModal();
     else if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
     else if (!document.getElementById('detailModal').classList.contains('hidden')) closeDetailModal();
@@ -792,6 +975,18 @@
     document.getElementById('legendBtn').addEventListener('click', openLegendModal);
     document.getElementById('closeLegendModal').addEventListener('click', closeLegendModal);
     bindOverlayDismiss('legendModal', closeLegendModal);
+
+    document.getElementById('closeFeeExceedsGoalModal').addEventListener('click', handleChangeDetails);
+    document.getElementById('changeDetailsBtn').addEventListener('click', handleChangeDetails);
+    document.getElementById('keepAsSingleBtn').addEventListener('click', handleKeepAsSingle);
+    document.getElementById('splitPaymentsBtn').addEventListener('click', handleChooseSplit);
+    bindOverlayDismiss('feeExceedsGoalModal', handleChangeDetails);
+
+    document.getElementById('closeSplitPaymentsModal').addEventListener('click', handleBackFromSplit);
+    document.getElementById('cancelSplitBtn').addEventListener('click', handleBackFromSplit);
+    document.getElementById('addSplitRowBtn').addEventListener('click', function () { addSplitRow(null, pendingDraft ? pendingDraft.dueDate : ''); updateSplitTotal(); });
+    document.getElementById('confirmSplitBtn').addEventListener('click', handleConfirmSplit);
+    bindOverlayDismiss('splitPaymentsModal', handleBackFromSplit);
 
     document.getElementById('scrollForwardBtn').addEventListener('click', function () { scrollMonths(1); });
     document.getElementById('scrollBackBtn').addEventListener('click', function () { scrollMonths(-1); });

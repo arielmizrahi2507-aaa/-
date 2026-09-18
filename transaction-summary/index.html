@@ -170,6 +170,36 @@
   </div>
 </div>
 
+<!-- Fee alone exceeds the monthly goal - what to do -->
+<div id="feeExceedsGoalModal" class="modal-overlay hidden">
+  <div class="modal small">
+    <button type="button" class="modal-close" id="closeFeeExceedsGoalModal">×</button>
+    <p id="feeExceedsGoalMessage" class="move-text"></p>
+    <div class="decision-options">
+      <button type="button" id="splitPaymentsBtn" class="btn-secondary">לפצל לתשלומים</button>
+      <button type="button" id="keepAsSingleBtn" class="btn-secondary">להשאיר כעסקה אחת</button>
+      <button type="button" id="changeDetailsBtn" class="btn-primary">לשנות פרטים</button>
+    </div>
+  </div>
+</div>
+
+<!-- Split payments builder -->
+<div id="splitPaymentsModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeSplitPaymentsModal">×</button>
+    <h2>פיצול לתשלומים</h2>
+    <p class="move-text">לקוח: <strong id="splitClientLabel"></strong> · סה"כ שכ"ט לפיצול: <strong id="splitTotalLabel"></strong></p>
+    <div id="splitRows" class="split-rows"></div>
+    <button type="button" id="addSplitRowBtn" class="link-btn">+ הוספת תשלום נוסף</button>
+    <p class="split-total-row">סה"כ שהוזן: <strong id="splitCurrentTotal">₪0</strong></p>
+    <span id="splitError" class="error-msg-inline hidden">כל תשלום חייב סכום ותאריך תקינים (לא בחודש שעבר), והסכומים חייבים להסתכם בדיוק לסכום המקורי.</span>
+    <div class="form-actions">
+      <button type="button" id="confirmSplitBtn" class="btn-primary">אישור פיצול</button>
+      <button type="button" id="cancelSplitBtn" class="btn-secondary">חזרה</button>
+    </div>
+  </div>
+</div>
+
 <!-- Generic confirm modal (used instead of native confirm()) -->
 <!-- Legend / icon key -->
 <div id="legendModal" class="modal-overlay hidden">
