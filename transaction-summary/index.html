@@ -27,6 +27,12 @@
         <button type="button" data-goal="40000">40,000 ₪</button>
         <button type="button" data-goal="30000">30,000 ₪</button>
         <button type="button" data-goal="20000">20,000 ₪</button>
+        <div class="goal-dropdown-divider"></div>
+        <button type="button" id="customGoalToggle" class="goal-custom-toggle">✏ סכום מותאם אישית</button>
+        <div id="customGoalRow" class="goal-custom-row hidden">
+          <input type="number" id="customGoalInput" min="1" step="1" placeholder="הזן סכום">
+          <button type="button" id="confirmCustomGoalBtn" class="btn-primary small">אישור</button>
+        </div>
       </div>
     </div>
     <div class="yearly-estimate">

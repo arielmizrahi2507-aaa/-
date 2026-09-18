@@ -861,6 +861,7 @@
   // ---------- Goal dropdown ----------
   function toggleGoalDropdown() {
     document.getElementById('goalDropdown').classList.toggle('hidden');
+    resetCustomGoalUI();
   }
 
   function selectGoal(value) {
@@ -868,6 +869,31 @@
     saveSettings();
     document.getElementById('goalDropdown').classList.add('hidden');
     renderAll();
+  }
+
+  function resetCustomGoalUI() {
+    document.getElementById('customGoalToggle').classList.remove('hidden');
+    document.getElementById('customGoalRow').classList.add('hidden');
+  }
+
+  function openCustomGoalInput() {
+    document.getElementById('customGoalToggle').classList.add('hidden');
+    document.getElementById('customGoalRow').classList.remove('hidden');
+    var input = document.getElementById('customGoalInput');
+    input.value = state.settings.monthlyGoal;
+    input.focus();
+    input.select();
+  }
+
+  function confirmCustomGoal() {
+    var input = document.getElementById('customGoalInput');
+    var val = Math.round(Number(input.value));
+    if (!val || val <= 0) {
+      input.focus();
+      return;
+    }
+    selectGoal(val);
+    resetCustomGoalUI();
   }
 
   // ---------- Months navigation ----------
@@ -974,14 +1000,20 @@
     });
 
     document.getElementById('goalValue').addEventListener('click', toggleGoalDropdown);
-    document.querySelectorAll('#goalDropdown button').forEach(function (btn) {
+    document.querySelectorAll('#goalDropdown button[data-goal]').forEach(function (btn) {
       btn.addEventListener('click', function () { selectGoal(Number(btn.dataset.goal)); });
+    });
+    document.getElementById('customGoalToggle').addEventListener('click', openCustomGoalInput);
+    document.getElementById('confirmCustomGoalBtn').addEventListener('click', confirmCustomGoal);
+    document.getElementById('customGoalInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); confirmCustomGoal(); }
     });
     document.addEventListener('click', function (e) {
       var wrap = document.getElementById('goalDropdown');
       var trigger = document.getElementById('goalValue');
       if (!wrap.classList.contains('hidden') && !wrap.contains(e.target) && e.target !== trigger) {
         wrap.classList.add('hidden');
+        resetCustomGoalUI();
       }
     });
 

@@ -156,11 +156,11 @@ html, body {
   z-index: 20;
   display: flex;
   flex-direction: column;
-  min-width: 140px;
+  min-width: 210px;
   overflow: hidden;
 }
 
-.goal-dropdown button {
+.goal-dropdown > button {
   background: none;
   border: none;
   text-align: right;
@@ -168,7 +168,26 @@ html, body {
   font-size: 0.9rem;
   cursor: pointer;
 }
-.goal-dropdown button:hover { background: #f0f3fa; }
+.goal-dropdown > button:hover { background: #f0f3fa; }
+
+.goal-dropdown-divider { border-top: 1px solid var(--border); margin: 2px 0; }
+
+.goal-custom-toggle { color: var(--primary); }
+
+.goal-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px 12px;
+}
+.goal-custom-row input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
 
 .yearly-estimate {
   font-size: 0.85rem;
