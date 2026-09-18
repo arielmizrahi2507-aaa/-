@@ -195,6 +195,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 10px;
   padding-bottom: 10px;
   flex: 0 0 auto;
@@ -421,6 +422,21 @@ html, body {
 .move-option-btn.good-fit { border-color: var(--success); color: var(--success); }
 .move-option-btn.still-over { border-color: var(--warning); color: var(--warning); }
 .move-option-badge { font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
+
+/* ---------- Legend ---------- */
+.legend-btn { font-weight: 600; }
+.legend-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.legend-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.85rem; line-height: 1.4; color: var(--text); }
+.legend-list li div { flex: 1 1 auto; }
+.legend-list li strong { font-size: 0.85rem; }
+.legend-swatch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+.legend-swatch-text { flex: 0 0 auto; font-size: 1rem; margin-top: 1px; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 700px) {

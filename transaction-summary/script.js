@@ -573,6 +573,15 @@
     document.getElementById('moveModal').classList.add('hidden');
   }
 
+  // ---------- Legend ----------
+  function openLegendModal() {
+    document.getElementById('legendModal').classList.remove('hidden');
+  }
+
+  function closeLegendModal() {
+    document.getElementById('legendModal').classList.add('hidden');
+  }
+
   // ---------- Quick postpone modal (inline row action) ----------
   function openQuickPostponeModal(id) {
     var t = state.transactions.find(function (x) { return x.id === id; });
@@ -711,6 +720,7 @@
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
     if (!document.getElementById('confirmModal').classList.contains('hidden')) closeConfirmModal();
+    else if (!document.getElementById('legendModal').classList.contains('hidden')) closeLegendModal();
     else if (!document.getElementById('quickPostponeModal').classList.contains('hidden')) closeQuickPostponeModal();
     else if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
     else if (!document.getElementById('detailModal').classList.contains('hidden')) closeDetailModal();
@@ -775,6 +785,10 @@
     document.getElementById('confirmNoBtn').addEventListener('click', closeConfirmModal);
     document.getElementById('closeConfirmModal').addEventListener('click', closeConfirmModal);
     bindOverlayDismiss('confirmModal', closeConfirmModal);
+
+    document.getElementById('legendBtn').addEventListener('click', openLegendModal);
+    document.getElementById('closeLegendModal').addEventListener('click', closeLegendModal);
+    bindOverlayDismiss('legendModal', closeLegendModal);
 
     document.getElementById('scrollForwardBtn').addEventListener('click', function () { scrollMonths(1); });
     document.getElementById('scrollBackBtn').addEventListener('click', function () { scrollMonths(-1); });
