@@ -17,6 +17,7 @@
   var quickPostponeId = null;
   var pendingConfirmCallback = null;
   var pendingDraft = null;
+  var splitSourceTxId = null;
 
   // ---------- Persistence ----------
   function loadState() {
@@ -126,12 +127,16 @@
     // unpaid transaction at or after the point the goal is crossed. Otherwise,
     // paying off the one transaction the flag happened to land on would silently
     // clear the whole month's warning even though the remaining unpaid total
-    // still exceeds the goal.
+    // still exceeds the goal. A transaction whose own fee already exceeds the
+    // goal is excluded the same way - moving it to another month can never help
+    // (it would exceed the goal there too), so it gets its own solo-overage
+    // indicator and a split-into-payments offer instead of a move suggestion.
     var cumulative = 0;
     var overageId = null;
     for (var i = 0; i < list.length; i++) {
       cumulative += Number(list[i].fee) || 0;
-      if (cumulative > state.settings.monthlyGoal && overageId === null && !list[i].paid) {
+      if (cumulative > state.settings.monthlyGoal && overageId === null &&
+          !list[i].paid && Number(list[i].fee) <= state.settings.monthlyGoal) {
         overageId = list[i].id;
       }
     }
@@ -218,6 +223,14 @@
             square.addEventListener('click', function (e) {
               e.stopPropagation();
               unmarkTransactionPaid(t.id);
+            });
+          } else if (Number(t.fee) > state.settings.monthlyGoal) {
+            square.classList.add('overage');
+            square.textContent = '!';
+            square.title = 'שכ"ט העסקה בעצמו חורג מהיעד החודשי - לחצו לפרטים';
+            square.addEventListener('click', function (e) {
+              e.stopPropagation();
+              openSoloOverageModal(t);
             });
           } else if (t.id === data.overageId) {
             square.classList.add('overage');
@@ -476,6 +489,7 @@
 
   function handleChooseSplit() {
     closeFeeExceedsGoalModal();
+    splitSourceTxId = null;
     openSplitPaymentsModal();
   }
 
@@ -557,6 +571,13 @@
 
   function handleBackFromSplit() {
     closeSplitPaymentsModal();
+    if (splitSourceTxId) {
+      var t = state.transactions.find(function (x) { return x.id === splitSourceTxId; });
+      if (t) { openSoloOverageModal(t); return; }
+      splitSourceTxId = null;
+      pendingDraft = null;
+      return;
+    }
     openFeeExceedsGoalModal();
   }
 
@@ -580,6 +601,11 @@
     }
 
     var draft = pendingDraft;
+
+    if (splitSourceTxId) {
+      state.transactions = state.transactions.filter(function (x) { return x.id !== splitSourceTxId; });
+    }
+
     installments.forEach(function (inst, idx) {
       var tx = buildTransaction({
         clientName: draft.clientName,
@@ -596,6 +622,7 @@
     scrollToMonthOfDate(installments[0].dueDate);
 
     pendingDraft = null;
+    splitSourceTxId = null;
     closeSplitPaymentsModal();
   }
 
@@ -793,6 +820,34 @@
     document.getElementById('moveModal').classList.add('hidden');
   }
 
+  // ---------- Solo overage (an existing transaction whose own fee exceeds goal) ----------
+  var soloOverageTxId = null;
+
+  function openSoloOverageModal(t) {
+    soloOverageTxId = t.id;
+    document.getElementById('soloOverageMessage').textContent =
+      'שכ"ט העסקה של ' + t.clientName + ' (' + formatMoney(t.fee) + ') גבוה בעצמו מהיעד החודשי (' +
+      formatMoney(state.settings.monthlyGoal) + '). מה תרצה לעשות?';
+    document.getElementById('soloOverageModal').classList.remove('hidden');
+  }
+
+  function closeSoloOverageModal() {
+    document.getElementById('soloOverageModal').classList.add('hidden');
+    soloOverageTxId = null;
+    splitSourceTxId = null;
+    pendingDraft = null;
+  }
+
+  function handleSoloSplit() {
+    var t = state.transactions.find(function (x) { return x.id === soloOverageTxId; });
+    document.getElementById('soloOverageModal').classList.add('hidden');
+    soloOverageTxId = null;
+    if (!t) return;
+    pendingDraft = { clientName: t.clientName, type: t.type, fee: t.fee, dueDate: t.dueDate, phone: t.phone };
+    splitSourceTxId = t.id;
+    openSplitPaymentsModal();
+  }
+
   // ---------- Legend ----------
   function openLegendModal() {
     document.getElementById('legendModal').classList.remove('hidden');
@@ -968,6 +1023,7 @@
     if (!document.getElementById('confirmModal').classList.contains('hidden')) closeConfirmModal();
     else if (!document.getElementById('legendModal').classList.contains('hidden')) closeLegendModal();
     else if (!document.getElementById('splitPaymentsModal').classList.contains('hidden')) handleBackFromSplit();
+    else if (!document.getElementById('soloOverageModal').classList.contains('hidden')) closeSoloOverageModal();
     else if (!document.getElementById('feeExceedsGoalModal').classList.contains('hidden')) handleChangeDetails();
     else if (!document.getElementById('quickPostponeModal').classList.contains('hidden')) closeQuickPostponeModal();
     else if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
@@ -1029,6 +1085,11 @@
     document.getElementById('closeMoveModal').addEventListener('click', closeMoveModal);
     document.getElementById('dontMoveBtn').addEventListener('click', closeMoveModal);
     bindOverlayDismiss('moveModal', closeMoveModal);
+
+    document.getElementById('closeSoloOverageModal').addEventListener('click', closeSoloOverageModal);
+    document.getElementById('soloLeaveBtn').addEventListener('click', closeSoloOverageModal);
+    document.getElementById('soloSplitBtn').addEventListener('click', handleSoloSplit);
+    bindOverlayDismiss('soloOverageModal', closeSoloOverageModal);
 
     document.getElementById('closeQuickPostponeModal').addEventListener('click', closeQuickPostponeModal);
     document.getElementById('cancelQuickPostponeBtn').addEventListener('click', closeQuickPostponeModal);
