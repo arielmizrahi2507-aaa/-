@@ -396,7 +396,38 @@
     };
   }
 
+  // Standing rule: a payment can be billed anywhere from its estimated month up to
+  // two months later. New transactions are placed automatically within that
+  // 3-month window to keep every month as close as possible to the monthly goal -
+  // preferring the earliest month that doesn't push itself over the goal, or (if
+  // none of the three qualify) whichever of the three ends up least over. Once
+  // placed this way, a transaction is never moved again automatically - only the
+  // user's own explicit actions (postpone, or a move suggestion they pick) change
+  // it after that, since the client may already have been told the date.
+  function pickBestMonthForFee(originalDueDate, fee) {
+    var baseYear = Number(originalDueDate.slice(0, 4));
+    var baseMonthIndex = Number(originalDueDate.slice(5, 7)) - 1;
+    var goal = state.settings.monthlyGoal;
+
+    var fallback = null;
+    for (var n = 0; n <= 2; n++) {
+      var d = addMonths(new Date(baseYear, baseMonthIndex, 1), n);
+      var year = d.getFullYear();
+      var monthIndex = d.getMonth();
+      var projected = computeMonthData(year, monthIndex).total + fee;
+
+      if (projected <= goal) {
+        return clampDateToMonth(originalDueDate, year, monthIndex);
+      }
+      if (!fallback || projected < fallback.projected) {
+        fallback = { year: year, monthIndex: monthIndex, projected: projected };
+      }
+    }
+    return clampDateToMonth(originalDueDate, fallback.year, fallback.monthIndex);
+  }
+
   function createTransactionFromDraft(draft) {
+    draft.dueDate = pickBestMonthForFee(draft.dueDate, draft.fee);
     var tx = buildTransaction(draft);
     state.transactions.push(tx);
     saveTransactions();
