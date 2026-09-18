@@ -131,6 +131,7 @@
       <label for="postponeDate">תאריך חדש</label>
       <input type="date" id="postponeDate">
       <button type="button" id="confirmPostponeBtn" class="btn-primary small">אישור</button>
+      <span id="postponeError" class="error-msg-inline hidden">לא ניתן לדחות עסקה לתאריך שכבר עבר</span>
     </div>
 
     <button type="button" id="deleteTransactionBtn" class="link-btn danger">מחיקת עסקה</button>
@@ -155,10 +156,23 @@
     <div class="field" id="field-quickPostponeDate">
       <label for="quickPostponeDate">תאריך חדש</label>
       <input type="date" id="quickPostponeDate">
+      <span id="quickPostponeError" class="error-msg-inline hidden">לא ניתן לדחות עסקה לתאריך שכבר עבר</span>
     </div>
     <div class="form-actions">
       <button type="button" id="confirmQuickPostponeBtn" class="btn-primary">אישור</button>
       <button type="button" id="cancelQuickPostponeBtn" class="btn-secondary">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic confirm modal (used instead of native confirm()) -->
+<div id="confirmModal" class="modal-overlay hidden">
+  <div class="modal small">
+    <button type="button" class="modal-close" id="closeConfirmModal">×</button>
+    <p id="confirmMessage" class="move-text"></p>
+    <div class="form-actions">
+      <button type="button" id="confirmYesBtn" class="btn-primary">אישור</button>
+      <button type="button" id="confirmNoBtn" class="btn-secondary">ביטול</button>
     </div>
   </div>
 </div>

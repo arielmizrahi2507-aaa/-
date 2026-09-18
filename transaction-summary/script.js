@@ -15,6 +15,7 @@
 
   var activeDetailId = null;
   var quickPostponeId = null;
+  var pendingConfirmCallback = null;
 
   // ---------- Persistence ----------
   function loadState() {
@@ -204,7 +205,7 @@
             square.title = 'חריגה מהיעד החודשי - לחצו לפרטים';
             square.addEventListener('click', function (e) {
               e.stopPropagation();
-              openMoveModal(t, year, monthIndex);
+              openMoveModal(t);
             });
           } else if (!t.seen) {
             square.classList.add('new');
@@ -393,30 +394,32 @@
     return state.transactions.find(function (x) { return x.id === activeDetailId; });
   }
 
-  function markTransactionPaid(id) {
+  function markTransactionPaid(id, onDone) {
     var t = state.transactions.find(function (x) { return x.id === id; });
-    if (!t) return false;
-    if (!window.confirm('לאשר שקיבלת את התשלום מ' + t.clientName + '?')) return false;
-    t.paid = true;
-    t.seen = true;
-    saveTransactions();
-    renderAll();
-    return true;
+    if (!t) return;
+    showConfirm('לאשר שקיבלת את התשלום מ' + t.clientName + '?', function () {
+      t.paid = true;
+      t.seen = true;
+      saveTransactions();
+      renderAll();
+      if (onDone) onDone();
+    });
   }
 
-  function deleteTransactionById(id) {
+  function deleteTransactionById(id, onDone) {
     var t = state.transactions.find(function (x) { return x.id === id; });
-    if (!t) return false;
-    if (!window.confirm('למחוק את העסקה של ' + t.clientName + '?')) return false;
-    state.transactions = state.transactions.filter(function (x) { return x.id !== id; });
-    saveTransactions();
-    renderAll();
-    return true;
+    if (!t) return;
+    showConfirm('למחוק את העסקה של ' + t.clientName + '?', function () {
+      state.transactions = state.transactions.filter(function (x) { return x.id !== id; });
+      saveTransactions();
+      renderAll();
+      if (onDone) onDone();
+    });
   }
 
   function handleMarkPaid() {
     if (!activeDetailId) return;
-    if (markTransactionPaid(activeDetailId)) closeDetailModal();
+    markTransactionPaid(activeDetailId, closeDetailModal);
   }
 
   function handleEditFeeToggle() {
@@ -445,6 +448,8 @@
     var dateInput = document.getElementById('postponeDate');
     dateInput.min = minDate;
     dateInput.value = t.dueDate < minDate ? minDate : t.dueDate;
+    var errEl = document.getElementById('postponeError');
+    if (errEl) errEl.classList.add('hidden');
     document.getElementById('postponeRow').classList.remove('hidden');
   }
 
@@ -453,10 +458,12 @@
     if (!t) return;
     var newDate = document.getElementById('postponeDate').value;
     if (!newDate) return;
+    var errEl = document.getElementById('postponeError');
     if (newDate < todayDateStr()) {
-      window.alert('לא ניתן לדחות עסקה לתאריך שכבר עבר');
+      if (errEl) errEl.classList.remove('hidden');
       return;
     }
+    if (errEl) errEl.classList.add('hidden');
     t.dueDate = newDate;
     t.seen = true;
     saveTransactions();
@@ -467,17 +474,18 @@
 
   function handleDeleteTransaction() {
     if (!activeDetailId) return;
-    if (deleteTransactionById(activeDetailId)) closeDetailModal();
+    deleteTransactionById(activeDetailId, closeDetailModal);
   }
 
   // ---------- Overage move modal ----------
-  function openMoveModal(t, year, monthIndex) {
+  function openMoveModal(t) {
     var optionsEl = document.getElementById('moveOptions');
     optionsEl.innerHTML = '';
+    var base = todayMonthStart();
 
     for (var n = 1; n <= 2; n++) {
       (function (n) {
-        var d = addMonths(new Date(year, monthIndex, 1), n);
+        var d = addMonths(base, n);
         var btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'btn-secondary';
@@ -512,6 +520,8 @@
     var dateInput = document.getElementById('quickPostponeDate');
     dateInput.min = minDate;
     dateInput.value = t.dueDate < minDate ? minDate : t.dueDate;
+    var errEl = document.getElementById('quickPostponeError');
+    if (errEl) errEl.classList.add('hidden');
     document.getElementById('quickPostponeModal').classList.remove('hidden');
   }
 
@@ -525,16 +535,36 @@
     if (!t) return;
     var newDate = document.getElementById('quickPostponeDate').value;
     if (!newDate) return;
+    var errEl = document.getElementById('quickPostponeError');
     if (newDate < todayDateStr()) {
-      window.alert('לא ניתן לדחות עסקה לתאריך שכבר עבר');
+      if (errEl) errEl.classList.remove('hidden');
       return;
     }
+    if (errEl) errEl.classList.add('hidden');
     t.dueDate = newDate;
     t.seen = true;
     saveTransactions();
     closeQuickPostponeModal();
     renderAll();
     scrollToMonthOfDate(newDate);
+  }
+
+  // ---------- Generic confirm modal (custom UI - native confirm()/alert() are blocked when this page runs inside a sandboxed viewer) ----------
+  function showConfirm(message, onConfirm) {
+    document.getElementById('confirmMessage').textContent = message;
+    pendingConfirmCallback = onConfirm;
+    document.getElementById('confirmModal').classList.remove('hidden');
+  }
+
+  function closeConfirmModal() {
+    document.getElementById('confirmModal').classList.add('hidden');
+    pendingConfirmCallback = null;
+  }
+
+  function handleConfirmYes() {
+    var cb = pendingConfirmCallback;
+    closeConfirmModal();
+    if (cb) cb();
   }
 
   // ---------- Goal dropdown ----------
@@ -613,7 +643,8 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (!document.getElementById('quickPostponeModal').classList.contains('hidden')) closeQuickPostponeModal();
+    if (!document.getElementById('confirmModal').classList.contains('hidden')) closeConfirmModal();
+    else if (!document.getElementById('quickPostponeModal').classList.contains('hidden')) closeQuickPostponeModal();
     else if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
     else if (!document.getElementById('detailModal').classList.contains('hidden')) closeDetailModal();
     else if (!document.getElementById('addFormModal').classList.contains('hidden')) closeAddForm();
@@ -672,6 +703,11 @@
     document.getElementById('cancelQuickPostponeBtn').addEventListener('click', closeQuickPostponeModal);
     document.getElementById('confirmQuickPostponeBtn').addEventListener('click', handleQuickPostponeConfirm);
     bindOverlayDismiss('quickPostponeModal', closeQuickPostponeModal);
+
+    document.getElementById('confirmYesBtn').addEventListener('click', handleConfirmYes);
+    document.getElementById('confirmNoBtn').addEventListener('click', closeConfirmModal);
+    document.getElementById('closeConfirmModal').addEventListener('click', closeConfirmModal);
+    bindOverlayDismiss('confirmModal', closeConfirmModal);
 
     document.getElementById('scrollForwardBtn').addEventListener('click', function () { scrollMonths(1); });
     document.getElementById('scrollBackBtn').addEventListener('click', function () { scrollMonths(-1); });
