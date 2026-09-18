@@ -18,6 +18,7 @@
   var pendingConfirmCallback = null;
   var pendingDraft = null;
   var splitSourceTxId = null;
+  var splitOrigin = null; // 'feeExceedsGoal' | 'solo' | 'detail' | 'quick'
 
   // ---------- Persistence ----------
   function loadState() {
@@ -490,6 +491,7 @@
   function handleChooseSplit() {
     closeFeeExceedsGoalModal();
     splitSourceTxId = null;
+    splitOrigin = 'feeExceedsGoal';
     openSplitPaymentsModal();
   }
 
@@ -571,14 +573,20 @@
 
   function handleBackFromSplit() {
     closeSplitPaymentsModal();
-    if (splitSourceTxId) {
-      var t = state.transactions.find(function (x) { return x.id === splitSourceTxId; });
-      if (t) { openSoloOverageModal(t); return; }
-      splitSourceTxId = null;
+    var origin = splitOrigin;
+    var t = splitSourceTxId ? state.transactions.find(function (x) { return x.id === splitSourceTxId; }) : null;
+
+    if (t && origin === 'solo') { openSoloOverageModal(t); return; }
+    if (t && origin === 'detail') { openDetailModal(t.id); return; }
+    if (t && origin === 'quick') { openQuickPostponeModal(t.id); return; }
+
+    splitSourceTxId = null;
+    splitOrigin = null;
+    if (origin === 'feeExceedsGoal' && pendingDraft) {
+      openFeeExceedsGoalModal();
+    } else {
       pendingDraft = null;
-      return;
     }
-    openFeeExceedsGoalModal();
   }
 
   function handleConfirmSplit() {
@@ -623,6 +631,7 @@
 
     pendingDraft = null;
     splitSourceTxId = null;
+    splitOrigin = null;
     closeSplitPaymentsModal();
   }
 
@@ -867,6 +876,7 @@
     document.getElementById('soloOverageModal').classList.add('hidden');
     soloOverageTxId = null;
     splitSourceTxId = null;
+    splitOrigin = null;
     pendingDraft = null;
   }
 
@@ -877,6 +887,27 @@
     if (!t) return;
     pendingDraft = { clientName: t.clientName, type: t.type, fee: t.fee, dueDate: t.dueDate, phone: t.phone };
     splitSourceTxId = t.id;
+    splitOrigin = 'solo';
+    openSplitPaymentsModal();
+  }
+
+  function handleSplitFromDetail() {
+    var t = getActiveTx();
+    if (!t) return;
+    closeDetailModal();
+    pendingDraft = { clientName: t.clientName, type: t.type, fee: t.fee, dueDate: t.dueDate, phone: t.phone };
+    splitSourceTxId = t.id;
+    splitOrigin = 'detail';
+    openSplitPaymentsModal();
+  }
+
+  function handleSplitFromQuickPostpone() {
+    var t = state.transactions.find(function (x) { return x.id === quickPostponeId; });
+    if (!t) return;
+    closeQuickPostponeModal();
+    pendingDraft = { clientName: t.clientName, type: t.type, fee: t.fee, dueDate: t.dueDate, phone: t.phone };
+    splitSourceTxId = t.id;
+    splitOrigin = 'quick';
     openSplitPaymentsModal();
   }
 
@@ -1111,6 +1142,7 @@
     document.getElementById('saveFeeBtn').addEventListener('click', handleSaveFee);
     document.getElementById('postponeBtn').addEventListener('click', handlePostponeToggle);
     document.getElementById('confirmPostponeBtn').addEventListener('click', handleConfirmPostpone);
+    document.getElementById('splitFromDetailBtn').addEventListener('click', handleSplitFromDetail);
     document.getElementById('deleteTransactionBtn').addEventListener('click', handleDeleteTransaction);
     bindOverlayDismiss('detailModal', closeDetailModal);
 
@@ -1126,6 +1158,7 @@
     document.getElementById('closeQuickPostponeModal').addEventListener('click', closeQuickPostponeModal);
     document.getElementById('cancelQuickPostponeBtn').addEventListener('click', closeQuickPostponeModal);
     document.getElementById('confirmQuickPostponeBtn').addEventListener('click', handleQuickPostponeConfirm);
+    document.getElementById('splitFromQuickBtn').addEventListener('click', handleSplitFromQuickPostpone);
     bindOverlayDismiss('quickPostponeModal', closeQuickPostponeModal);
 
     document.getElementById('confirmYesBtn').addEventListener('click', handleConfirmYes);
