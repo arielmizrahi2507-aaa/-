@@ -33,7 +33,10 @@ html, body {
 
 /* ---------- Clock bar ---------- */
 .clock-bar {
-  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   padding: 6px 16px;
   font-size: 0.8rem;
   color: var(--muted);
@@ -41,6 +44,20 @@ html, body {
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
 }
+
+.refresh-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  width: 22px;
+  height: 22px;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 0;
+}
+.refresh-btn:hover { background: #eef2fb; color: var(--primary); border-color: var(--primary); }
 
 /* ---------- Header ---------- */
 .header-main {

@@ -9,7 +9,10 @@
 <body>
 <div class="app">
 
-  <div class="clock-bar"><span id="clock"></span></div>
+  <div class="clock-bar">
+    <button type="button" id="refreshBtn" class="refresh-btn" title="רענון">⟳</button>
+    <span id="clock"></span>
+  </div>
 
   <header class="header-main">
     <button id="addTransactionBtn" class="btn-primary">+ הוסף עסקה</button>
@@ -224,7 +227,7 @@
     <button type="button" class="modal-close" id="closeLegendModal">×</button>
     <h2>מקרא סימנים</h2>
     <ul class="legend-list">
-      <li><span class="tx-square new legend-swatch">!</span> <div><strong>עסקה חדשה</strong><br>עסקה שעוד לא נכנסת לפרטים שלה. הסימון נעלם ברגע שתפתח את פרטי העסקה.</div></li>
+      <li><span class="tx-square new legend-swatch">!</span> <div><strong>עסקה חדשה, או שהמערכת הזיזה אותה אוטומטית</strong><br>עסקה שעוד לא נכנסת לפרטים שלה - כולל עסקה שהועברה אוטומטית לחודש אחר כדי לשמור על היעדים. הסימון נעלם ברגע שתפתח את פרטי העסקה.</div></li>
       <li><span class="tx-square overage legend-swatch">!</span> <div><strong>חריגה מהיעד החודשי</strong><br>העסקה הזו גורמת לחודש לחרוג מהיעד שקבעת. אם השכ"ט של העסקה עצמה גבוה מהיעד, לחיצה תציע לפצל אותה לתשלומים; אחרת, תוצע העברה לחודש אחר.</div></li>
       <li><span class="tx-square paid legend-swatch">✓</span> <div><strong>שולם</strong><br>כבר קיבלת את הכסף עבור העסקה הזו. אפשר לבטל את הסימון בלי למחוק את העסקה.</div></li>
       <li><span class="month-warning legend-swatch-text">⚠</span> <div><strong>ליד שם חודש</strong><br>אחד משני החודשים הקרובים עדיין לא הגיע ליעד ההכנסה החודשי.</div></li>

@@ -687,11 +687,43 @@
     });
   }
 
+  // If deleting a transaction leaves its month under goal, pull in an unpaid
+  // transaction from one of the next two months that's currently contributing
+  // to an overage there - but only if it fits under goal in the freed month
+  // too. Moves at most one transaction, and marks it unseen (the blue "!") so
+  // the change is visible rather than silent, since it wasn't the user's own
+  // explicit action.
+  function rebalanceAfterDelete(freedYear, freedMonthIndex) {
+    var goal = state.settings.monthlyGoal;
+    var freedTotal = computeMonthData(freedYear, freedMonthIndex).total;
+    if (freedTotal >= goal) return;
+    var room = goal - freedTotal;
+
+    for (var n = 1; n <= 2; n++) {
+      var d = addMonths(new Date(freedYear, freedMonthIndex, 1), n);
+      var candidateData = computeMonthData(d.getFullYear(), d.getMonth());
+      if (candidateData.total <= goal) continue;
+
+      for (var i = 0; i < candidateData.list.length; i++) {
+        var cand = candidateData.list[i];
+        if (cand.paid) continue;
+        if (Number(cand.fee) <= room) {
+          cand.dueDate = clampDateToMonth(cand.dueDate, freedYear, freedMonthIndex);
+          cand.seen = false;
+          return;
+        }
+      }
+    }
+  }
+
   function deleteTransactionById(id, onDone) {
     var t = state.transactions.find(function (x) { return x.id === id; });
     if (!t) return;
     showConfirm('למחוק את העסקה של ' + t.clientName + '?', function () {
+      var freedYear = Number(t.dueDate.slice(0, 4));
+      var freedMonthIndex = Number(t.dueDate.slice(5, 7)) - 1;
       state.transactions = state.transactions.filter(function (x) { return x.id !== id; });
+      rebalanceAfterDelete(freedYear, freedMonthIndex);
       saveTransactions();
       renderAll();
       if (onDone) onDone();
@@ -1120,6 +1152,8 @@
     document.getElementById('scrollForwardBtn').addEventListener('click', function () { scrollMonths(1); });
     document.getElementById('scrollBackBtn').addEventListener('click', function () { scrollMonths(-1); });
     document.getElementById('todayBtn').addEventListener('click', goToToday);
+
+    document.getElementById('refreshBtn').addEventListener('click', function () { location.reload(); });
   }
 
   function init() {
