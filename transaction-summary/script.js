@@ -14,6 +14,7 @@
   };
 
   var activeDetailId = null;
+  var quickPostponeId = null;
 
   // ---------- Persistence ----------
   function loadState() {
@@ -25,6 +26,10 @@
     } catch (e) {
       console.error('שגיאה בטעינת נתונים שמורים', e);
     }
+    // transactions saved before the "new" indicator existed are treated as already seen
+    state.transactions.forEach(function (t) {
+      if (t.seen === undefined) t.seen = true;
+    });
   }
 
   function saveTransactions() {
@@ -43,6 +48,18 @@
   function todayMonthStart() {
     var d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+
+  function todayDateStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  function currentMonthStartStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-01';
   }
 
   function monthKey(year, monthIndex) {
@@ -189,6 +206,11 @@
               e.stopPropagation();
               openMoveModal(t, year, monthIndex);
             });
+          } else if (!t.seen) {
+            square.classList.add('new');
+            square.textContent = '!';
+            square.title = 'עסקה חדשה';
+            square.disabled = true;
           } else {
             square.disabled = true;
           }
@@ -200,6 +222,48 @@
           nameBtn.textContent = t.clientName;
           nameBtn.addEventListener('click', function () { openDetailModal(t.id); });
           row.appendChild(nameBtn);
+
+          var actions = document.createElement('div');
+          actions.className = 'tx-actions';
+
+          var paidBtn = document.createElement('button');
+          paidBtn.type = 'button';
+          paidBtn.className = 'tx-icon-btn paid';
+          paidBtn.title = 'קיבלתי את הכסף';
+          paidBtn.textContent = '✓';
+          if (t.paid) {
+            paidBtn.disabled = true;
+          } else {
+            paidBtn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              markTransactionPaid(t.id);
+            });
+          }
+          actions.appendChild(paidBtn);
+
+          var postponeBtnEl = document.createElement('button');
+          postponeBtnEl.type = 'button';
+          postponeBtnEl.className = 'tx-icon-btn postpone';
+          postponeBtnEl.title = 'לדחות תשלום';
+          postponeBtnEl.textContent = '⏱';
+          postponeBtnEl.addEventListener('click', function (e) {
+            e.stopPropagation();
+            openQuickPostponeModal(t.id);
+          });
+          actions.appendChild(postponeBtnEl);
+
+          var deleteBtnEl = document.createElement('button');
+          deleteBtnEl.type = 'button';
+          deleteBtnEl.className = 'tx-icon-btn delete';
+          deleteBtnEl.title = 'מחיקת עסקה';
+          deleteBtnEl.textContent = '✕';
+          deleteBtnEl.addEventListener('click', function (e) {
+            e.stopPropagation();
+            deleteTransactionById(t.id);
+          });
+          actions.appendChild(deleteBtnEl);
+
+          row.appendChild(actions);
 
           listEl.appendChild(row);
         });
@@ -219,6 +283,7 @@
   function openAddForm() {
     document.getElementById('transactionForm').reset();
     clearFormErrors();
+    document.getElementById('dueDate').min = currentMonthStartStr();
     document.getElementById('addFormModal').classList.remove('hidden');
     document.getElementById('clientName').focus();
   }
@@ -228,11 +293,23 @@
   }
 
   function clearFormErrors() {
-    document.querySelectorAll('#addFormModal .field').forEach(function (f) { f.classList.remove('invalid'); });
+    document.querySelectorAll('#addFormModal .field').forEach(function (f) {
+      f.classList.remove('invalid');
+      var msg = f.querySelector('.error-msg');
+      if (msg && msg.dataset.defaultMsg) msg.textContent = msg.dataset.defaultMsg;
+    });
   }
 
-  function markInvalid(fieldId) {
-    document.getElementById('field-' + fieldId).classList.add('invalid');
+  function markInvalid(fieldId, message) {
+    var field = document.getElementById('field-' + fieldId);
+    field.classList.add('invalid');
+    if (message) {
+      var msg = field.querySelector('.error-msg');
+      if (msg) {
+        if (!msg.dataset.defaultMsg) msg.dataset.defaultMsg = msg.textContent;
+        msg.textContent = message;
+      }
+    }
   }
 
   function handleAddSubmit(e) {
@@ -248,7 +325,13 @@
     var firstInvalid = null;
     if (!clientName) { markInvalid('clientName'); firstInvalid = firstInvalid || 'clientName'; }
     if (!fee) { markInvalid('fee'); firstInvalid = firstInvalid || 'fee'; }
-    if (!dueDate) { markInvalid('dueDate'); firstInvalid = firstInvalid || 'dueDate'; }
+    if (!dueDate) {
+      markInvalid('dueDate');
+      firstInvalid = firstInvalid || 'dueDate';
+    } else if (dueDate < currentMonthStartStr()) {
+      markInvalid('dueDate', 'לא ניתן לבחור חודש שכבר עבר');
+      firstInvalid = firstInvalid || 'dueDate';
+    }
 
     if (firstInvalid) {
       document.getElementById(firstInvalid).focus();
@@ -263,6 +346,7 @@
       dueDate: dueDate,
       phone: phone,
       paid: false,
+      seen: false,
       createdAt: Date.now()
     };
 
@@ -278,6 +362,12 @@
     activeDetailId = id;
     var t = state.transactions.find(function (x) { return x.id === id; });
     if (!t) return;
+
+    if (!t.seen) {
+      t.seen = true;
+      saveTransactions();
+      renderMonths();
+    }
 
     document.getElementById('detailClientName').textContent = t.clientName;
     document.getElementById('detailType').textContent = t.type || '—';
@@ -303,13 +393,29 @@
     return state.transactions.find(function (x) { return x.id === activeDetailId; });
   }
 
-  function handleMarkPaid() {
-    var t = getActiveTx();
+  function markTransactionPaid(id) {
+    var t = state.transactions.find(function (x) { return x.id === id; });
     if (!t) return;
     t.paid = true;
+    t.seen = true;
     saveTransactions();
-    closeDetailModal();
     renderAll();
+  }
+
+  function deleteTransactionById(id) {
+    var t = state.transactions.find(function (x) { return x.id === id; });
+    if (!t) return false;
+    if (!window.confirm('למחוק את העסקה של ' + t.clientName + '?')) return false;
+    state.transactions = state.transactions.filter(function (x) { return x.id !== id; });
+    saveTransactions();
+    renderAll();
+    return true;
+  }
+
+  function handleMarkPaid() {
+    if (!activeDetailId) return;
+    markTransactionPaid(activeDetailId);
+    closeDetailModal();
   }
 
   function handleEditFeeToggle() {
@@ -334,7 +440,10 @@
   function handlePostponeToggle() {
     var t = getActiveTx();
     if (!t) return;
-    document.getElementById('postponeDate').value = t.dueDate;
+    var minDate = todayDateStr();
+    var dateInput = document.getElementById('postponeDate');
+    dateInput.min = minDate;
+    dateInput.value = t.dueDate < minDate ? minDate : t.dueDate;
     document.getElementById('postponeRow').classList.remove('hidden');
   }
 
@@ -343,7 +452,12 @@
     if (!t) return;
     var newDate = document.getElementById('postponeDate').value;
     if (!newDate) return;
+    if (newDate < todayDateStr()) {
+      window.alert('לא ניתן לדחות עסקה לתאריך שכבר עבר');
+      return;
+    }
     t.dueDate = newDate;
+    t.seen = true;
     saveTransactions();
     closeDetailModal();
     renderAll();
@@ -352,10 +466,7 @@
 
   function handleDeleteTransaction() {
     if (!activeDetailId) return;
-    state.transactions = state.transactions.filter(function (x) { return x.id !== activeDetailId; });
-    saveTransactions();
-    closeDetailModal();
-    renderAll();
+    if (deleteTransactionById(activeDetailId)) closeDetailModal();
   }
 
   // ---------- Overage move modal ----------
@@ -391,6 +502,40 @@
     document.getElementById('moveModal').classList.add('hidden');
   }
 
+  // ---------- Quick postpone modal (inline row action) ----------
+  function openQuickPostponeModal(id) {
+    var t = state.transactions.find(function (x) { return x.id === id; });
+    if (!t) return;
+    quickPostponeId = id;
+    var minDate = todayDateStr();
+    var dateInput = document.getElementById('quickPostponeDate');
+    dateInput.min = minDate;
+    dateInput.value = t.dueDate < minDate ? minDate : t.dueDate;
+    document.getElementById('quickPostponeModal').classList.remove('hidden');
+  }
+
+  function closeQuickPostponeModal() {
+    document.getElementById('quickPostponeModal').classList.add('hidden');
+    quickPostponeId = null;
+  }
+
+  function handleQuickPostponeConfirm() {
+    var t = state.transactions.find(function (x) { return x.id === quickPostponeId; });
+    if (!t) return;
+    var newDate = document.getElementById('quickPostponeDate').value;
+    if (!newDate) return;
+    if (newDate < todayDateStr()) {
+      window.alert('לא ניתן לדחות עסקה לתאריך שכבר עבר');
+      return;
+    }
+    t.dueDate = newDate;
+    t.seen = true;
+    saveTransactions();
+    closeQuickPostponeModal();
+    renderAll();
+    scrollToMonthOfDate(newDate);
+  }
+
   // ---------- Goal dropdown ----------
   function toggleGoalDropdown() {
     document.getElementById('goalDropdown').classList.toggle('hidden');
@@ -408,27 +553,31 @@
     return Array.prototype.slice.call(document.querySelectorAll('.month-column'));
   }
 
+  function getClosestColumnIndex(columns, track) {
+    var trackRect = track.getBoundingClientRect();
+    var trackCenter = trackRect.left + trackRect.width / 2;
+    var closest = 0;
+    var closestDist = Infinity;
+    columns.forEach(function (col, i) {
+      var rect = col.getBoundingClientRect();
+      var center = rect.left + rect.width / 2;
+      var dist = Math.abs(center - trackCenter);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closest = i;
+      }
+    });
+    return closest;
+  }
+
   function scrollMonths(direction) {
     var track = document.getElementById('monthsTrack');
     var columns = getColumns();
     if (!columns.length) return;
 
-    var trackRect = track.getBoundingClientRect();
-    var colWidth = columns[0].getBoundingClientRect().width + 14;
-    var visibleCount = Math.max(1, Math.floor(trackRect.width / colWidth));
-
-    var currentIndex = 0;
-    for (var i = 0; i < columns.length; i++) {
-      var rect = columns[i].getBoundingClientRect();
-      if (rect.right > trackRect.left && rect.left < trackRect.right) {
-        currentIndex = i;
-        break;
-      }
-    }
-
-    var targetIndex = currentIndex + direction * visibleCount;
-    targetIndex = Math.max(0, Math.min(columns.length - 1, targetIndex));
-    columns[targetIndex].scrollIntoView({ behavior: 'smooth', inline: direction > 0 ? 'end' : 'start', block: 'nearest' });
+    var currentIndex = getClosestColumnIndex(columns, track);
+    var targetIndex = Math.max(0, Math.min(columns.length - 1, currentIndex + direction));
+    columns[targetIndex].scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
   }
 
   function goToToday() {
@@ -463,7 +612,8 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape') return;
-    if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
+    if (!document.getElementById('quickPostponeModal').classList.contains('hidden')) closeQuickPostponeModal();
+    else if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
     else if (!document.getElementById('detailModal').classList.contains('hidden')) closeDetailModal();
     else if (!document.getElementById('addFormModal').classList.contains('hidden')) closeAddForm();
   });
@@ -516,6 +666,11 @@
     document.getElementById('closeMoveModal').addEventListener('click', closeMoveModal);
     document.getElementById('dontMoveBtn').addEventListener('click', closeMoveModal);
     bindOverlayDismiss('moveModal', closeMoveModal);
+
+    document.getElementById('closeQuickPostponeModal').addEventListener('click', closeQuickPostponeModal);
+    document.getElementById('cancelQuickPostponeBtn').addEventListener('click', closeQuickPostponeModal);
+    document.getElementById('confirmQuickPostponeBtn').addEventListener('click', handleQuickPostponeConfirm);
+    bindOverlayDismiss('quickPostponeModal', closeQuickPostponeModal);
 
     document.getElementById('scrollForwardBtn').addEventListener('click', function () { scrollMonths(1); });
     document.getElementById('scrollBackBtn').addEventListener('click', function () { scrollMonths(-1); });

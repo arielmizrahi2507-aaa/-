@@ -212,7 +212,7 @@ html, body {
 }
 
 .month-column {
-  flex: 0 0 220px;
+  flex: 0 0 250px;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -264,7 +264,7 @@ html, body {
 .transaction-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .tx-square {
@@ -289,23 +289,55 @@ html, body {
   background: var(--success);
   border-color: var(--success);
 }
+.tx-square.new {
+  background: var(--primary);
+  border-color: var(--primary);
+}
 .tx-square:disabled { cursor: default; }
 
 .tx-name {
-  background: none;
-  border: none;
+  background: #eef2fb;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   text-align: right;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--text);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 4px 8px;
   flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.tx-name:hover { color: var(--primary); }
+.tx-name:hover { color: var(--primary); border-color: var(--primary); }
 .tx-name.paid-text { color: var(--muted); text-decoration: line-through; }
+
+.tx-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.tx-icon-btn {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.tx-icon-btn:hover { background: #eef2fb; }
+.tx-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.tx-icon-btn.paid:hover { color: var(--success); border-color: var(--success); }
+.tx-icon-btn.postpone:hover { color: var(--primary); border-color: var(--primary); }
+.tx-icon-btn.delete:hover { color: var(--danger); border-color: var(--danger); }
 
 /* ---------- Modals ---------- */
 .modal-overlay {
