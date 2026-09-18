@@ -246,11 +246,16 @@
           var paidBtn = document.createElement('button');
           paidBtn.type = 'button';
           paidBtn.className = 'tx-icon-btn paid';
-          paidBtn.title = 'קיבלתי את הכסף';
-          paidBtn.textContent = '✓';
           if (t.paid) {
-            paidBtn.disabled = true;
+            paidBtn.textContent = '↺';
+            paidBtn.title = 'ביטול סימון ששולם';
+            paidBtn.addEventListener('click', function (e) {
+              e.stopPropagation();
+              unmarkTransactionPaid(t.id);
+            });
           } else {
+            paidBtn.textContent = '✓';
+            paidBtn.title = 'קיבלתי את הכסף';
             paidBtn.addEventListener('click', function (e) {
               e.stopPropagation();
               markTransactionPaid(t.id);
@@ -395,8 +400,10 @@
     document.getElementById('postponeRow').classList.add('hidden');
 
     var paidBtn = document.getElementById('markPaidBtn');
-    paidBtn.textContent = t.paid ? 'שולם ✓' : 'קיבלתי את הכסף';
-    paidBtn.disabled = !!t.paid;
+    paidBtn.textContent = t.paid ? 'ביטול סימון ששולם' : 'קיבלתי את הכסף';
+    paidBtn.disabled = false;
+    paidBtn.classList.toggle('btn-secondary', !!t.paid);
+    paidBtn.classList.toggle('btn-primary', !t.paid);
 
     document.getElementById('detailModal').classList.remove('hidden');
   }
@@ -422,6 +429,17 @@
     });
   }
 
+  function unmarkTransactionPaid(id, onDone) {
+    var t = state.transactions.find(function (x) { return x.id === id; });
+    if (!t) return;
+    showConfirm('לבטל את סימון "שולם" עבור ' + t.clientName + '? העסקה עצמה תישאר, רק הסימון יוסר.', function () {
+      t.paid = false;
+      saveTransactions();
+      renderAll();
+      if (onDone) onDone();
+    });
+  }
+
   function deleteTransactionById(id, onDone) {
     var t = state.transactions.find(function (x) { return x.id === id; });
     if (!t) return;
@@ -435,7 +453,13 @@
 
   function handleMarkPaid() {
     if (!activeDetailId) return;
-    markTransactionPaid(activeDetailId, closeDetailModal);
+    var t = getActiveTx();
+    if (!t) return;
+    if (t.paid) {
+      unmarkTransactionPaid(activeDetailId, closeDetailModal);
+    } else {
+      markTransactionPaid(activeDetailId, closeDetailModal);
+    }
   }
 
   function handleEditFeeToggle() {
