@@ -119,11 +119,18 @@
     var total = 0;
     list.forEach(function (t) { total += Number(t.fee) || 0; });
 
+    // A paid transaction can't usefully be "moved to another month" (the money is
+    // already in), so it never carries the overage flag itself - but its amount
+    // still counts toward the cumulative total, and the flag lands on the next
+    // unpaid transaction at or after the point the goal is crossed. Otherwise,
+    // paying off the one transaction the flag happened to land on would silently
+    // clear the whole month's warning even though the remaining unpaid total
+    // still exceeds the goal.
     var cumulative = 0;
     var overageId = null;
     for (var i = 0; i < list.length; i++) {
       cumulative += Number(list[i].fee) || 0;
-      if (cumulative > state.settings.monthlyGoal && overageId === null) {
+      if (cumulative > state.settings.monthlyGoal && overageId === null && !list[i].paid) {
         overageId = list[i].id;
       }
     }
