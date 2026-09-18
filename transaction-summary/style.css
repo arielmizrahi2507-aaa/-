@@ -180,6 +180,7 @@ html, body {
   align-items: center;
 }
 .yearly-estimate strong { color: var(--text); font-size: 0.95rem; }
+.earned-stat strong { color: var(--success); }
 
 /* ---------- Months section ---------- */
 .months-section {

@@ -139,11 +139,20 @@
   }
 
   // ---------- Rendering ----------
+  function computeTotalEarned() {
+    var total = 0;
+    state.transactions.forEach(function (t) {
+      if (t.paid) total += Number(t.fee) || 0;
+    });
+    return total;
+  }
+
   function renderGoal() {
     document.getElementById('goalValue').textContent = formatMoney(state.settings.monthlyGoal) + ' ▾';
     var year = new Date().getFullYear();
     document.getElementById('yearlyLabel').textContent = 'צפי הכנסה לשנת ' + year + ':';
     document.getElementById('yearlyValue').textContent = formatMoney(state.settings.monthlyGoal * 12);
+    document.getElementById('earnedValue').textContent = formatMoney(computeTotalEarned());
   }
 
   function renderMonths() {
