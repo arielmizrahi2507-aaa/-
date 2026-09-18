@@ -54,14 +54,12 @@ html, body {
   gap: 12px;
 }
 
-.brand h1 {
-  font-size: 1.05rem;
-  margin: 0;
-}
+.brand { display: flex; align-items: center; }
 
-.brand .subtitle {
-  font-size: 0.8rem;
-  color: var(--muted);
+.brand-logo {
+  height: 58px;
+  width: auto;
+  display: block;
 }
 
 /* ---------- Buttons ---------- */
