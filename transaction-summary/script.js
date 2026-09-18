@@ -518,22 +518,44 @@
   }
 
   // ---------- Overage move modal ----------
+  // The point of a suggestion is to actually help hit the monthly goal, not just
+  // shuffle the overage into a different month - so each candidate month is
+  // checked against what ITS total would become with this transaction added, and
+  // labeled accordingly. The user can still pick a month that doesn't fully fit,
+  // move it manually via "postpone" instead, or decline with "don't change".
   function openMoveModal(t) {
     var optionsEl = document.getElementById('moveOptions');
     optionsEl.innerHTML = '';
     var base = todayMonthStart();
+    var goal = state.settings.monthlyGoal;
+    var fee = Number(t.fee) || 0;
 
     for (var n = 1; n <= 2; n++) {
       (function (n) {
         var d = addMonths(base, n);
+        var targetYear = d.getFullYear();
+        var targetMonthIndex = d.getMonth();
+        var targetData = computeMonthData(targetYear, targetMonthIndex);
+        var projectedTotal = targetData.total + fee;
+        var fitsGoal = projectedTotal <= goal;
+
         var btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'btn-secondary';
-        btn.textContent = 'להעביר ל-' + formatMonthLabel(d.getFullYear(), d.getMonth());
+        btn.className = 'btn-secondary move-option-btn ' + (fitsGoal ? 'good-fit' : 'still-over');
+
+        var mainText = document.createElement('span');
+        mainText.textContent = 'להעביר ל-' + formatMonthLabel(targetYear, targetMonthIndex);
+        btn.appendChild(mainText);
+
+        var badge = document.createElement('span');
+        badge.className = 'move-option-badge';
+        badge.textContent = fitsGoal ? '✓ מתאים ליעד' : '⚠ עדיין יחרוג שם';
+        btn.appendChild(badge);
+
         btn.addEventListener('click', function () {
           var tx = state.transactions.find(function (x) { return x.id === t.id; });
           if (tx) {
-            tx.dueDate = clampDateToMonth(tx.dueDate, d.getFullYear(), d.getMonth());
+            tx.dueDate = clampDateToMonth(tx.dueDate, targetYear, targetMonthIndex);
             saveTransactions();
           }
           closeMoveModal();

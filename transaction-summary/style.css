@@ -417,6 +417,10 @@ html, body {
 /* ---------- Move modal ---------- */
 .move-text { font-size: 0.9rem; margin-top: 4px; }
 .move-options { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.move-option-btn { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: right; }
+.move-option-btn.good-fit { border-color: var(--success); color: var(--success); }
+.move-option-btn.still-over { border-color: var(--warning); color: var(--warning); }
+.move-option-badge { font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 
 /* ---------- Mobile ---------- */
 @media (max-width: 700px) {
