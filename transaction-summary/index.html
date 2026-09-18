@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>מערכת סיכום עסקאות | דורון נועם מזרחי, עו"ד</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+
+  <div class="clock-bar"><span id="clock"></span></div>
+
+  <header class="header-main">
+    <button id="addTransactionBtn" class="btn-primary">+ הוסף עסקה</button>
+    <div class="brand">
+      <h1>מערכת סיכום עסקאות</h1>
+      <span class="subtitle">דורון נועם מזרחי, עו"ד</span>
+    </div>
+  </header>
+
+  <section class="goal-bar">
+    <div class="goal-select-wrap">
+      <span class="goal-label">כמה תרצה לקבל בחודש?</span>
+      <button id="goalValue" type="button" class="goal-value"></button>
+      <div id="goalDropdown" class="goal-dropdown hidden">
+        <button type="button" data-goal="50000">50,000 ₪</button>
+        <button type="button" data-goal="40000">40,000 ₪</button>
+        <button type="button" data-goal="30000">30,000 ₪</button>
+        <button type="button" data-goal="20000">20,000 ₪</button>
+      </div>
+    </div>
+    <div class="yearly-estimate">
+      <span id="yearlyLabel"></span>
+      <strong id="yearlyValue"></strong>
+    </div>
+  </section>
+
+  <section class="months-section">
+    <div class="months-controls">
+      <button id="scrollForwardBtn" type="button" class="scroll-btn">חודשים הבאים ‹</button>
+      <button id="todayBtn" type="button" class="btn-secondary">חזרה לחודש הנוכחי</button>
+      <button id="scrollBackBtn" type="button" class="scroll-btn">› חודשים קודמים</button>
+    </div>
+    <div class="months-track" id="monthsTrack"></div>
+  </section>
+
+</div>
+
+<!-- Add transaction modal -->
+<div id="addFormModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeAddFormModal">×</button>
+    <h2>הוספת עסקה</h2>
+    <form id="transactionForm" novalidate>
+      <div class="field" id="field-clientName">
+        <label for="clientName">שם לקוח <span class="req">*</span></label>
+        <input type="text" id="clientName" name="clientName" autocomplete="off">
+        <span class="error-msg">סעיף חובה</span>
+      </div>
+
+      <div class="field" id="field-type">
+        <label for="type">סוג העסקה</label>
+        <select id="type" name="type">
+          <option value="">בחר סוג עסקה</option>
+        </select>
+      </div>
+
+      <div class="field" id="field-fee">
+        <label for="fee">שכ"ט משוער (₪) <span class="req">*</span></label>
+        <input type="number" id="fee" name="fee" min="0" step="1" inputmode="numeric">
+        <span class="error-msg">סעיף חובה</span>
+      </div>
+
+      <div class="field" id="field-dueDate">
+        <label for="dueDate">תאריך סיום משוער <span class="req">*</span></label>
+        <input type="date" id="dueDate" name="dueDate">
+        <span class="error-msg">סעיף חובה</span>
+      </div>
+
+      <div class="field" id="field-phone">
+        <label for="phone">מספר טלפון</label>
+        <input type="tel" id="phone" name="phone" placeholder="050-1234567">
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn-primary">+ הוסף עסקה</button>
+        <button type="button" id="cancelAddBtn" class="btn-secondary">ביטול</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Transaction detail modal -->
+<div id="detailModal" class="modal-overlay hidden">
+  <div class="modal">
+    <button type="button" class="modal-close" id="closeDetailModal">×</button>
+    <h2 id="detailClientName"></h2>
+
+    <div class="detail-field">
+      <label>סוג העסקה</label>
+      <span id="detailType"></span>
+    </div>
+
+    <div class="detail-field">
+      <label>שכ"ט משוער</label>
+      <span id="detailFee"></span>
+      <button type="button" id="editFeeBtn" class="link-btn">עריכה</button>
+      <div id="editFeeRow" class="inline-edit-row hidden">
+        <input type="number" id="editFeeInput" min="0" step="1">
+        <button type="button" id="saveFeeBtn" class="btn-primary small">שמירה</button>
+      </div>
+    </div>
+
+    <div class="detail-field">
+      <label>תאריך סיום משוער</label>
+      <span id="detailDate"></span>
+    </div>
+
+    <div class="detail-field">
+      <label>טלפון</label>
+      <span id="detailPhone"></span>
+    </div>
+
+    <div class="detail-actions">
+      <button type="button" id="markPaidBtn" class="btn-primary">קיבלתי את הכסף</button>
+      <button type="button" id="postponeBtn" class="btn-secondary">לדחות תשלום</button>
+    </div>
+
+    <div id="postponeRow" class="inline-edit-row hidden">
+      <label for="postponeDate">תאריך חדש</label>
+      <input type="date" id="postponeDate">
+      <button type="button" id="confirmPostponeBtn" class="btn-primary small">אישור</button>
+    </div>
+
+    <button type="button" id="deleteTransactionBtn" class="link-btn danger">מחיקת עסקה</button>
+  </div>
+</div>
+
+<!-- Overage move modal -->
+<div id="moveModal" class="modal-overlay hidden">
+  <div class="modal small">
+    <button type="button" class="modal-close" id="closeMoveModal">×</button>
+    <p class="move-text">החודש הזה חורג מהיעד החודשי. להעביר את העסקה לחודש אחר?</p>
+    <div class="move-options" id="moveOptions"></div>
+    <button type="button" id="dontMoveBtn" class="btn-secondary">לא לשנות</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -1,0 +1,535 @@
+(function () {
+  'use strict';
+
+  var STORAGE_KEY_TX = 'dnm_transactions_v1';
+  var STORAGE_KEY_SETTINGS = 'dnm_settings_v1';
+
+  var HEBREW_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  var TRANSACTION_TYPES = ['מכר דירה', 'קניית דירה', 'מכר מסחרי', 'ליווי משכנתא', 'הסכם ממון', 'צוואה וירושה', 'ייפוי כוח', 'אחר'];
+  var MONTHS_WINDOW = 36;
+
+  var state = {
+    transactions: [],
+    settings: { monthlyGoal: 30000 }
+  };
+
+  var activeDetailId = null;
+
+  // ---------- Persistence ----------
+  function loadState() {
+    try {
+      var tx = localStorage.getItem(STORAGE_KEY_TX);
+      var settings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+      if (tx) state.transactions = JSON.parse(tx);
+      if (settings) state.settings = Object.assign(state.settings, JSON.parse(settings));
+    } catch (e) {
+      console.error('שגיאה בטעינת נתונים שמורים', e);
+    }
+  }
+
+  function saveTransactions() {
+    localStorage.setItem(STORAGE_KEY_TX, JSON.stringify(state.transactions));
+  }
+
+  function saveSettings() {
+    localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(state.settings));
+  }
+
+  function uid() {
+    return 'tx_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+  }
+
+  // ---------- Date helpers ----------
+  function todayMonthStart() {
+    var d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+
+  function monthKey(year, monthIndex) {
+    return year + '-' + String(monthIndex + 1).padStart(2, '0');
+  }
+
+  function monthKeyFromDate(dateStr) {
+    return dateStr.slice(0, 7);
+  }
+
+  function formatMonthLabel(year, monthIndex) {
+    return HEBREW_MONTHS[monthIndex] + ' ' + year;
+  }
+
+  function addMonths(base, n) {
+    return new Date(base.getFullYear(), base.getMonth() + n, 1);
+  }
+
+  function clampDateToMonth(dateStr, year, monthIndex) {
+    var day = parseInt(dateStr.slice(8, 10), 10) || 1;
+    var lastDay = new Date(year, monthIndex + 1, 0).getDate();
+    var useDay = Math.min(day, lastDay);
+    return year + '-' + String(monthIndex + 1).padStart(2, '0') + '-' + String(useDay).padStart(2, '0');
+  }
+
+  function formatMoney(n) {
+    return '₪' + Math.round(n).toLocaleString('he-IL');
+  }
+
+  function formatDateHuman(dateStr) {
+    var parts = dateStr.split('-');
+    return parts[2] + '.' + parts[1] + '.' + parts[0];
+  }
+
+  function isWithinNextTwoMonths(today, monthDate) {
+    var diff = (monthDate.getFullYear() - today.getFullYear()) * 12 + (monthDate.getMonth() - today.getMonth());
+    return diff === 1 || diff === 2;
+  }
+
+  // ---------- Clock ----------
+  function tickClock() {
+    var el = document.getElementById('clock');
+    var now = new Date();
+    var dateStr = now.toLocaleDateString('he-IL', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+    var timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    el.textContent = dateStr + ' | ' + timeStr;
+  }
+
+  // ---------- Month data ----------
+  function computeMonthData(year, monthIndex) {
+    var key = monthKey(year, monthIndex);
+    var list = state.transactions
+      .filter(function (t) { return monthKeyFromDate(t.dueDate) === key; })
+      .sort(function (a, b) { return a.createdAt - b.createdAt; });
+
+    var total = 0;
+    list.forEach(function (t) { total += Number(t.fee) || 0; });
+
+    var cumulative = 0;
+    var overageId = null;
+    for (var i = 0; i < list.length; i++) {
+      cumulative += Number(list[i].fee) || 0;
+      if (cumulative > state.settings.monthlyGoal && overageId === null) {
+        overageId = list[i].id;
+      }
+    }
+
+    return { key: key, list: list, total: total, overageId: overageId };
+  }
+
+  // ---------- Rendering ----------
+  function renderGoal() {
+    document.getElementById('goalValue').textContent = formatMoney(state.settings.monthlyGoal) + ' ▾';
+    var year = new Date().getFullYear();
+    document.getElementById('yearlyLabel').textContent = 'צפי הכנסה לשנת ' + year + ':';
+    document.getElementById('yearlyValue').textContent = formatMoney(state.settings.monthlyGoal * 12);
+  }
+
+  function renderMonths() {
+    var track = document.getElementById('monthsTrack');
+    track.innerHTML = '';
+    var today = todayMonthStart();
+    var base = todayMonthStart();
+
+    for (var i = 0; i < MONTHS_WINDOW; i++) {
+      (function (i) {
+        var monthDate = addMonths(base, i);
+        var year = monthDate.getFullYear();
+        var monthIndex = monthDate.getMonth();
+        var data = computeMonthData(year, monthIndex);
+
+        var showWarning = isWithinNextTwoMonths(today, monthDate) && data.total < state.settings.monthlyGoal;
+
+        var col = document.createElement('div');
+        col.className = 'month-column';
+        col.dataset.monthIndex = String(i);
+
+        var header = document.createElement('div');
+        header.className = 'month-header';
+        var titleSpan = document.createElement('span');
+        titleSpan.textContent = formatMonthLabel(year, monthIndex);
+        header.appendChild(titleSpan);
+        if (showWarning) {
+          var warn = document.createElement('span');
+          warn.className = 'month-warning';
+          warn.title = 'טרם הגעת ליעד החודשי בחודש זה';
+          warn.textContent = '⚠';
+          header.appendChild(warn);
+        }
+        col.appendChild(header);
+
+        var totalEl = document.createElement('div');
+        totalEl.className = 'month-total' + (data.total > state.settings.monthlyGoal ? ' over-goal' : '');
+        totalEl.textContent = formatMoney(data.total) + ' צפוי';
+        col.appendChild(totalEl);
+
+        var listEl = document.createElement('div');
+        listEl.className = 'transactions-list';
+
+        if (data.list.length === 0) {
+          var empty = document.createElement('div');
+          empty.className = 'empty-hint';
+          empty.textContent = 'אין עסקאות';
+          listEl.appendChild(empty);
+        }
+
+        data.list.forEach(function (t) {
+          var row = document.createElement('div');
+          row.className = 'transaction-row';
+
+          var square = document.createElement('button');
+          square.type = 'button';
+          square.className = 'tx-square';
+          if (t.paid) {
+            square.classList.add('paid');
+            square.textContent = '✓';
+            square.title = 'שולם';
+            square.disabled = true;
+          } else if (t.id === data.overageId) {
+            square.classList.add('overage');
+            square.textContent = '!';
+            square.title = 'חריגה מהיעד החודשי - לחצו לפרטים';
+            square.addEventListener('click', function (e) {
+              e.stopPropagation();
+              openMoveModal(t, year, monthIndex);
+            });
+          } else {
+            square.disabled = true;
+          }
+          row.appendChild(square);
+
+          var nameBtn = document.createElement('button');
+          nameBtn.type = 'button';
+          nameBtn.className = 'tx-name' + (t.paid ? ' paid-text' : '');
+          nameBtn.textContent = t.clientName;
+          nameBtn.addEventListener('click', function () { openDetailModal(t.id); });
+          row.appendChild(nameBtn);
+
+          listEl.appendChild(row);
+        });
+
+        col.appendChild(listEl);
+        track.appendChild(col);
+      })(i);
+    }
+  }
+
+  function renderAll() {
+    renderGoal();
+    renderMonths();
+  }
+
+  // ---------- Add transaction ----------
+  function openAddForm() {
+    document.getElementById('transactionForm').reset();
+    clearFormErrors();
+    document.getElementById('addFormModal').classList.remove('hidden');
+    document.getElementById('clientName').focus();
+  }
+
+  function closeAddForm() {
+    document.getElementById('addFormModal').classList.add('hidden');
+  }
+
+  function clearFormErrors() {
+    document.querySelectorAll('#addFormModal .field').forEach(function (f) { f.classList.remove('invalid'); });
+  }
+
+  function markInvalid(fieldId) {
+    document.getElementById('field-' + fieldId).classList.add('invalid');
+  }
+
+  function handleAddSubmit(e) {
+    e.preventDefault();
+    clearFormErrors();
+
+    var clientName = document.getElementById('clientName').value.trim();
+    var fee = document.getElementById('fee').value;
+    var dueDate = document.getElementById('dueDate').value;
+    var type = document.getElementById('type').value;
+    var phone = document.getElementById('phone').value.trim();
+
+    var firstInvalid = null;
+    if (!clientName) { markInvalid('clientName'); firstInvalid = firstInvalid || 'clientName'; }
+    if (!fee) { markInvalid('fee'); firstInvalid = firstInvalid || 'fee'; }
+    if (!dueDate) { markInvalid('dueDate'); firstInvalid = firstInvalid || 'dueDate'; }
+
+    if (firstInvalid) {
+      document.getElementById(firstInvalid).focus();
+      return;
+    }
+
+    var tx = {
+      id: uid(),
+      clientName: clientName,
+      type: type,
+      fee: Number(fee),
+      dueDate: dueDate,
+      phone: phone,
+      paid: false,
+      createdAt: Date.now()
+    };
+
+    state.transactions.push(tx);
+    saveTransactions();
+    closeAddForm();
+    renderAll();
+    scrollToMonthOfDate(tx.dueDate);
+  }
+
+  // ---------- Detail modal ----------
+  function openDetailModal(id) {
+    activeDetailId = id;
+    var t = state.transactions.find(function (x) { return x.id === id; });
+    if (!t) return;
+
+    document.getElementById('detailClientName').textContent = t.clientName;
+    document.getElementById('detailType').textContent = t.type || '—';
+    document.getElementById('detailFee').textContent = formatMoney(t.fee);
+    document.getElementById('detailDate').textContent = formatDateHuman(t.dueDate);
+    document.getElementById('detailPhone').textContent = t.phone || '—';
+    document.getElementById('editFeeRow').classList.add('hidden');
+    document.getElementById('postponeRow').classList.add('hidden');
+
+    var paidBtn = document.getElementById('markPaidBtn');
+    paidBtn.textContent = t.paid ? 'שולם ✓' : 'קיבלתי את הכסף';
+    paidBtn.disabled = !!t.paid;
+
+    document.getElementById('detailModal').classList.remove('hidden');
+  }
+
+  function closeDetailModal() {
+    document.getElementById('detailModal').classList.add('hidden');
+    activeDetailId = null;
+  }
+
+  function getActiveTx() {
+    return state.transactions.find(function (x) { return x.id === activeDetailId; });
+  }
+
+  function handleMarkPaid() {
+    var t = getActiveTx();
+    if (!t) return;
+    t.paid = true;
+    saveTransactions();
+    closeDetailModal();
+    renderAll();
+  }
+
+  function handleEditFeeToggle() {
+    var t = getActiveTx();
+    if (!t) return;
+    document.getElementById('editFeeInput').value = t.fee;
+    document.getElementById('editFeeRow').classList.remove('hidden');
+  }
+
+  function handleSaveFee() {
+    var t = getActiveTx();
+    if (!t) return;
+    var val = document.getElementById('editFeeInput').value;
+    if (val === '' || Number(val) < 0) return;
+    t.fee = Number(val);
+    saveTransactions();
+    document.getElementById('detailFee').textContent = formatMoney(t.fee);
+    document.getElementById('editFeeRow').classList.add('hidden');
+    renderAll();
+  }
+
+  function handlePostponeToggle() {
+    var t = getActiveTx();
+    if (!t) return;
+    document.getElementById('postponeDate').value = t.dueDate;
+    document.getElementById('postponeRow').classList.remove('hidden');
+  }
+
+  function handleConfirmPostpone() {
+    var t = getActiveTx();
+    if (!t) return;
+    var newDate = document.getElementById('postponeDate').value;
+    if (!newDate) return;
+    t.dueDate = newDate;
+    saveTransactions();
+    closeDetailModal();
+    renderAll();
+    scrollToMonthOfDate(newDate);
+  }
+
+  function handleDeleteTransaction() {
+    if (!activeDetailId) return;
+    state.transactions = state.transactions.filter(function (x) { return x.id !== activeDetailId; });
+    saveTransactions();
+    closeDetailModal();
+    renderAll();
+  }
+
+  // ---------- Overage move modal ----------
+  function openMoveModal(t, year, monthIndex) {
+    var optionsEl = document.getElementById('moveOptions');
+    optionsEl.innerHTML = '';
+
+    for (var n = 1; n <= 2; n++) {
+      (function (n) {
+        var d = addMonths(new Date(year, monthIndex, 1), n);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn-secondary';
+        btn.textContent = 'להעביר ל-' + formatMonthLabel(d.getFullYear(), d.getMonth());
+        btn.addEventListener('click', function () {
+          var tx = state.transactions.find(function (x) { return x.id === t.id; });
+          if (tx) {
+            tx.dueDate = clampDateToMonth(tx.dueDate, d.getFullYear(), d.getMonth());
+            saveTransactions();
+          }
+          closeMoveModal();
+          renderAll();
+          if (tx) scrollToMonthOfDate(tx.dueDate);
+        });
+        optionsEl.appendChild(btn);
+      })(n);
+    }
+
+    document.getElementById('moveModal').classList.remove('hidden');
+  }
+
+  function closeMoveModal() {
+    document.getElementById('moveModal').classList.add('hidden');
+  }
+
+  // ---------- Goal dropdown ----------
+  function toggleGoalDropdown() {
+    document.getElementById('goalDropdown').classList.toggle('hidden');
+  }
+
+  function selectGoal(value) {
+    state.settings.monthlyGoal = value;
+    saveSettings();
+    document.getElementById('goalDropdown').classList.add('hidden');
+    renderAll();
+  }
+
+  // ---------- Months navigation ----------
+  function getColumns() {
+    return Array.prototype.slice.call(document.querySelectorAll('.month-column'));
+  }
+
+  function scrollMonths(direction) {
+    var track = document.getElementById('monthsTrack');
+    var columns = getColumns();
+    if (!columns.length) return;
+
+    var trackRect = track.getBoundingClientRect();
+    var colWidth = columns[0].getBoundingClientRect().width + 14;
+    var visibleCount = Math.max(1, Math.floor(trackRect.width / colWidth));
+
+    var currentIndex = 0;
+    for (var i = 0; i < columns.length; i++) {
+      var rect = columns[i].getBoundingClientRect();
+      if (rect.right > trackRect.left && rect.left < trackRect.right) {
+        currentIndex = i;
+        break;
+      }
+    }
+
+    var targetIndex = currentIndex + direction * visibleCount;
+    targetIndex = Math.max(0, Math.min(columns.length - 1, targetIndex));
+    columns[targetIndex].scrollIntoView({ behavior: 'smooth', inline: direction > 0 ? 'end' : 'start', block: 'nearest' });
+  }
+
+  function goToToday() {
+    var columns = getColumns();
+    if (columns.length) {
+      columns[0].scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    }
+  }
+
+  function scrollToMonthOfDate(dateStr) {
+    var key = monthKeyFromDate(dateStr);
+    var base = todayMonthStart();
+    for (var i = 0; i < MONTHS_WINDOW; i++) {
+      var d = addMonths(base, i);
+      if (monthKey(d.getFullYear(), d.getMonth()) === key) {
+        requestAnimationFrame(function () {
+          var col = document.querySelector('.month-column[data-month-index="' + i + '"]');
+          if (col) col.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        });
+        return;
+      }
+    }
+  }
+
+  // ---------- Modal overlay click-outside / escape ----------
+  function bindOverlayDismiss(overlayId, closeFn) {
+    var overlay = document.getElementById(overlayId);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeFn();
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('moveModal').classList.contains('hidden')) closeMoveModal();
+    else if (!document.getElementById('detailModal').classList.contains('hidden')) closeDetailModal();
+    else if (!document.getElementById('addFormModal').classList.contains('hidden')) closeAddForm();
+  });
+
+  // ---------- Init ----------
+  function populateTypeOptions() {
+    var select = document.getElementById('type');
+    TRANSACTION_TYPES.forEach(function (t) {
+      var opt = document.createElement('option');
+      opt.value = t;
+      opt.textContent = t;
+      select.appendChild(opt);
+    });
+  }
+
+  function bindEvents() {
+    document.getElementById('addTransactionBtn').addEventListener('click', openAddForm);
+    document.getElementById('cancelAddBtn').addEventListener('click', closeAddForm);
+    document.getElementById('closeAddFormModal').addEventListener('click', closeAddForm);
+    document.getElementById('transactionForm').addEventListener('submit', handleAddSubmit);
+    bindOverlayDismiss('addFormModal', closeAddForm);
+
+    ['clientName', 'fee', 'dueDate'].forEach(function (id) {
+      document.getElementById(id).addEventListener('input', function () {
+        document.getElementById('field-' + id).classList.remove('invalid');
+      });
+    });
+
+    document.getElementById('goalValue').addEventListener('click', toggleGoalDropdown);
+    document.querySelectorAll('#goalDropdown button').forEach(function (btn) {
+      btn.addEventListener('click', function () { selectGoal(Number(btn.dataset.goal)); });
+    });
+    document.addEventListener('click', function (e) {
+      var wrap = document.getElementById('goalDropdown');
+      var trigger = document.getElementById('goalValue');
+      if (!wrap.classList.contains('hidden') && !wrap.contains(e.target) && e.target !== trigger) {
+        wrap.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
+    document.getElementById('markPaidBtn').addEventListener('click', handleMarkPaid);
+    document.getElementById('editFeeBtn').addEventListener('click', handleEditFeeToggle);
+    document.getElementById('saveFeeBtn').addEventListener('click', handleSaveFee);
+    document.getElementById('postponeBtn').addEventListener('click', handlePostponeToggle);
+    document.getElementById('confirmPostponeBtn').addEventListener('click', handleConfirmPostpone);
+    document.getElementById('deleteTransactionBtn').addEventListener('click', handleDeleteTransaction);
+    bindOverlayDismiss('detailModal', closeDetailModal);
+
+    document.getElementById('closeMoveModal').addEventListener('click', closeMoveModal);
+    document.getElementById('dontMoveBtn').addEventListener('click', closeMoveModal);
+    bindOverlayDismiss('moveModal', closeMoveModal);
+
+    document.getElementById('scrollForwardBtn').addEventListener('click', function () { scrollMonths(1); });
+    document.getElementById('scrollBackBtn').addEventListener('click', function () { scrollMonths(-1); });
+    document.getElementById('todayBtn').addEventListener('click', goToToday);
+  }
+
+  function init() {
+    loadState();
+    populateTypeOptions();
+    bindEvents();
+    tickClock();
+    setInterval(tickClock, 1000);
+    renderAll();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
