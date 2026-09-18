@@ -10,7 +10,7 @@
 
   var state = {
     transactions: [],
-    settings: { monthlyGoal: 30000 }
+    settings: { monthlyGoal: 30000, postponeLimit: 2 }
   };
 
   var activeDetailId = null;
@@ -103,6 +103,24 @@
     return diff === 1 || diff === 2;
   }
 
+  // ---------- Postpone limit (how many months ahead a payment may be pushed) ----------
+  function postponeLimitLabel(n) {
+    if (n === 0) return 'עד סוף החודש';
+    if (n === 1) return 'שוטף פלוס חודש';
+    if (n === 2) return 'שוטף פלוס חודשיים';
+    if (n === 12) return 'שוטף פלוס שנה';
+    return 'שוטף פלוס ' + n + ' חודשים';
+  }
+
+  // The last day of (current month + postponeLimit) - the furthest date the user
+  // is allowed to manually postpone a payment to, matching the same limit that
+  // bounds the auto-placement / move-suggestion / rebalance logic below.
+  function maxPostponeDateStr() {
+    var target = addMonths(todayMonthStart(), state.settings.postponeLimit);
+    var lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    return target.getFullYear() + '-' + pad2(target.getMonth() + 1) + '-' + pad2(lastDay);
+  }
+
   // ---------- Clock ----------
   function tickClock() {
     var el = document.getElementById('clock');
@@ -156,6 +174,7 @@
 
   function renderGoal() {
     document.getElementById('goalValue').textContent = formatMoney(state.settings.monthlyGoal) + ' ▾';
+    document.getElementById('postponeLimitValue').textContent = postponeLimitLabel(state.settings.postponeLimit) + ' ▾';
     var year = new Date().getFullYear();
     document.getElementById('yearlyLabel').textContent = 'צפי הכנסה לשנת ' + year + ':';
     document.getElementById('yearlyValue').textContent = formatMoney(state.settings.monthlyGoal * 12);
@@ -424,7 +443,7 @@
     var goal = state.settings.monthlyGoal;
 
     var fallback = null;
-    for (var n = 0; n <= 2; n++) {
+    for (var n = 0; n <= state.settings.postponeLimit; n++) {
       var d = addMonths(new Date(baseYear, baseMonthIndex, 1), n);
       var year = d.getFullYear();
       var monthIndex = d.getMonth();
@@ -708,7 +727,7 @@
     if (freedTotal >= goal) return;
     var room = goal - freedTotal;
 
-    for (var n = 1; n <= 2; n++) {
+    for (var n = 1; n <= state.settings.postponeLimit; n++) {
       var d = addMonths(new Date(freedYear, freedMonthIndex, 1), n);
       var candidateData = computeMonthData(d.getFullYear(), d.getMonth());
       if (candidateData.total <= goal) continue;
@@ -775,6 +794,7 @@
     var minDate = todayDateStr();
     var dateInput = document.getElementById('postponeDate');
     dateInput.min = minDate;
+    dateInput.max = maxPostponeDateStr();
     dateInput.value = t.dueDate < minDate ? minDate : t.dueDate;
     var errEl = document.getElementById('postponeError');
     if (errEl) errEl.classList.add('hidden');
@@ -788,7 +808,11 @@
     if (!newDate) return;
     var errEl = document.getElementById('postponeError');
     if (newDate < todayDateStr()) {
-      if (errEl) errEl.classList.remove('hidden');
+      if (errEl) { errEl.textContent = 'לא ניתן לדחות עסקה לתאריך שכבר עבר'; errEl.classList.remove('hidden'); }
+      return;
+    }
+    if (newDate > maxPostponeDateStr()) {
+      if (errEl) { errEl.textContent = 'לא ניתן לדחות מעבר לגבול שהוגדר (' + postponeLimitLabel(state.settings.postponeLimit) + ')'; errEl.classList.remove('hidden'); }
       return;
     }
     if (errEl) errEl.classList.add('hidden');
@@ -818,7 +842,7 @@
     var goal = state.settings.monthlyGoal;
     var fee = Number(t.fee) || 0;
 
-    for (var n = 1; n <= 2; n++) {
+    for (var n = 1; n <= state.settings.postponeLimit; n++) {
       (function (n) {
         var d = addMonths(base, n);
         var targetYear = d.getFullYear();
@@ -928,6 +952,7 @@
     var minDate = todayDateStr();
     var dateInput = document.getElementById('quickPostponeDate');
     dateInput.min = minDate;
+    dateInput.max = maxPostponeDateStr();
     dateInput.value = t.dueDate < minDate ? minDate : t.dueDate;
     var errEl = document.getElementById('quickPostponeError');
     if (errEl) errEl.classList.add('hidden');
@@ -946,7 +971,11 @@
     if (!newDate) return;
     var errEl = document.getElementById('quickPostponeError');
     if (newDate < todayDateStr()) {
-      if (errEl) errEl.classList.remove('hidden');
+      if (errEl) { errEl.textContent = 'לא ניתן לדחות עסקה לתאריך שכבר עבר'; errEl.classList.remove('hidden'); }
+      return;
+    }
+    if (newDate > maxPostponeDateStr()) {
+      if (errEl) { errEl.textContent = 'לא ניתן לדחות מעבר לגבול שהוגדר (' + postponeLimitLabel(state.settings.postponeLimit) + ')'; errEl.classList.remove('hidden'); }
       return;
     }
     if (errEl) errEl.classList.add('hidden');
@@ -986,6 +1015,18 @@
     state.settings.monthlyGoal = value;
     saveSettings();
     document.getElementById('goalDropdown').classList.add('hidden');
+    renderAll();
+  }
+
+  // ---------- Postpone-limit dropdown ----------
+  function togglePostponeLimitDropdown() {
+    document.getElementById('postponeLimitDropdown').classList.toggle('hidden');
+  }
+
+  function selectPostponeLimit(value) {
+    state.settings.postponeLimit = value;
+    saveSettings();
+    document.getElementById('postponeLimitDropdown').classList.add('hidden');
     renderAll();
   }
 
@@ -1127,12 +1168,22 @@
     document.getElementById('customGoalInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') { e.preventDefault(); confirmCustomGoal(); }
     });
+    document.getElementById('postponeLimitValue').addEventListener('click', togglePostponeLimitDropdown);
+    document.querySelectorAll('#postponeLimitDropdown button[data-postpone-limit]').forEach(function (btn) {
+      btn.addEventListener('click', function () { selectPostponeLimit(Number(btn.dataset.postponeLimit)); });
+    });
+
     document.addEventListener('click', function (e) {
       var wrap = document.getElementById('goalDropdown');
       var trigger = document.getElementById('goalValue');
       if (!wrap.classList.contains('hidden') && !wrap.contains(e.target) && e.target !== trigger) {
         wrap.classList.add('hidden');
         resetCustomGoalUI();
+      }
+      var plWrap = document.getElementById('postponeLimitDropdown');
+      var plTrigger = document.getElementById('postponeLimitValue');
+      if (!plWrap.classList.contains('hidden') && !plWrap.contains(e.target) && e.target !== plTrigger) {
+        plWrap.classList.add('hidden');
       }
     });
 

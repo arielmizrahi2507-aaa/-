@@ -40,7 +40,7 @@ html, body {
 .hero {
   flex: 0 0 auto;
   background: linear-gradient(135deg, var(--navy) 0%, var(--navy-2) 100%);
-  padding: 14px 24px 20px;
+  padding: 10px 24px 14px;
   position: relative;
 }
 .hero::after {
@@ -157,16 +157,17 @@ html, body {
 .stat-row {
   display: flex;
   gap: 14px;
-  margin-top: 18px;
+  margin-top: 12px;
   position: relative;
   z-index: 2;
 }
 .stat-tile {
   flex: 1;
+  min-width: 0;
   background: rgba(255,255,255,0.08);
   border: 1px solid rgba(201,165,96,0.35);
   border-radius: 10px;
-  padding: 12px 18px;
+  padding: 10px 16px;
   backdrop-filter: blur(2px);
 }
 .stat-tile .label {
@@ -216,7 +217,8 @@ html, body {
   display: flex;
   flex-direction: column;
   min-width: 210px;
-  overflow: hidden;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 .goal-dropdown > button {
@@ -255,7 +257,7 @@ html, body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  padding: 16px 24px;
+  padding: 10px 24px 14px;
 }
 
 .months-controls {
@@ -264,7 +266,7 @@ html, body {
   justify-content: center;
   flex-wrap: wrap;
   gap: 10px;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   flex: 0 0 auto;
 }
 
@@ -281,14 +283,14 @@ html, body {
 }
 
 .month-column {
-  flex: 0 0 280px;
+  flex: 0 0 330px;
   min-height: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
   border: none;
   border-radius: 14px;
-  padding: 16px;
+  padding: 18px;
   box-shadow: 0 10px 24px rgba(14,44,74,0.1);
   scroll-snap-align: start;
 }
