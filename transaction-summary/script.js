@@ -366,7 +366,12 @@
 
     var draft = { clientName: clientName, type: type, fee: Number(fee), dueDate: dueDate, phone: phone };
 
-    if (draft.fee > state.settings.monthlyGoal) {
+    var draftYear = Number(dueDate.slice(0, 4));
+    var draftMonthIndex = Number(dueDate.slice(5, 7)) - 1;
+    var existingMonthTotal = computeMonthData(draftYear, draftMonthIndex).total;
+    var projectedTotal = existingMonthTotal + draft.fee;
+
+    if (projectedTotal > state.settings.monthlyGoal) {
       pendingDraft = draft;
       closeAddForm();
       openFeeExceedsGoalModal();
@@ -408,9 +413,21 @@
   // everything behaves exactly like the regular overage flow already does).
   function openFeeExceedsGoalModal() {
     if (!pendingDraft) return;
-    document.getElementById('feeExceedsGoalMessage').textContent =
-      'שכ"ט העסקה (' + formatMoney(pendingDraft.fee) + ') גבוה בעצמו מהיעד החודשי שקבעת (' +
-      formatMoney(state.settings.monthlyGoal) + '). מה תרצה לעשות?';
+    var year = Number(pendingDraft.dueDate.slice(0, 4));
+    var monthIndex = Number(pendingDraft.dueDate.slice(5, 7)) - 1;
+    var goal = state.settings.monthlyGoal;
+    var existingTotal = computeMonthData(year, monthIndex).total;
+    var projectedTotal = existingTotal + pendingDraft.fee;
+
+    var message;
+    if (pendingDraft.fee > goal) {
+      message = 'שכ"ט העסקה (' + formatMoney(pendingDraft.fee) + ') גבוה בעצמו מהיעד החודשי שקבעת (' +
+        formatMoney(goal) + '). מה תרצה לעשות?';
+    } else {
+      message = 'העסקה הזו תגרום לחודש ' + formatMonthLabel(year, monthIndex) + ' לחרוג מהיעד החודשי (הסה"כ יעמוד על ' +
+        formatMoney(projectedTotal) + ' מתוך יעד של ' + formatMoney(goal) + '). מה תרצה לעשות?';
+    }
+    document.getElementById('feeExceedsGoalMessage').textContent = message;
     document.getElementById('feeExceedsGoalModal').classList.remove('hidden');
   }
 
