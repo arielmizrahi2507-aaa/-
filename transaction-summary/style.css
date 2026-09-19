@@ -196,8 +196,10 @@ html, body {
   border-radius: 14px;
   padding: 12px 16px;
   box-shadow: 0 10px 24px rgba(14,44,74,0.18);
+  flex: 1 1 320px;
+  max-width: 440px;
 }
-.overview-col { flex: 1 1 200px; min-width: 190px; max-width: 230px; }
+.overview-col { flex: 1 1 0; min-width: 0; }
 .overview-title { margin: 0 0 8px; font-size: 0.76rem; font-weight: 700; color: var(--navy); }
 .overview-list { display: flex; flex-direction: column; gap: 6px; max-height: 150px; overflow-y: auto; }
 .overview-empty { color: var(--muted); font-size: 0.75rem; text-align: center; padding: 10px 0; }
