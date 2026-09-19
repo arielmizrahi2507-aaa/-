@@ -5,7 +5,7 @@
   var STORAGE_KEY_SETTINGS = 'dnm_settings_v1';
 
   var HEBREW_MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
-  var TRANSACTION_TYPES = ['מכר דירה', 'קניית דירה', 'מכר מסחרי', 'ליווי משכנתא', 'הסכם ממון', 'צוואה וירושה', 'ייפוי כוח', 'אחר'];
+  var TRANSACTION_TYPES = ['מכר דירה', 'רכישת דירה', 'מכר מסחרי', 'ליווי משכנתא', 'הסכם ממון', 'צוואה וירושה', 'ייפוי כוח', 'אחר'];
   var MONTHS_WINDOW = 36;
 
   var state = {
@@ -181,6 +181,172 @@
     document.getElementById('earnedValue').textContent = formatMoney(computeTotalEarned());
   }
 
+  // Builds a single transaction row (status square, name, paid/postpone/delete
+  // icons) exactly as used in the month columns. Shared with the overdue panel
+  // so both operate on the same transaction objects via the same functions -
+  // any change made from either place is automatically reflected in the other,
+  // since there is only one underlying data array and one renderAll().
+  function buildTransactionRow(t, overageId) {
+    var row = document.createElement('div');
+    row.className = 'transaction-row';
+
+    var square = document.createElement('button');
+    square.type = 'button';
+    square.className = 'tx-square';
+    if (t.paid) {
+      square.classList.add('paid');
+      square.textContent = '✓';
+      square.title = 'שולם - לחצו לביטול הסימון';
+      square.addEventListener('click', function (e) {
+        e.stopPropagation();
+        unmarkTransactionPaid(t.id);
+      });
+    } else if (Number(t.fee) > state.settings.monthlyGoal) {
+      square.classList.add('overage');
+      square.textContent = '!';
+      square.title = 'שכ"ט העסקה בעצמו חורג מהיעד החודשי - לחצו לפרטים';
+      square.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openSoloOverageModal(t);
+      });
+    } else if (t.id === overageId) {
+      square.classList.add('overage');
+      square.textContent = '!';
+      square.title = 'חריגה מהיעד החודשי - לחצו לפרטים';
+      square.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openMoveModal(t);
+      });
+    } else if (!t.seen) {
+      square.classList.add('new');
+      square.textContent = '!';
+      square.title = 'עסקה חדשה';
+      square.disabled = true;
+    } else {
+      square.disabled = true;
+    }
+    row.appendChild(square);
+
+    var nameBtn = document.createElement('button');
+    nameBtn.type = 'button';
+    nameBtn.className = 'tx-name' + (t.paid ? ' paid-text' : '');
+    nameBtn.textContent = t.clientName;
+    nameBtn.addEventListener('click', function () { openDetailModal(t.id); });
+    row.appendChild(nameBtn);
+
+    var actions = document.createElement('div');
+    actions.className = 'tx-actions';
+
+    var paidBtn = document.createElement('button');
+    paidBtn.type = 'button';
+    paidBtn.className = 'tx-icon-btn paid';
+    if (t.paid) {
+      paidBtn.textContent = '↺';
+      paidBtn.title = 'ביטול סימון ששולם';
+      paidBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        unmarkTransactionPaid(t.id);
+      });
+    } else {
+      paidBtn.textContent = '✓';
+      paidBtn.title = 'קיבלתי את הכסף';
+      paidBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        markTransactionPaid(t.id);
+      });
+    }
+    actions.appendChild(paidBtn);
+
+    var postponeBtnEl = document.createElement('button');
+    postponeBtnEl.type = 'button';
+    postponeBtnEl.className = 'tx-icon-btn postpone';
+    postponeBtnEl.title = 'לדחות תשלום';
+    postponeBtnEl.textContent = '⏱';
+    postponeBtnEl.addEventListener('click', function (e) {
+      e.stopPropagation();
+      openQuickPostponeModal(t.id);
+    });
+    actions.appendChild(postponeBtnEl);
+
+    var deleteBtnEl = document.createElement('button');
+    deleteBtnEl.type = 'button';
+    deleteBtnEl.className = 'tx-icon-btn delete';
+    deleteBtnEl.title = 'מחיקת עסקה';
+    deleteBtnEl.textContent = '✕';
+    deleteBtnEl.addEventListener('click', function (e) {
+      e.stopPropagation();
+      deleteTransactionById(t.id);
+    });
+    actions.appendChild(deleteBtnEl);
+
+    row.appendChild(actions);
+    return row;
+  }
+
+  // ---------- Overview panel (overdue + due-this-week) ----------
+  // Both lists are pure derived views over state.transactions, recomputed on
+  // every renderAll() (init, refresh, and every action) - so they always
+  // reflect "now" without any separate update mechanism.
+  function renderOverviewPanel() {
+    var overdueList = document.getElementById('overdueList');
+    var weekList = document.getElementById('upcomingWeekList');
+    overdueList.innerHTML = '';
+    weekList.innerHTML = '';
+
+    var todayStr = todayDateStr();
+    var weekAheadDate = new Date();
+    weekAheadDate.setDate(weekAheadDate.getDate() + 7);
+    var weekAheadStr = weekAheadDate.getFullYear() + '-' + pad2(weekAheadDate.getMonth() + 1) + '-' + pad2(weekAheadDate.getDate());
+
+    var overdue = state.transactions
+      .filter(function (t) { return !t.paid && t.dueDate < todayStr; })
+      .sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : (a.dueDate > b.dueDate ? 1 : 0); });
+
+    if (!overdue.length) {
+      var emptyO = document.createElement('div');
+      emptyO.className = 'overview-empty';
+      emptyO.textContent = 'אין עסקאות שעברו זמנן';
+      overdueList.appendChild(emptyO);
+    } else {
+      overdue.forEach(function (t) {
+        var y = Number(t.dueDate.slice(0, 4));
+        var m = Number(t.dueDate.slice(5, 7)) - 1;
+        var monthOverageId = computeMonthData(y, m).overageId;
+        overdueList.appendChild(buildTransactionRow(t, monthOverageId));
+      });
+    }
+
+    var upcoming = state.transactions
+      .filter(function (t) { return !t.paid && t.dueDate >= todayStr && t.dueDate <= weekAheadStr; })
+      .sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : (a.dueDate > b.dueDate ? 1 : 0); });
+
+    if (!upcoming.length) {
+      var emptyW = document.createElement('div');
+      emptyW.className = 'overview-empty';
+      emptyW.textContent = 'אין עסקאות לתשלום השבוע הקרוב';
+      weekList.appendChild(emptyW);
+    } else {
+      upcoming.forEach(function (t) {
+        var item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'overview-simple-item';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'overview-simple-name';
+        nameSpan.textContent = t.clientName;
+        item.appendChild(nameSpan);
+
+        var metaSpan = document.createElement('span');
+        metaSpan.className = 'overview-simple-meta';
+        metaSpan.textContent = formatDateHuman(t.dueDate) + ' · ' + formatMoney(t.fee);
+        item.appendChild(metaSpan);
+
+        item.addEventListener('click', function () { openDetailModal(t.id); });
+        weekList.appendChild(item);
+      });
+    }
+  }
+
   function renderMonths() {
     var track = document.getElementById('monthsTrack');
     track.innerHTML = '';
@@ -230,101 +396,7 @@
         }
 
         data.list.forEach(function (t) {
-          var row = document.createElement('div');
-          row.className = 'transaction-row';
-
-          var square = document.createElement('button');
-          square.type = 'button';
-          square.className = 'tx-square';
-          if (t.paid) {
-            square.classList.add('paid');
-            square.textContent = '✓';
-            square.title = 'שולם - לחצו לביטול הסימון';
-            square.addEventListener('click', function (e) {
-              e.stopPropagation();
-              unmarkTransactionPaid(t.id);
-            });
-          } else if (Number(t.fee) > state.settings.monthlyGoal) {
-            square.classList.add('overage');
-            square.textContent = '!';
-            square.title = 'שכ"ט העסקה בעצמו חורג מהיעד החודשי - לחצו לפרטים';
-            square.addEventListener('click', function (e) {
-              e.stopPropagation();
-              openSoloOverageModal(t);
-            });
-          } else if (t.id === data.overageId) {
-            square.classList.add('overage');
-            square.textContent = '!';
-            square.title = 'חריגה מהיעד החודשי - לחצו לפרטים';
-            square.addEventListener('click', function (e) {
-              e.stopPropagation();
-              openMoveModal(t);
-            });
-          } else if (!t.seen) {
-            square.classList.add('new');
-            square.textContent = '!';
-            square.title = 'עסקה חדשה';
-            square.disabled = true;
-          } else {
-            square.disabled = true;
-          }
-          row.appendChild(square);
-
-          var nameBtn = document.createElement('button');
-          nameBtn.type = 'button';
-          nameBtn.className = 'tx-name' + (t.paid ? ' paid-text' : '');
-          nameBtn.textContent = t.clientName;
-          nameBtn.addEventListener('click', function () { openDetailModal(t.id); });
-          row.appendChild(nameBtn);
-
-          var actions = document.createElement('div');
-          actions.className = 'tx-actions';
-
-          var paidBtn = document.createElement('button');
-          paidBtn.type = 'button';
-          paidBtn.className = 'tx-icon-btn paid';
-          if (t.paid) {
-            paidBtn.textContent = '↺';
-            paidBtn.title = 'ביטול סימון ששולם';
-            paidBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              unmarkTransactionPaid(t.id);
-            });
-          } else {
-            paidBtn.textContent = '✓';
-            paidBtn.title = 'קיבלתי את הכסף';
-            paidBtn.addEventListener('click', function (e) {
-              e.stopPropagation();
-              markTransactionPaid(t.id);
-            });
-          }
-          actions.appendChild(paidBtn);
-
-          var postponeBtnEl = document.createElement('button');
-          postponeBtnEl.type = 'button';
-          postponeBtnEl.className = 'tx-icon-btn postpone';
-          postponeBtnEl.title = 'לדחות תשלום';
-          postponeBtnEl.textContent = '⏱';
-          postponeBtnEl.addEventListener('click', function (e) {
-            e.stopPropagation();
-            openQuickPostponeModal(t.id);
-          });
-          actions.appendChild(postponeBtnEl);
-
-          var deleteBtnEl = document.createElement('button');
-          deleteBtnEl.type = 'button';
-          deleteBtnEl.className = 'tx-icon-btn delete';
-          deleteBtnEl.title = 'מחיקת עסקה';
-          deleteBtnEl.textContent = '✕';
-          deleteBtnEl.addEventListener('click', function (e) {
-            e.stopPropagation();
-            deleteTransactionById(t.id);
-          });
-          actions.appendChild(deleteBtnEl);
-
-          row.appendChild(actions);
-
-          listEl.appendChild(row);
+          listEl.appendChild(buildTransactionRow(t, data.overageId));
         });
 
         col.appendChild(listEl);
@@ -336,6 +408,7 @@
   function renderAll() {
     renderGoal();
     renderMonths();
+    renderOverviewPanel();
   }
 
   // ---------- Add transaction ----------
@@ -1055,6 +1128,95 @@
     resetCustomGoalUI();
   }
 
+  // ---------- Search ----------
+  var searchMode = 'name';
+
+  function setSearchMode(mode) {
+    searchMode = mode;
+    document.querySelectorAll('.search-mode-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.dataset.mode === mode);
+    });
+    var textInput = document.getElementById('searchInput');
+    var dateInput = document.getElementById('searchDateInput');
+    if (mode === 'date') {
+      textInput.classList.add('hidden');
+      dateInput.classList.remove('hidden');
+      dateInput.value = '';
+    } else {
+      dateInput.classList.add('hidden');
+      textInput.classList.remove('hidden');
+      textInput.value = '';
+      textInput.placeholder = mode === 'name' ? 'חיפוש לפי שם לקוח...' : 'חיפוש לפי סוג עסקה...';
+      textInput.focus();
+    }
+    hideSearchResults();
+  }
+
+  function hideSearchResults() {
+    var results = document.getElementById('searchResults');
+    results.classList.add('hidden');
+    results.innerHTML = '';
+  }
+
+  function renderSearchResults(matches) {
+    var results = document.getElementById('searchResults');
+    results.innerHTML = '';
+    if (!matches.length) {
+      var empty = document.createElement('div');
+      empty.className = 'search-empty';
+      empty.textContent = 'לא נמצאו עסקאות תואמות';
+      results.appendChild(empty);
+    } else {
+      matches.slice(0, 30).forEach(function (t) {
+        var item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'search-result-item';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'search-result-name';
+        nameSpan.textContent = t.clientName;
+        item.appendChild(nameSpan);
+
+        var metaSpan = document.createElement('span');
+        metaSpan.className = 'search-result-meta';
+        metaSpan.textContent = formatDateHuman(t.dueDate) + ' · ' + formatMoney(t.fee) + (t.type ? ' · ' + t.type : '');
+        item.appendChild(metaSpan);
+
+        item.addEventListener('click', function () {
+          openDetailModal(t.id);
+          hideSearchResults();
+          document.getElementById('searchInput').value = '';
+          document.getElementById('searchDateInput').value = '';
+        });
+        results.appendChild(item);
+      });
+    }
+    results.classList.remove('hidden');
+  }
+
+  function sortByDueDate(list) {
+    return list.sort(function (a, b) { return a.dueDate < b.dueDate ? -1 : (a.dueDate > b.dueDate ? 1 : 0); });
+  }
+
+  function handleSearchTextInput() {
+    var query = document.getElementById('searchInput').value.trim();
+    if (!query) { hideSearchResults(); return; }
+    var matches;
+    if (searchMode === 'name') {
+      matches = state.transactions.filter(function (t) { return t.clientName && t.clientName.indexOf(query) !== -1; });
+    } else {
+      matches = state.transactions.filter(function (t) { return t.type && t.type.indexOf(query) !== -1; });
+    }
+    renderSearchResults(sortByDueDate(matches));
+  }
+
+  function handleSearchDateInput() {
+    var value = document.getElementById('searchDateInput').value;
+    if (!value) { hideSearchResults(); return; }
+    var matches = state.transactions.filter(function (t) { return t.dueDate === value; });
+    renderSearchResults(sortByDueDate(matches));
+  }
+
   // ---------- Months navigation ----------
   function getColumns() {
     return Array.prototype.slice.call(document.querySelectorAll('.month-column'));
@@ -1185,7 +1347,15 @@
       if (!plWrap.classList.contains('hidden') && !plWrap.contains(e.target) && e.target !== plTrigger) {
         plWrap.classList.add('hidden');
       }
+      var searchWrap = document.getElementById('searchWrap');
+      if (!searchWrap.contains(e.target)) hideSearchResults();
     });
+
+    document.querySelectorAll('.search-mode-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () { setSearchMode(btn.dataset.mode); });
+    });
+    document.getElementById('searchInput').addEventListener('input', handleSearchTextInput);
+    document.getElementById('searchDateInput').addEventListener('input', handleSearchDateInput);
 
     document.getElementById('closeDetailModal').addEventListener('click', closeDetailModal);
     document.getElementById('markPaidBtn').addEventListener('click', handleMarkPaid);

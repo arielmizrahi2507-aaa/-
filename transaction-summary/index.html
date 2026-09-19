@@ -17,12 +17,36 @@
         <button type="button" id="refreshBtn" class="refresh-btn" title="רענון">⟳</button>
         <span id="clock"></span>
       </div>
+      <div class="search-wrap" id="searchWrap">
+        <div class="search-mode-toggle">
+          <button type="button" class="search-mode-btn active" data-mode="name">שם</button>
+          <button type="button" class="search-mode-btn" data-mode="date">תאריך</button>
+          <button type="button" class="search-mode-btn" data-mode="type">סוג</button>
+        </div>
+        <div class="search-input-wrap">
+          <input type="text" id="searchInput" class="search-input" placeholder="חיפוש לפי שם לקוח..." autocomplete="off">
+          <input type="date" id="searchDateInput" class="search-input hidden">
+        </div>
+        <div id="searchResults" class="search-results hidden"></div>
+      </div>
       <button id="addTransactionBtn" class="btn-primary">+ הוסף עסקה</button>
     </div>
 
-    <div class="hero-brand">
-      <img src="logo-feather.png" alt="דורון נועם מזרחי, עורך דין" class="brand-logo">
-      <div class="hero-tagline">מערכת חלוקת שכר טרחה</div>
+    <div class="hero-brand-row">
+      <div class="overview-panel">
+        <div class="overview-col">
+          <h4 class="overview-title">עברו זמנן ולא שולמו</h4>
+          <div id="overdueList" class="overview-list"></div>
+        </div>
+        <div class="overview-col">
+          <h4 class="overview-title">לתשלום השבוע הקרוב</h4>
+          <div id="upcomingWeekList" class="overview-list"></div>
+        </div>
+      </div>
+      <div class="hero-brand">
+        <img src="logo-feather.png" alt="דורון נועם מזרחי, עורך דין" class="brand-logo">
+        <div class="hero-tagline">מערכת חלוקת שכר טרחה</div>
+      </div>
     </div>
 
     <div class="stat-row">
