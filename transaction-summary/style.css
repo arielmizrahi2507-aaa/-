@@ -22,18 +22,16 @@
 html, body {
   margin: 0;
   padding: 0;
-  height: 100%;
   background: var(--ivory);
   color: var(--text);
   font-family: 'Heebo', "Segoe UI", Arial, Helvetica, sans-serif;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 .app {
-  height: 100vh;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
 /* ---------- Hero (clock / add button / logo / stats) ---------- */
@@ -385,7 +383,7 @@ html, body {
 /* ---------- Months section ---------- */
 .months-section {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 420px;
   display: flex;
   flex-direction: column;
   padding: 10px 24px 14px;
@@ -667,8 +665,6 @@ html, body {
 
 /* ---------- Mobile ---------- */
 @media (max-width: 700px) {
-  html, body { height: auto; overflow: auto; }
-  .app { height: auto; min-height: 100vh; overflow: visible; }
   .months-section { min-height: 60vh; }
   .transactions-list { max-height: 45vh; }
   .hero-top { flex-wrap: wrap; }
