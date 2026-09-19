@@ -33,6 +33,9 @@
     // transactions saved before the "new" indicator existed are treated as already seen
     state.transactions.forEach(function (t) {
       if (t.seen === undefined) t.seen = true;
+      // "קניית דירה" was renamed to "רכישת דירה" - update any transaction saved
+      // under the old label so it matches the new one everywhere (search included).
+      if (t.type === 'קניית דירה') t.type = 'רכישת דירה';
     });
   }
 
