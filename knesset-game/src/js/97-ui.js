@@ -1,0 +1,434 @@
+// ===== UI: menus, character select with live move demo, settings, help, achievements =====
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+const ICON_SC = { bulldozer: 0.2, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
+const iconCache = new Map();
+function iconURL(kind, size = 64) {
+  const key = kind + ':' + size;
+  if (iconCache.has(key)) return iconCache.get(key);
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const x = c.getContext('2d');
+  drawEnt(x, kind, size / 2, size / 2 + (kind === 'sign' ? 8 : 0), { sc: (ICON_SC[kind] || 0.5) * size / 64 * 1.5, t: 0, h: 70, r: 70, tilt: 0.2 });
+  const url = c.toDataURL();
+  iconCache.set(key, url);
+  return url;
+}
+const portCache = new Map();
+function portraitURL(id, size = 128) {
+  const key = id + ':' + size;
+  if (portCache.has(key)) return portCache.get(key);
+  const def = ROSTER_BY_ID[id];
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const x = c.getContext('2d');
+  drawPortrait(x, def, size / 2, size / 2, size / 2 - 4, { bg: darken(def.color, 0.55), ring: def.color, lw: 6, mouth: 'smile' });
+  const url = c.toDataURL();
+  portCache.set(key, url);
+  return url;
+}
+
+const partyChip = (def) => `<span class="party" style="--pc:${def.color}">${def.partyName}</span>`;
+const pips = (n, max = 5) => Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+const cdText = (m) => (m.cd ? 'טעינה ' + (m.cd / 60).toFixed(1).replace('.0', '') + ' שנ׳' : '');
+
+const ICONS = {
+  sound: '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',
+  mute: '<svg viewBox="0 0 24 24"><path d="M16.5 12a4.5 4.5 0 0 0-2.5-4v2.2l2.5 2.5zM19 12a7 7 0 0 1-.9 3.4l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1a7 7 0 0 1 5 6.7zM4.3 3 3 4.3 7.7 9H3v6h4l5 4v-6.7l4.3 4.3c-.7.5-1.4.9-2.3 1.2v2.1a9 9 0 0 0 3.6-1.8l2 2 1.3-1.3L4.3 3zM12 5 9.9 7.1 12 9.2V5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+};
+
+const UI = {
+  cur: null,
+  params: {},
+  screens: {},
+
+  init() {
+    this.root = $('#screens');
+    this.root.innerHTML = [this.tplTitle(), this.tplSelect(), this.tplVs(), this.tplSettings(), this.tplHelp(), this.tplAchv(), this.tplResult(), this.tplBills(), this.tplPause(), this.tplDaily()].join('');
+    this.root.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-act]');
+      if (!t || t.disabled) return;
+      Snd.init(); Snd.resume();
+      this.act(t.dataset.act, t, e);
+    });
+    document.addEventListener('pointerdown', () => { Snd.init(); Snd.resume(); if (Snd.music.pending) { Snd.playMusic(Snd.music.pending); } }, { passive: true });
+    document.addEventListener('keydown', (e) => this.onKey(e));
+    $('#mute').addEventListener('click', () => { Snd.init(); this.setMuted(!Snd.muted); });
+    this.applyMuteIcon();
+    this.bindSettings();
+  },
+
+  show(name, params = {}) {
+    this.cur = name; this.params = params;
+    $$('.screen', this.root).forEach((s) => s.classList.toggle('on', s.id === 's-' + name));
+    document.body.dataset.screen = name;
+    const scr = $('#s-' + name, this.root);
+    if (scr) { scr.scrollTop = 0; const h = this['enter_' + name]; if (h) h.call(this, params); }
+    requestAnimationFrame(() => { const f = $('.autofocus', scr || document) || $('.nav', scr || document); if (f && matchMedia('(hover:hover)').matches) f.focus({ preventScroll: true }); });
+  },
+  hide() { $$('.screen', this.root).forEach((s) => s.classList.remove('on')); this.cur = null; document.body.dataset.screen = 'fight'; },
+  overlay(name, on = true) { const s = $('#s-' + name, this.root); if (s) s.classList.toggle('on', on); },
+
+  setMuted(m) {
+    Snd.setMuted(m); Save.d.settings.muted = m; Save.save(); this.applyMuteIcon();
+  },
+  applyMuteIcon() { $('#mute').innerHTML = Snd.muted ? ICONS.mute : ICONS.sound; $('#mute').setAttribute('aria-label', Snd.muted ? 'הפעלת סאונד' : 'השתקה'); },
+
+  toast(title, sub, kind = 'ach') {
+    const t = document.createElement('div');
+    t.className = 'toast ' + kind;
+    t.innerHTML = `<b>${title}</b><span>${sub || ''}</span>`;
+    $('#toasts').appendChild(t);
+    Snd.play('toast');
+    setTimeout(() => t.classList.add('out'), 3600);
+    setTimeout(() => t.remove(), 4200);
+  },
+
+  // ---------------------------------------------------------------- key / pad navigation
+  onKey(e) {
+    if (this.cur === null || Inp.capture) return;
+    const k = e.code;
+    if (k === 'Escape' || k === 'Backspace') {
+      const b = $('.screen.on [data-act="back"], .screen.on [data-act="close"]');
+      if (b) { e.preventDefault(); b.click(); }
+      return;
+    }
+    const dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    if (dirs[k]) { if (e.target && /INPUT|SELECT/.test(e.target.tagName)) return; e.preventDefault(); this.nav(dirs[k][0], dirs[k][1]); }
+  },
+  nav(dx, dy) {
+    const scr = $('.screen.on', this.root);
+    if (!scr) return;
+    const items = $$('.nav', scr).filter((n) => n.offsetParent !== null && !n.disabled);
+    if (!items.length) return;
+    const cur = document.activeElement && items.includes(document.activeElement) ? document.activeElement : null;
+    if (!cur) { items[0].focus(); return; }
+    const r0 = cur.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
+    let best = null, bs = 1e9;
+    for (const n of items) {
+      if (n === cur) continue;
+      const r = n.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+      const ddx = x - cx, ddy = y - cy;
+      const along = dx ? ddx * dx : ddy * dy, across = dx ? Math.abs(ddy) : Math.abs(ddx);
+      if (along <= 4) continue;
+      const score = along + across * 2.2;
+      if (score < bs) { bs = score; best = n; }
+    }
+    if (best) { best.focus(); Snd.play('move'); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); if (best.dataset.act === 'pick') this.preview(best.dataset.id); }
+  },
+  padPoll() {
+    if (this.cur === null || Inp.capture) return;
+    const n = Inp.padNav();
+    if (n.dx || n.dy) this.nav(n.dx, n.dy);
+    if (n.ok) { const a = document.activeElement; if (a && a.click && a.closest('.screen.on')) a.click(); }
+    if (n.back) { const b = $('.screen.on [data-act="back"]'); if (b) b.click(); }
+  },
+
+  // ---------------------------------------------------------------- templates
+  tplTitle() {
+    return `<section class="screen" id="s-title">
+      <div class="title-wrap">
+        <div class="logo">
+          <div class="l1">מכות</div>
+          <div class="l2">בכנסת</div>
+          <div class="l3">KNESSET SMACKDOWN</div>
+          <p class="tag">משחק לחימה סאטירי · 12 חברי כנסת · יכולת מיוחדת לכל אחד</p>
+        </div>
+        <nav class="menu">
+          <button class="btn primary big nav autofocus" data-act="arcade"><b>מסע לראשות הממשלה</b><small>סדרת קרבות + בוס סודי</small></button>
+          <button class="btn pink big nav" data-act="survival"><b>מרתון חקיקה</b><small>גלים אינסופיים, חוקים ושדרוגים</small></button>
+          <button class="btn cyan big nav" data-act="daily"><b>האתגר היומי</b><small id="daily-sub">חוק חדש כל יום</small></button>
+          <button class="btn big nav" data-act="versus"><b>קרב חברים</b><small>שניים על מקלדת אחת</small></button>
+          <div class="menu-row">
+            <button class="btn nav" data-act="training">אימון</button>
+            <button class="btn nav" data-act="roster">הדמויות והמכות</button>
+            <button class="btn nav" data-act="achv">הישגים</button>
+            <button class="btn nav" data-act="settings">הגדרות</button>
+            <button class="btn nav" data-act="help">איך משחקים</button>
+          </div>
+        </nav>
+      </div>
+      <footer class="foot">
+        <span id="title-stats"></span>
+        <span class="disc">פרודיה וסאטירה: כל הדמויות קריקטורות, וכל הציטוטים, היכולות והמכות בדויים. אין קשר בין המשחק לאיש מהמופיעים בו.</span>
+      </footer>
+    </section>`;
+  },
+
+  tplSelect() {
+    return `<section class="screen" id="s-select">
+      <header class="bar">
+        <button class="btn ghost nav" data-act="back">חזרה</button>
+        <div class="ttl"><small id="sel-mode"></small><h2 id="sel-step"></h2></div>
+        <div id="sel-extra" class="extra"></div>
+      </header>
+      <div class="selbody">
+        <div class="grid" id="grid"></div>
+        <aside class="detail" id="detail">
+          <div class="pvwrap"><canvas id="pv" width="480" height="270"></canvas><div id="pvcap" class="pvcap"></div></div>
+          <div id="dinfo"></div>
+        </aside>
+      </div>
+      <footer class="bar foot-bar"><button class="btn primary big nav" data-act="confirm" id="btn-confirm">בחירה</button></footer>
+    </section>`;
+  },
+
+  tplVs() {
+    return `<section class="screen" id="s-vs" data-act="skipvs">
+      <div class="vs-wrap">
+        <div class="vs-side l"><canvas id="vs-a" width="360" height="360"></canvas><h3 id="vs-an"></h3><div id="vs-ap"></div><q id="vs-aq"></q></div>
+        <div class="vs-mid"><div class="vs-burst">VS</div></div>
+        <div class="vs-side r"><canvas id="vs-b" width="360" height="360"></canvas><h3 id="vs-bn"></h3><div id="vs-bp"></div><q id="vs-bq"></q></div>
+      </div>
+      <div class="vs-foot"><b id="vs-stage"></b><span id="vs-info"></span></div>
+    </section>`;
+  },
+
+  tplSettings() {
+    return `<section class="screen" id="s-settings">
+      <header class="bar"><button class="btn ghost nav" data-act="back">חזרה</button><div class="ttl"><h2>הגדרות</h2></div><span></span></header>
+      <div class="panel narrow">
+        <label class="row">עוצמת אפקטים<input type="range" min="0" max="100" id="set-sfx" class="nav"></label>
+        <label class="row">עוצמת מוזיקה<input type="range" min="0" max="100" id="set-music" class="nav"></label>
+        <label class="row">רעידות מסך<input type="checkbox" id="set-shake" class="nav"></label>
+        <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
+        <label class="row">כפתורי מגע
+          <select id="set-touch" class="nav"><option value="auto">אוטומטי</option><option value="on">תמיד</option><option value="off">כבוי</option></select></label>
+        <label class="row">סיבובים לניצחון
+          <select id="set-rounds" class="nav"><option value="1">1 (קרב חטוף)</option><option value="2">2 (מומלץ)</option><option value="3">3 (ארוך)</option></select></label>
+        <label class="row">זמן סיבוב
+          <select id="set-timer" class="nav"><option value="45">45 שניות</option><option value="60">60 שניות</option><option value="90">90 שניות</option></select></label>
+        <div class="row"><button class="btn danger nav" data-act="reset">איפוס כל ההתקדמות</button></div>
+      </div>
+    </section>`;
+  },
+
+  tplHelp() {
+    const kb = (k, v) => `<tr><th>${k}</th><td>${v}</td></tr>`;
+    return `<section class="screen" id="s-help">
+      <header class="bar"><button class="btn ghost nav" data-act="back">חזרה</button><div class="ttl"><h2>איך משחקים</h2></div><span></span></header>
+      <div class="panel wide help">
+        <div class="cols">
+          <div>
+            <h3>מקלדת (שחקן יחיד)</h3>
+            <table>
+              ${kb('תנועה', 'A ו-D או חיצים. W קפיצה, S התכופפות')}
+              ${kb('אגרוף / בעיטה', 'J או Z / K או X')}
+              ${kb('מיוחד 1 / מיוחד 2', 'L או C / U או V')}
+              ${kb('חסימה', 'I או רווח (מחזיקים)')}
+              ${kb('סופר', 'O או B (כשההייפ מלא)')}
+              ${kb('זריקה', 'E או N (או אגרוף ובעיטה יחד), מקרוב')}
+              ${kb('ריצה / נסיגה', 'לחיצה כפולה על כיוון')}
+              ${kb('הפסקה', 'Esc או P')}
+            </table>
+            <h3>שני שחקנים</h3>
+            <table>
+              ${kb('שחקן 1', 'WASD · F,G,H,R,T,Y')}
+              ${kb('שחקן 2', 'חיצים · פסיק, נקודה, סלש, נקודה-פסיק, גרש, Enter')}
+              ${kb('שלט משחק', 'מקל או חיצים לתנועה · X אגרוף · Y בעיטה · A מיוחד 1 · B מיוחד 2 · LB חסימה · RB סופר · RT זריקה')}
+            </table>
+          </div>
+          <div>
+            <h3>כללי הקרב</h3>
+            <ul>
+              <li><b>מנדטים:</b> הם החיים. מי שיורד ל-0 נופל מתחת לאחוז החסימה.</li>
+              <li><b>הייפ:</b> מתמלא ממכות ומהגנה. כשהוא מלא, לחצו סופר לסרטון-על.</li>
+              <li><b>יכולות מיוחדות:</b> אין עלות, יש זמן טעינה (הסמלים שמתחת לפס ההייפ).</li>
+              <li><b>חסימה:</b> החזיקו חסימה. מכה נמוכה דורשת חסימה מכופפת, מכה מלמעלה דורשת חסימה עומדת.</li>
+              <li><b>בלוק מושלם:</b> לחצו חסימה ממש לפני הפגיעה: בלי נזק, והיריב נתקע.</li>
+              <li><b>קומבו:</b> אגרוף, אגרוף, בעיטה, ואז יכולת מיוחדת. כל פגיעה ברצף חלשה קצת יותר.</li>
+              <li><b>זריקה:</b> כפתור זריקה (או אגרוף ובעיטה יחד) מקרוב: עוקפת חסימה.</li>
+              <li><b>טיפ:</b> רוצים לראות כל מכה? בחירת דמות מראה הדגמה חיה.</li>
+            </ul>
+            <h3>כפתורי מגע</h3>
+            <p>מקל התנועה משמאל: החליקו ימינה/שמאלה, למעלה לקפיצה, למטה להתכופפות. כפתורי הפעולה מימין. שני הכפתורים הקטנים שלידם הם ריצה וזריקה.</p>
+          </div>
+        </div>
+      </div>
+    </section>`;
+  },
+
+  tplAchv() {
+    return `<section class="screen" id="s-achv">
+      <header class="bar"><button class="btn ghost nav" data-act="back">חזרה</button><div class="ttl"><h2>הישגים</h2><small id="achv-count"></small></div><span></span></header>
+      <div class="panel wide"><div class="achv-grid" id="achv-grid"></div><div id="stats-box" class="stats-box"></div></div>
+    </section>`;
+  },
+
+  tplResult() {
+    return `<section class="screen" id="s-result"><div class="res-card" id="res-card"></div></section>`;
+  },
+  tplBills() {
+    return `<section class="screen" id="s-bills"><div class="res-card wide-card" id="bills-card"></div></section>`;
+  },
+  tplPause() {
+    return `<section class="screen dim" id="s-pause"><div class="res-card">
+      <h2>הפסקה</h2>
+      <div class="stack">
+        <button class="btn primary big nav autofocus" data-act="resume">המשך</button>
+        <button class="btn nav" data-act="pause-moves">רשימת המכות שלי</button>
+        <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        <div id="pause-train" class="stack"></div>
+        <button class="btn nav" data-act="restart">התחלה מחדש</button>
+        <button class="btn danger nav" data-act="quit">יציאה לתפריט</button>
+      </div></div></section>`;
+  },
+  tplDaily() {
+    return `<section class="screen" id="s-daily"><div class="res-card" id="daily-card"></div></section>`;
+  },
+
+  // ---------------------------------------------------------------- Title
+  enter_title() {
+    Game.setScene('attract');
+    const s = Save.d;
+    $('#title-stats').textContent = `ניצחונות: ${s.wins} · שיא במרתון: גל ${s.survivalBest} · הישגים: ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`;
+    const dk = todayKey();
+    $('#daily-sub').textContent = s.daily.done[dk] ? 'הושלם היום! רצף: ' + s.daily.streak : (s.daily.streak ? 'רצף נוכחי: ' + s.daily.streak : 'חוק חדש כל יום');
+    Snd.playMusic('menu');
+  },
+
+  // ---------------------------------------------------------------- Select
+  enter_select(p) {
+    Game.setScene('none');
+    const S = this.sel = { mode: p.mode, step: p.step || 0, picks: p.picks || [], hover: null, diff: (this.sel && this.sel.diff !== undefined) ? this.sel.diff : 1, stage: (this.sel && this.sel.stage) || 'random', view: p.mode === 'roster' };
+    const titles = { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', versus: 'קרב חברים', training: 'אימון', roster: 'הדמויות והמכות' };
+    $('#sel-mode').textContent = titles[p.mode] || '';
+    const steps = {
+      arcade: ['בחרו לוחם'], survival: ['בחרו לוחם'], roster: ['הדמויות והמכות'],
+      versus: ['שחקן 1: בחרו לוחם', 'שחקן 2: בחרו לוחם'], training: ['בחרו לוחם', 'בחרו יריב לאימון'],
+    };
+    $('#sel-step').textContent = steps[p.mode][S.step];
+    // grid
+    const all = ROSTER.concat(EXTRA);
+    $('#grid').innerHTML = all.map((d) => {
+      const locked = !Save.isUnlocked(d);
+      return `<button class="card nav ${locked ? 'locked' : ''}" data-act="pick" data-id="${d.id}" style="--pc:${d.color}">
+        <img src="${portraitURL(d.id)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
+    }).join('');
+    // extras (difficulty / stage)
+    let extra = '';
+    if (p.mode === 'arcade') extra = `<div class="seg" id="diff-seg">${['קל', 'רגיל', 'קשה'].map((t, i) => `<button class="nav ${S.diff === i ? 'on' : ''}" data-act="diff" data-v="${i}">${t}</button>`).join('')}</div>`;
+    if (p.mode === 'versus' || p.mode === 'training') extra = `<div class="seg stg"><button class="nav" data-act="stage-prev">▶</button><b id="stage-name"></b><button class="nav" data-act="stage-next">◀</button></div>`;
+    $('#sel-extra').innerHTML = extra;
+    this.updateStageName();
+    $('#btn-confirm').style.display = S.view ? 'none' : '';
+    const first = S.picks[S.step - 1] || (S.mode === 'roster' ? 'bibi' : (Save.d.lastPick && Save.isUnlocked(ROSTER_BY_ID[Save.d.lastPick] || ROSTER[0]) ? Save.d.lastPick : 'bibi'));
+    this.preview(first, true);
+    Snd.playMusic('menu');
+  },
+  updateStageName() {
+    const n = $('#stage-name');
+    if (!n) return;
+    const S = this.sel;
+    n.textContent = S.stage === 'random' ? 'זירה: אקראית' : 'זירה: ' + STAGES.find((s) => s.id === S.stage).name;
+  },
+  preview(id, force) {
+    const S = this.sel;
+    if (!S || (!force && S.hover === id)) return;
+    const def = ROSTER_BY_ID[id];
+    if (!def) return;
+    S.hover = id;
+    $$('#grid .card').forEach((c) => c.classList.toggle('sel', c.dataset.id === id));
+    const locked = !Save.isUnlocked(def);
+    $('#btn-confirm').disabled = locked;
+    $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : (S.mode === 'training' && S.step === 0 ? 'הלאה: בחירת יריב' : 'בחירה')));
+    $('#dinfo').innerHTML = this.detailHTML(def, locked);
+    Game.setScene('preview', { id });
+  },
+  detailHTML(def, locked) {
+    const r = def.rating;
+    const mv = (label, m, cls) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}</em> ${m.name}</b> <span class="cdc">${cdText(m)}</span><p>${m.desc}</p></div></div>`;
+    const nm = def.moves;
+    return `<div class="dwrap" style="--pc:${def.color}"><div class="dhead">
+        <img src="${portraitURL(def.id)}" alt="">
+        <div><h3>${def.name}</h3>${partyChip(def)} <span class="arch">${def.title} · ${def.arch}</span></div>
+      </div>
+      <p class="blurb">${def.blurb}</p>
+      ${locked ? `<p class="lockmsg">נעול. כדי לפתוח: ${def.unlock.text}.</p>` : ''}
+      <div class="stats">${[['כוח', r.pow], ['מהירות', r.spd], ['הגנה', r.def], ['טווח', r.rng], ['קושי', r.dif]].map(([n, v]) => `<div><span>${n}</span><span class="pips">${pips(v)}</span></div>`).join('')}</div>
+      <div class="passive"><h4>יכולת מיוחדת · ${def.passive.name}</h4><p>${def.passive.desc}</p></div>
+      <div class="moves">
+        ${mv('מיוחד 1', nm.sp1)}${mv('מיוחד 2', nm.sp2)}${mv('סופר', nm.sup, 'sup')}
+        <div class="normals"><h4>המכות הרגילות</h4>
+          <ul><li><em>אגרוף</em> ${nm.L.name}</li><li><em>בעיטה</em> ${nm.H.name}</li><li><em>קדימה+בעיטה</em> ${nm.FH.name}</li>
+          <li><em>למטה+אגרוף</em> ${nm.DL.name}</li><li><em>למטה+בעיטה</em> ${nm.DH.name}</li><li><em>באוויר</em> ${nm.AL.name} / ${nm.AH.name}</li></ul></div>
+      </div></div>`;
+  },
+
+  // ---------------------------------------------------------------- Achievements
+  enter_achv() {
+    Game.setScene('none');
+    const d = Save.d;
+    $('#achv-count').textContent = `${Object.keys(d.ach).length} מתוך ${ACHIEVEMENTS.length}`;
+    $('#achv-grid').innerHTML = ACHIEVEMENTS.map((a) => `<div class="ach ${d.ach[a.id] ? 'got' : ''}"><b>${a.name}</b><span>${a.desc}</span></div>`).join('');
+    $('#stats-box').innerHTML = `<h3>הסטטיסטיקה שלכם</h3><div class="sgrid">${[
+      ['ניצחונות', d.wins], ['הפסדים', d.losses], ['הפלות (KO)', d.ko], ['סופרים', d.supers], ['בלוקים מושלמים', d.perfects], ['זריקות', d.throws], ['קומבו שיא', d.bestCombo], ['גל שיא במרתון', d.survivalBest],
+    ].map(([k, v]) => `<div><b>${v}</b><span>${k}</span></div>`).join('')}</div>`;
+  },
+
+  // ---------------------------------------------------------------- Settings
+  enter_settings() {
+    Game.setScene('none');
+    const s = Save.d.settings;
+    $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch;
+    $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
+  },
+  bindSettings() {
+    const s = () => Save.d.settings;
+    const on = (id, ev, fn) => $(id).addEventListener(ev, fn);
+    on('#set-sfx', 'input', (e) => { s().sfx = e.target.value / 100; Snd.init(); Snd.setVol('sfx', s().sfx); Snd.play('hitM'); Save.save(); });
+    on('#set-music', 'input', (e) => { s().music = e.target.value / 100; Snd.init(); Snd.setVol('music', s().music); Save.save(); });
+    on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
+    on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
+    on('#set-touch', 'change', (e) => { s().touch = e.target.value; Save.save(); Game.layout(); });
+    on('#set-rounds', 'change', (e) => { s().rounds = +e.target.value; Save.save(); });
+    on('#set-timer', 'change', (e) => { s().timer = +e.target.value; Save.save(); });
+  },
+
+  // ---------------------------------------------------------------- actions
+  act(name, el) {
+    const S = this.sel;
+    switch (name) {
+      case 'arcade': case 'survival': case 'versus': case 'training': case 'roster':
+        Snd.play('confirm'); this.show('select', { mode: name }); break;
+      case 'daily': Snd.play('confirm'); Game.dailyIntro(); break;
+      case 'settings': case 'help': case 'achv': Snd.play('confirm'); this.show(name); break;
+      case 'back': Snd.play('back'); this.back(); break;
+      case 'pick': {
+        const id = el.dataset.id;
+        if (S.hover === id && !S.view) { this.confirmPick(); break; }   // second tap on the same card confirms
+        Snd.play('select'); this.preview(id);
+        break;
+      }
+      case 'diff': S.diff = +el.dataset.v; $$('#diff-seg button').forEach((b) => b.classList.toggle('on', +b.dataset.v === S.diff)); Snd.play('move'); break;
+      case 'stage-next': case 'stage-prev': {
+        const ids = ['random'].concat(STAGES.map((s) => s.id));
+        let i = ids.indexOf(S.stage) + (name === 'stage-next' ? 1 : -1);
+        i = (i + ids.length) % ids.length; S.stage = ids[i]; this.updateStageName(); Snd.play('move'); break;
+      }
+      case 'confirm': this.confirmPick(); break;
+      case 'reset':
+        if (confirm('לאפס את כל ההתקדמות, ההישגים והסטטיסטיקה?')) { localStorage.removeItem(Save.key); Save.load(); Game.applySettings(); this.show('title'); Snd.play('back'); }
+        break;
+      default: Game.act(name, el); break;
+    }
+  },
+  back() {
+    const S = this.sel;
+    if (this.cur === 'select' && S && S.step > 0 && (S.mode === 'versus' || S.mode === 'training')) { this.show('select', { mode: S.mode, step: S.step - 1, picks: S.picks.slice(0, S.step - 1) }); return; }
+    Game.setScene('attract');
+    this.show('title');
+  },
+  confirmPick() {
+    const S = this.sel;
+    const id = S.hover;
+    const def = ROSTER_BY_ID[id];
+    if (!def || !Save.isUnlocked(def)) { Snd.play('back'); return; }
+    Snd.play('confirm');
+    Save.d.lastPick = S.step === 0 ? id : Save.d.lastPick;
+    const picks = S.picks.slice(0, S.step); picks[S.step] = id;
+    if ((S.mode === 'versus' || S.mode === 'training') && S.step === 0) { this.show('select', { mode: S.mode, step: 1, picks }); return; }
+    Game.beginMode(S.mode, picks, { diff: S.diff, stage: S.stage });
+  },
+};
