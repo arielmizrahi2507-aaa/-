@@ -2,7 +2,7 @@
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const ICON_SC = { bulldozer: 0.2, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
+const ICON_SC = { roller: 0.22, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
 const iconCache = new Map();
 function iconURL(kind, size = 64) {
   const key = kind + ':' + size;
@@ -51,7 +51,8 @@ const UI = {
       Snd.init(); Snd.resume();
       this.act(t.dataset.act, t, e);
     });
-    document.addEventListener('pointerdown', () => { Snd.init(); Snd.resume(); if (Snd.music.pending) { Snd.playMusic(Snd.music.pending); } }, { passive: true });
+    const unlock = () => { Snd.init(); Snd.resume(); if (Snd.music.pending) Snd.playMusic(Snd.music.pending); };
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, unlock, { passive: true }));
     document.addEventListener('keydown', (e) => this.onKey(e));
     $('#mute').addEventListener('click', () => { Snd.init(); this.setMuted(!Snd.muted); });
     this.applyMuteIcon();
@@ -281,7 +282,8 @@ const UI = {
   enter_title() {
     Game.setScene('attract');
     const s = Save.d;
-    $('#title-stats').textContent = `ניצחונות: ${s.wins} · שיא במרתון: גל ${s.survivalBest} · הישגים: ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`;
+    const rk = rankOf(s.wins);
+    $('#title-stats').textContent = `דרגה: ${rk.name}${rk.next ? ' (עוד ' + rk.next + ' ניצחונות ל' + rk.nextName + ')' : ''} · ניצחונות: ${s.wins} · שיא במרתון: גל ${s.survivalBest} · הישגים: ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`;
     const dk = todayKey();
     $('#daily-sub').textContent = s.daily.done[dk] ? 'הושלם היום! רצף: ' + s.daily.streak : (s.daily.streak ? 'רצף נוכחי: ' + s.daily.streak : 'חוק חדש כל יום');
     Snd.playMusic('menu');
@@ -328,7 +330,7 @@ const UI = {
     const def = ROSTER_BY_ID[id];
     if (!def) return;
     S.hover = id;
-    $$('#grid .card').forEach((c) => c.classList.toggle('sel', c.dataset.id === id));
+    $$('#grid .card').forEach((c) => { c.classList.toggle('sel', c.dataset.id === id); c.classList.toggle('autofocus', c.dataset.id === id); });
     const locked = !Save.isUnlocked(def);
     $('#btn-confirm').disabled = locked;
     $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : (S.mode === 'training' && S.step === 0 ? 'הלאה: בחירת יריב' : 'בחירה')));
@@ -337,7 +339,7 @@ const UI = {
   },
   detailHTML(def, locked) {
     const r = def.rating;
-    const mv = (label, m, cls) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}</em> ${m.name}</b> <span class="cdc">${cdText(m)}</span><p>${m.desc}</p></div></div>`;
+    const mv = (label, m, cls) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}</em> ${m.name}</b> <span class="cdc">${cls === 'sup' ? 'דורש הייפ מלא' : cdText(m)}</span><p>${m.desc}</p></div></div>`;
     const nm = def.moves;
     return `<div class="dwrap" style="--pc:${def.color}"><div class="dhead">
         <img src="${portraitURL(def.id)}" alt="">

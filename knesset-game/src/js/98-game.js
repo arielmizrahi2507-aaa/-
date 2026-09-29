@@ -13,6 +13,7 @@ const Game = {
   // ------------------------------------------------------------------ boot / loop
   init() {
     this.cv = $('#cv'); this.ctx = this.cv.getContext('2d');
+    try { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); } catch (e) { /* optional */ }
     Save.load();
     const s = Save.d.settings;
     Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
@@ -208,9 +209,10 @@ const Game = {
     const spec = this.spec;
     const B = new Battle({
       fighters: [f1, f2], stage: spec.stage, rounds: spec.rounds || 2, time: spec.time || 60, training: !!spec.training, infMeter: this.infMeter,
-      speed: spec.speed || 1, onEvent: (n, a, b, c, d) => this.onEvent(n, a, b, c, d),
+      speed: spec.speed || 1, pickups: spec.mode === 'survival' || spec.mode === 'daily', onEvent: (n, a, b, c, d) => this.onEvent(n, a, b, c, d),
     });
     if (spec.training) { B.phase = 'fight'; B.phaseT = 0; }
+    B.cfg.hint = !Save.d.seenHelp && !this.touchEnabled() && spec.mode !== 'versus';
     this.B = B;
     UI.hide();
     this.setScene('fight', { B });
@@ -247,12 +249,16 @@ const Game = {
     const S = Save.d, B = this.B, spec = this.spec;
     const won = winner === 0;
     S.matches++;
-    if (won) {
+    S.seenHelp = true;
+    const rankBefore = rankOf(S.wins).name;
+    if (spec.mode === 'versus') { /* two humans: personal stats are not touched */ }
+    else if (won) {
       S.wins++; S.winsBy[spec.p1.id] = (S.winsBy[spec.p1.id] || 0) + 1; S.ko++;
       if (B.f[0].hp / B.f[0].maxHp < 0.1) S.comebacks++;
     } else S.losses++;
     Save.save();
     this.checkAch();
+    if (won && rankOf(S.wins).name !== rankBefore) UI.toast('דרגה חדשה!', rankOf(S.wins).name, 'unlock');
     const res = { won, winner, B, stats: B.stats, hpLeft: B.f[0].hp, hpPct: B.f[0].hp / B.f[0].maxHp, maxCombo: B.stats.maxCombo, rounds: B.wins.slice(), time: B.frame };
     Inp.capture = false; TouchUI.show(false);
     Snd.playMusic(won ? 'victory' : 'menu');
@@ -286,7 +292,7 @@ const Game = {
       case 'quit': this.quit(); break;
       case 'rematch': this.startFight(this.spec); break;
       case 'menu': this.quit(); break;
-      case 'closemoves': this.togglePause(true); this.pauseOpen(); break;
+      case 'closemoves': this.pauseOpen(); break;
       case 'next-arcade': this.nextArcadeFight(); break;
       case 'retry': this.startFight(this.spec); break;
       case 'bill': this.pickBill(el.dataset.id); break;
@@ -313,9 +319,9 @@ const Game = {
   },
 
   // ------------------------------------------------------------------ pause
-  togglePause(force) {
+  togglePause() {
     if (!this.scene || this.scene.kind !== 'fight' || this.B.over) return;
-    this.paused = force !== undefined ? !force : !this.paused;
+    this.paused = !this.paused;
     this.B.paused = this.paused;
     if (this.paused) { Inp.capture = false; this.pauseOpen(); }
     else { $('#s-pause').classList.remove('on'); Inp.capture = true; document.body.dataset.screen = 'fight'; Snd.resume(); }
@@ -344,18 +350,18 @@ const Game = {
   // ------------------------------------------------------------------ ARCADE
   startArcade(id, diff) {
     const others = shuffle(ROSTER.map((d) => d.id).filter((x) => x !== id));
-    const ladder = others.slice(0, 6).concat(['threshold']);
+    const ladder = others.slice(0, 6).concat([id === 'threshold' ? others[6] : 'threshold']);   // the boss is a mirror-free final
     this.arc = { id, diff, ladder, idx: 0, tries: 0, t0: Date.now() };
     this.nextArcadeFight();
   },
   nextArcadeFight() {
     const A = this.arc, i = A.idx, oid = A.ladder[i], boss = oid === 'threshold';
-    const base = [0.2, 0.48, 0.76][A.diff];
-    const level = clamp(base + i * 0.05 + (boss ? 0.08 : 0), 0.1, 0.98);
+    const base = [0.15, 0.4, 0.66][A.diff];
+    const level = clamp(base + i * 0.045 + (boss ? 0.06 : 0), 0.1, 0.98);
     const stage = STAGES[(hashStr(A.id + i) + i) % STAGES.length].id;
     this.startFight({
       mode: 'arcade', p1: { id: A.id, human: true },
-      p2: { id: oid, level, hpMul: 1 + [0, 0.05, 0.12][A.diff] + i * 0.02, dmgMul: [0.85, 1, 1.1][A.diff] },
+      p2: { id: oid, level, hpMul: (1 + [0, 0.05, 0.12][A.diff] + i * 0.02) * (boss ? [0.8, 0.9, 1][A.diff] : 1), dmgMul: [0.85, 1, 1.1][A.diff] * (boss ? [0.85, 0.95, 1][A.diff] : 1) },
       stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer, label: `קרב ${i + 1} מתוך ${A.ladder.length}` + (boss ? ' · הבוס הסודי' : ''),
       onDone: (res) => this.arcadeDone(res),
     });
@@ -392,7 +398,7 @@ const Game = {
     const R = this.surv, w = R.wave;
     const boss = w % 5 === 0;
     const pool = ROSTER.map((d) => d.id).filter((x) => x !== R.fighter);
-    const oid = boss ? 'threshold' : pool[(Math.random() * pool.length) | 0];
+    const oid = boss && R.fighter !== 'threshold' ? 'threshold' : pool[(Math.random() * pool.length) | 0];
     const level = clamp(0.2 + w * 0.035, 0.15, 0.96);
     const me = ROSTER_BY_ID[R.fighter];
     const mods = R.mods;
@@ -520,21 +526,20 @@ function makeDemo(def) {
     { say: 'סופר: ' + M.sup.name, go: 250, meter: true }, { press: IN.S, wait: 230 },
     { say: 'זריקה', go: 70 }, { press: IN.A | IN.B, wait: 90 },
   ];
-  let i = 0, wait = 0, pressLeft = 0, pressBits = 0, started = false;
+  let i = 0, wait = 0, pressLeft = 0, pressBits = 0, stepT = 0;
   const ctrl = (f, B) => {
     const o = f.opp;
     if (!o || B.phase !== 'fight') return 0;
-    if (!f.pv.demoInit) { f.pv.demoInit = true; }
     if (wait > 0) { wait--; return pressLeft-- > 0 ? pressBits : 0; }
     const s = seq[i % seq.length];
     if (s.say) B.demoLabel = s.say;
     if (s.meter) f.meter = 100;
-    if (s.go) {
+    if (s.go && stepT++ < 110) {      // walk to the wanted distance (give up after ~2s, e.g. when pinned against a wall)
       const dx = o.x - f.x, d = Math.abs(dx), toward = dx > 0 ? IN.R : IN.L, away = dx > 0 ? IN.L : IN.R;
-      if (o.x > WALL_R - 120 || o.x < WALL_L + 120) { /* dummy pinned in corner */ }
       if (d > s.go + 14) return toward;
       if (d < s.go - 14) return away;
     }
+    stepT = 0;
     if (s.press) { pressBits = s.press; pressLeft = 2; wait = s.wait || 10; i++; return pressBits; }
     i++;
     return 0;

@@ -354,11 +354,17 @@ const STAGES = [
 const Stages = {
   lx(f, cx) { return -(W / 2) * (1 - f) + cx * (1 - f); },
   res: 1.25, cache: new Map(), vig: null,
-  setRes(r) { r = clamp(Math.round(r * 4) / 4, 1, 2); if (r !== this.res) { this.res = r; this.cache.clear(); this.vig = null; } },
+  order: [],
+  setRes(r) { r = clamp(Math.round(r * 4) / 4, 1, 1.5); if (r !== this.res) { this.res = r; this.cache.clear(); this.order = []; this.vig = null; } },
   layerCanvas(stage, idx) {
     const key = stage.id + ':' + idx;
     let cv = this.cache.get(key);
     if (cv) return cv;
+    // keep the bitmaps of at most two stages in memory (phones)
+    if (!this.order.includes(stage.id)) {
+      this.order.push(stage.id);
+      while (this.order.length > 2) { const old = this.order.shift(); for (const k of Array.from(this.cache.keys())) if (k.startsWith(old + ':')) this.cache.delete(k); }
+    }
     const L = stage.layers[idx];
     const w = Math.ceil(W + (STAGE_W - W) * L.f), h = H;
     cv = document.createElement('canvas');

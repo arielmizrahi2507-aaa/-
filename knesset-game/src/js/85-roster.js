@@ -57,7 +57,7 @@ const ROSTER = [
       L: ['ג׳אב דיפלומטי', 'jab'],
       H: ['בעיטת הסברה', 'kick', { dmg: 9.5 }],
       FH: ['אצבע מדגישה', 'point', { dmg: 10, startup: 17, hb: [24, -196, 96, 130] }],
-      DL: ['בעיטה מתחת לשולחן', 'lowkick'],
+      DL: ['בעיטת ספסל', 'lowkick'],
       DH: ['הצהרה מסעירה', 'uppercut'],
     },
     sp1: spCast({
@@ -165,8 +165,8 @@ const ROSTER = [
     stats: { hp: 110, spd: 0.96 }, rating: { pow: 3, spd: 3, def: 2, rng: 4, dif: 3 },
     ai: { style: 'zone', space: 300 },
     passive: {
-      id: 'tax', name: 'שר האוצר', desc: 'כל פגיעה גוזלת 6 נקודות הייפ מהיריב ומעבירה חלק אליך.',
-      onDealt(f, def) { if (def.meter > 0) { def.meter = Math.max(0, def.meter - 6); f.gain(3); Fx.coins(def.x, def.y - 100, 3, f.face); } },
+      id: 'tax', name: 'שר האוצר', desc: 'כל פגיעה גוזלת 8 נקודות הייפ מהיריב ומעבירה חלק אליך.',
+      onDealt(f, def) { if (def.meter > 0) { def.meter = Math.max(0, def.meter - 8); f.gain(3); Fx.coins(def.x, def.y - 100, 3, f.face); } },
     },
     normals: {
       L: ['מכת מחשבון', 'jab', { prop: 'calc' }],
@@ -221,8 +221,8 @@ const ROSTER = [
       L: ['משא ומתן', 'jab', { startup: 5, dmg: 4.4 }],
       H: ['שכר טרחה', 'hook', { dmg: 9.5, startup: 13, hb: [24, -132, 96, 52], lunge: null }],
       FH: ['חתימה על הסכם', 'chop', { prop: 'pen' }],
-      DL: ['מתחת לשולחן', 'lowkick'],
-      DH: ['הצעה שאי אפשר לסרב לה', 'uppercut'],
+      DL: ['בעיטת כיסא', 'lowkick'],
+      DH: ['הצעה מפתיעה', 'uppercut'],
     },
     sp1: spCast({
       name: 'הזמנה לשיחה', desc: 'מכתב הזמנה שמושך את היריב אליו ומסחרר אותו.', icon: 'letter', frames: 32, release: 12, cd: 240,
@@ -279,13 +279,13 @@ const ROSTER = [
       apply(f) { f.tm.iron = 300; },
     }),
     sup: SP({
-      name: 'מסע הבולדוזר', desc: 'בולדוזר ענק עובר על כל המסך ומעיף את כל מי שבדרך.', icon: 'bulldozer', frames: 100, anim: 'buff', glow: '#f4b400', invAfter: 30,
+      name: 'המכבש', desc: 'מכבש כבישים ענק דוהר על כל המסך ומעיף את כל מי שבדרך.', icon: 'roller', frames: 100, anim: 'buff', glow: '#f4b400', invAfter: 30,
       ai: { min: 0, max: 800, kind: 'zone' },
       tick(f, t, B) {
         if (t < 50) f.inv = Math.max(f.inv, 2);
         if (t === 16) {
           Snd.play('honk');
-          B.ent({ kind: 'bulldozer', owner: f, dir: f.face, x: f.x - f.face * 620, y: GROUND - 80, vx: f.face * 13.5, w: 190, h: 160, dmg: 33, hitstun: 54, blockstun: 22, kx: 9, ky: -9, knockdown: true, life: 240, pierce: true, interval: 999, isSuper: true, chip: 0.3, clash: false, z: 1, hitstop: 12,
+          B.ent({ kind: 'roller', owner: f, dir: f.face, x: f.x - f.face * 620, y: GROUND - 80, vx: f.face * 13.5, w: 200, h: 160, dmg: 33, hitstun: 54, blockstun: 22, kx: 9, ky: -9, knockdown: true, life: 240, pierce: true, interval: 999, isSuper: true, chip: 0.3, clash: false, z: 1, hitstop: 12,
             onTick(e) { if (e.t % 4 === 0) { Fx.shake(4); Fx.dust(e.x - e.dir * 90, GROUND, -e.dir, 2); } } });
         }
       },
@@ -298,7 +298,7 @@ const ROSTER = [
   fighterDef({
     id: 'lapid', name: 'יאיר לפיד', short: 'לפיד', party: 'ya', title: 'הרייטינג', arch: 'תקשורתי',
     blurb: 'קליעים ויראליים והייפ שמתמלא מהר. כל פגיעה היא עוד כותרת.',
-    stats: { hp: 106, spd: 1.06, pow: 0.96, meter: 1.3 }, rating: { pow: 2, spd: 4, def: 2, rng: 5, dif: 3 },
+    stats: { hp: 104, spd: 1.06, pow: 0.96, meter: 1.3 }, rating: { pow: 2, spd: 4, def: 2, rng: 5, dif: 3 },
     ai: { style: 'zone', space: 360 },
     passive: {
       id: 'rating', name: 'רייטינג', desc: 'ההייפ מתמלא מהר ב-30%, ופגיעה בקליע מוסיפה עוד.',
@@ -347,7 +347,7 @@ const ROSTER = [
         if (t < 30) f.inv = Math.max(f.inv, 2);
         if (t === 24) {
           Snd.play('zap');
-          B.ent({ kind: 'beam', owner: f, dir: f.face, x: f.x + f.face * 380, y: f.y - 100, w: 700, h: 96, dmg: 2.7, hitstun: 20, blockstun: 8, kx: 0.5, life: 50, pierce: true, interval: 4, maxHits: 99, isSuper: true, chip: 0.25, clash: false, hitstop: 3, z: 1,
+          B.ent({ kind: 'beam', owner: f, dir: f.face, x: f.x + f.face * 380, y: f.y - 100, w: 700, h: 96, dmg: 3.1, hitstun: 20, blockstun: 8, kx: 0.5, life: 50, pierce: true, interval: 4, maxHits: 99, isSuper: true, chip: 0.25, clash: false, hitstop: 3, z: 1,
             onTick(e) { e.x = e.owner.x + e.dir * 380; e.y = e.owner.y - 100; Fx.shake(3); if (e.life <= 6) { e.dmg = 8; e.kx = 10; e.ky = -9; e.knockdown = true; e.hitstun = 40; e.interval = 999; } },
             draw(ctx, e) { ctx.translate(-e.w / 2 + 30, 0); const g = Math.min(1, e.t / 5) * (e.life < 8 ? e.life / 8 : 1); ENT.beam(ctx, { len: e.w, h: e.h, col: '#7ad7ff', grow: g }); ENT.flash(ctx, { t: e.t }); } });
         }
@@ -361,7 +361,7 @@ const ROSTER = [
   fighterDef({
     id: 'gantz', name: 'בני גנץ', short: 'גנץ', party: 'bw', title: 'משמעת', arch: 'מפקד',
     blurb: 'מגן קודם, מכה אחר כך. בלוק מושלם אצלו מסתיים בתגובה מיידית.',
-    stats: { hp: 130, spd: 1, pow: 1.06, def: 0.96 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
+    stats: { hp: 136, spd: 1, pow: 1.08, def: 0.96 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 200 },
     passive: {
       id: 'discipline', name: 'משמעת צבאית', desc: 'בלוק מושלם מפעיל מכת נגד אוטומטית ומטעין 12 הייפ.',
@@ -384,7 +384,7 @@ const ROSTER = [
       tick(f, t, B) {
         if (t !== 12) return;
         Snd.play('cast');
-        [200, 330, 460].forEach((d, i) => {
+        [170, 290, 410].forEach((d, i) => {
           B.ent({ kind: 'crate', owner: f, dir: f.face, x: clamp(f.x + f.face * d, WALL_L, WALL_R), y: -300 - i * 60, vy: 4.5, w: 54, h: 54, dmg: 11.5, hitstun: 26, blockstun: 14, kx: 4, life: 200, delay: i * 9, ground: true, clash: false, n: i, z: 1, hitstop: 6, falling: true,
             onTick(e) { e.falling = !e.landed; e.vy = e.landed ? 0 : 4.5 + e.t * 0.05; },
             onLand(e) { Fx.confetti(e.x, e.y, 16, 6); Fx.dust(e.x, GROUND, 0, 5); Fx.shake(5); Snd.play('land'); e.life = 8; } });
@@ -700,7 +700,7 @@ const ROSTER = [
         [14, 22, 30, 38].forEach((at, i) => {
           if (t !== at) return;
           if (i === 0) Snd.play('honk');
-          B.ent({ kind: 'train', n: i, owner: f, dir: f.face, x: f.x - f.face * 480, y: GROUND - 52, vx: f.face * 19, w: 200, h: 104, dmg: i === 3 ? 14 : 9.5, hitstun: 30, blockstun: 16, kx: 6, ky: i === 3 ? -9 : 0, knockdown: i === 3, life: 200, pierce: true, interval: 999, isSuper: true, chip: 0.25, clash: false, z: 1, hitstop: 6,
+          B.ent({ kind: 'train', n: i, owner: f, dir: f.face, x: f.x - f.face * 480, y: GROUND - 52, vx: f.face * 19, w: 200, h: 104, dmg: i === 3 ? 13 : 8.8, hitstun: 30, blockstun: 16, kx: 6, ky: i === 3 ? -9 : 0, knockdown: i === 3, life: 200, pierce: true, interval: 999, isSuper: true, chip: 0.25, clash: false, z: 1, hitstop: 6,
             onTick(e) { if (e.t % 3 === 0) Fx.shake(4); } });
         });
       },

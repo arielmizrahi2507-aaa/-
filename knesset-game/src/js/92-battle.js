@@ -2,6 +2,19 @@
 const MAX_SEP = 800;
 const THROW_INFO = { dmg: 11, hitstun: 30, blockstun: 0, kx: 6, ky: -5, knockdown: true, unblockable: true, hitstop: 10, isThrow: true, height: 'mid', chip: 0, rank: 0 };
 
+// Comic speech bubble (screen-independent, drawn in world space above a fighter)
+function drawSpeech(ctx, text, x, y, tailDir, alpha = 1, sc = 1) {
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha *= alpha;
+  ctx.font = `700 22px ${FONT.ui}`; ctx.direction = 'rtl';
+  const w = Math.min(340, ctx.measureText(text).width + 36), h = 46;
+  ctx.beginPath(); ctx.moveTo(tailDir * 8 - 12, -4); ctx.lineTo(tailDir * 26, 20); ctx.lineTo(tailDir * 8 + 14, -4); ctx.closePath(); ol(ctx, '#ffffff', 3.5);
+  rr(ctx, -w / 2, -h, w, h, 18); ol(ctx, '#ffffff', 3.5);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(tailDir * 8 - 10, -6, 22, 6);
+  T(ctx, text, 0, -h / 2 + 1, { size: 22, fill: OUT, weight: 800 });
+  ctx.restore();
+}
+
 class Battle {
   constructor(cfg) {
     this.cfg = cfg;
@@ -29,6 +42,8 @@ class Battle {
     this.roundWinner = -1;
     this.stats = { maxCombo: 0, supers: 0, perfects: 0, flawless: false, hitsLanded: [0, 0] };
     this.dmgGhost = [1, 1];
+    this.introQuote = this.f.map((f) => pick(f.def.quotes.intro));
+    this.pk = [];
     this.startRound(true);
   }
 
@@ -38,9 +53,14 @@ class Battle {
 
   startRound(first) {
     this.ents.length = 0;
+    this.pk = [];
     Fx.reset();
-    this.f.forEach((f) => { f.reset(first); });
+    this.f.forEach((f) => {
+      f.reset(first);
+      if (first && f.opt.startHp) f.hp = Math.max(1, Math.min(f.maxHp, f.opt.startHp));   // survival / daily carry-over
+    });
     this.f.forEach((f) => { if (f.passive.roundStart) f.passive.roundStart(f, this); });
+    if (!this.training) this.f.forEach((f) => { f.st = 'intro'; f.t = 0; });
     this.phase = 'intro'; this.phaseT = 0;
     this.timeLeft = this.timeMax;
     this.roundWinner = -1;
@@ -65,6 +85,7 @@ class Battle {
       case 'intro':
         if (this.phaseT >= 64) {
           this.phase = 'fight'; this.phaseT = 0;
+          this.f.forEach((f) => { if (f.st === 'intro') { f.st = 'idle'; f.t = 0; } });
           if (!this.cfg.attract) { this.say('!קרב', { life: 46, col: '#ffe14a', size: 110 }); Snd.play('fight'); }
         }
         break;
@@ -75,10 +96,10 @@ class Battle {
         }
         break;
       case 'ko': case 'timeup':
-        if (this.phaseT > (this.phase === 'ko' ? 110 : 90)) this.endRound();
+        if (this.phaseT > (this.phase === 'ko' ? 96 : 80)) this.endRound();
         break;
       case 'roundend':
-        if (this.phaseT > 130) this.nextRound();
+        if (this.phaseT > 116) this.nextRound();
         break;
       case 'matchend':
         if (this.phaseT > 170 && !this.over) { this.over = true; this.emit('matchEnd', this.matchWinner); }
@@ -88,6 +109,7 @@ class Battle {
     const order = this.frame % 2 ? [0, 1] : [1, 0];
     for (const i of order) this.f[i].update();
     this.updateEnts();
+    this.updatePickups();
     this.separate();
     this.updateCombos();
     Fx.update();
@@ -96,6 +118,35 @@ class Battle {
     if (this.slowT > 0 && --this.slowT === 0) this.timeScale = 1;
     if (this.training) {
       for (const f of this.f) { if (f.hp < f.maxHp * 0.36 && f.hp > 0) f.hp = f.maxHp; if (this.cfg.infMeter) f.meter = 100; }
+    }
+  }
+
+  // Lucky drops (survival / daily): grab them for health, hype or a damage boost.
+  updatePickups() {
+    if (!this.cfg.pickups || this.phase !== 'fight') return;
+    if (this.frame % 60 === 0 && this.pk.length < 2 && this.rng() < 0.1) {
+      const r = this.rng(), kind = r < 0.4 ? 'heart' : r < 0.75 ? 'bolt' : 'fist';
+      this.pk.push({ kind, x: clamp(this.cam.x + (this.rng() * 2 - 1) * 300, WALL_L + 60, WALL_R - 60), y: -30, vy: 0, t: 0, life: 720 });
+      Snd.play('coin');
+    }
+    for (let i = this.pk.length - 1; i >= 0; i--) {
+      const p = this.pk[i];
+      p.t++; p.life--;
+      if (p.y < GROUND - 28) { p.vy = Math.min(9, p.vy + 0.35); p.y = Math.min(GROUND - 28, p.y + p.vy); }
+      let taken = null;
+      for (const f of this.f) {
+        if (f.hp <= 0 || f.ko) continue;
+        const hb = f.hurtbox();
+        if (overlap({ x: p.x - 24, y: p.y - 24, w: 48, h: 48 }, hb)) { taken = f; break; }
+      }
+      if (taken) {
+        const f = taken;
+        if (p.kind === 'heart') { f.heal(16); Snd.play('heal'); }
+        else if (p.kind === 'bolt') { f.gain(40); Snd.play('buff'); Fx.text(f.x, f.y - 215, '+הייפ', { size: 24, col: '#7ce8ff' }); }
+        else { f.tm.dmgUp = 480; f.val.dmgUpMul = 1.3; Snd.play('buff'); Fx.text(f.x, f.y - 215, '!כוח', { size: 24, col: '#ff8a3d' }); }
+        Fx.ring(p.x, p.y, 8, 70, 'rgba(255,255,255,.9)', 16, 5); Fx.stars(p.x, p.y, 8, '#ffe14a', 5);
+        this.pk.splice(i, 1);
+      } else if (p.life <= 0) this.pk.splice(i, 1);
     }
   }
 
@@ -343,8 +394,13 @@ class Battle {
     if (saved && def.passive.onSaved) def.passive.onSaved(def, this);
     this.emit('hit', att, def, info, dmg, src ? (src.srcKey || 'proj') : (att.mk || 'x'));
     if (n >= 3 && att.slot === 0) this.emit('combo', att, n, cb.dmg);
+    if (!this.cfg.attract && (n === 5 || n === 8 || n === 12 || n === 16)) {
+      const cheer = { 5: '!יפה', 8: '!פצצה', 12: '!מטורף', 16: '!אגדי' }[n];
+      Fx.text(att.x + att.face * 20, att.y - 250, cheer, { size: 34 + n, col: n >= 12 ? '#ff6a5a' : '#ffe14a', life: 46, rot: -0.06 });
+      Snd.play('toast');
+    }
 
-    if (ko) this.koHit(att, def, pushDir);
+    if (ko) this.koHit(att, def, pushDir, info);
     return 'hit';
   }
 
@@ -414,13 +470,15 @@ class Battle {
     Fx.shake(10); Fx.dust(def.x, GROUND, 0, 10);
   }
 
-  koHit(att, def, pushDir) {
+  koHit(att, def, pushDir, info) {
     this.phase = 'ko'; this.phaseT = 0;
     this.roundWinner = att.slot;
-    this.timeScale = 0.3; this.slowT = 70;
+    this.timeScale = 0.35; this.slowT = 42;
     Fx.flash('#ffffff', 0.75); Fx.shake(16); Fx.punch = 5;
     Snd.play('ko');
-    this.say('!נפילה', { life: 100, col: '#ff5a5a', size: 120 });
+    const closing = this.wins[att.slot] + 1 >= this.rtw && !this.training;
+    if (closing && info && info.isSuper) this.say('!פירוק קואליציה', { life: 110, col: '#ff5a5a', size: 84 });
+    else this.say('!נפילה', { life: 100, col: '#ff5a5a', size: 120 });
     this.ents.forEach((e) => { if (e.owner === def) e.dead = true; });
     this.emit('ko', att, def);
   }
@@ -450,7 +508,8 @@ class Battle {
     }
     this.phase = 'roundend'; this.phaseT = 0;
     if (w >= 0 && !this.cfg.attract) {
-      this.say('סיבוב ל' + this.f[w].def.short, { life: 100, col: '#ffe14a', size: 50 });
+      const perfect = !this.f[w].tookDamage;
+      this.say(perfect ? '!ניצחון מוחלט' : 'סיבוב ל' + this.f[w].def.short, { life: 100, col: perfect ? '#7dff9a' : '#ffe14a', size: perfect ? 70 : 50 });
       Snd.play('win');
     }
     Fx.confetti(this.f[Math.max(0, w)].x, GROUND - 120, w >= 0 ? 40 : 0, 8);
@@ -459,6 +518,7 @@ class Battle {
     if (done) {
       const mw = this.wins[0] >= this.rtw && this.wins[1] >= this.rtw ? (this.wins[0] === this.wins[1] ? w : (this.wins[0] > this.wins[1] ? 0 : 1)) : (this.wins[0] >= this.rtw ? 0 : 1);
       this.matchWinner = mw;
+      this.endQuote = [pick(this.f[mw].def.quotes.win), pick(this.f[1 - mw].def.quotes.lose)];
       this.phase = 'matchend'; this.phaseT = 0;
       this.say('ניצחון ל' + this.f[mw].def.short + '!', { life: 160, col: '#ffe14a', size: 58 });
       Fx.confetti(this.f[mw].x, GROUND - 160, 90, 10);
@@ -545,7 +605,35 @@ class Battle {
       }
     }
     for (const e of this.ents) if (e.z >= 0 && e.delay <= 0) this.drawEntity(ctx, e);
+    for (const p of this.pk) {
+      if (p.life < 150 && Math.floor(p.life / 6) % 2) continue;
+      const bob = Math.sin(p.t * 0.12) * 4, col = p.kind === 'heart' ? '#ff5a7a' : p.kind === 'bolt' ? '#7ce8ff' : '#ff8a3d';
+      ctx.fillStyle = 'rgba(10,5,30,.35)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND + 2, 22, 6, 0, 0, TAU); ctx.fill();
+      ctx.save(); ctx.translate(p.x, p.y + bob); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 60, col, 0.55); ctx.restore();
+      ctx.beginPath(); ctx.arc(p.x, p.y + bob, 27, 0, TAU); ctx.fillStyle = 'rgba(20,10,50,.65)'; ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.stroke();
+      drawEnt(ctx, p.kind, p.x, p.y + bob, { sc: p.kind === 'fist' ? 0.55 : p.kind === 'heart' ? 0.7 : 0.55, t: p.t });
+    }
     Fx.draw(ctx);
+    this.drawBubbles(ctx);
+  }
+
+  // Character catch-phrases: at the very start of the match and when it ends.
+  drawBubbles(ctx) {
+    if (this.cfg.attract || this.training) return;
+    const lo = this.cam.x - 380, hi = this.cam.x + 380;
+    const show = (f, text, age, ttl) => {
+      const k = Math.min(1, age / 8), out = age > ttl - 8 ? (ttl - age) / 8 : 1;
+      if (out <= 0) return;
+      drawSpeech(ctx, text, clamp(f.x, lo + 120, hi - 120), f.y - 214, f.x < this.cam.x ? 1 : -1, out, Ease.outBack(k) * (f.scale > 1 ? 1.1 : 1));
+    };
+    if (this.phase === 'intro' && this.round === 1) {
+      const age = this.phaseT - 6;
+      if (age > 0 && age < 56) this.f.forEach((f, i) => show(f, this.introQuote[i], age, 56));
+    } else if (this.phase === 'matchend' && this.endQuote) {
+      const w = this.matchWinner;
+      if (this.phaseT > 12 && this.phaseT < 170) show(this.f[w], this.endQuote[0], this.phaseT - 12, 158);
+      if (this.phaseT > 60 && this.phaseT < 170) show(this.f[1 - w], this.endQuote[1], this.phaseT - 60, 110);
+    }
   }
 
   drawEntity(ctx, e) {

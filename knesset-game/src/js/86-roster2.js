@@ -5,7 +5,7 @@ const EXTRA = [
   fighterDef({
     id: 'edelstein', name: 'יולי אדלשטיין', short: 'אדלשטיין', party: 'likud', title: 'יושב הראש', arch: 'שופט', unlock: { wins: 10, text: 'נצחו 10 קרבות' },
     blurb: 'שולט באולם. כל פגיעה חמישית מסמנת "לסדר!" ומשתיקה את היכולות של היריב.',
-    stats: { hp: 128, spd: 0.98, pow: 1.09 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
+    stats: { hp: 134, spd: 0.98, pow: 1.1 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 220 },
     passive: {
       id: 'order', name: 'קורא לסדר', desc: 'כל פגיעה חמישית משתיקה את יכולות היריב לשלוש שניות.',
@@ -69,7 +69,7 @@ const EXTRA = [
   fighterDef({
     id: 'threshold', boss: true, name: 'אחוז החסימה', short: 'אחוז החסימה', party: 'neutral', title: '3.25%', arch: 'בוס', scale: 1.22, unlock: { arcade: true, text: 'סיימו מסע שלם' },
     blurb: 'קלפי מהלכת. מתעלמת ממכות קטנות: מתחת לסף, כלומר בלי השפעה.',
-    stats: { hp: 175, spd: 0.86, pow: 1.1, meter: 0.7 }, rating: { pow: 5, spd: 2, def: 5, rng: 3, dif: 3 },
+    stats: { hp: 160, spd: 0.86, pow: 1.05, meter: 0.7 }, rating: { pow: 5, spd: 2, def: 5, rng: 3, dif: 3 },
     ai: { style: 'tank', space: 170 },
     passive: {
       id: 'threshold', name: 'מתחת לסף', desc: 'מכות של פחות מ-4.5 נזק נספגות ב-65%.',

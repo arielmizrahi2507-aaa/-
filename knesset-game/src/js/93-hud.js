@@ -7,6 +7,7 @@ const Hud = {
     this.timer(ctx, B);
     this.combos(ctx, B);
     if (!cine) this.announce(ctx, B);
+    this.hint(ctx, B);
     if (B.training) T(ctx, 'מצב אימון', W / 2, 108, { size: 18, fill: '#fff', stroke: OUT, lw: 5 });
   },
 
@@ -152,12 +153,24 @@ const Hud = {
     });
   },
 
+  // First-run key reminder (keyboard players only)
+  hint(ctx, B) {
+    if (!B.cfg.hint || B.phase !== 'fight' || B.phaseT > 60 * 16) return;
+    const a = Math.min(1, (60 * 16 - B.phaseT) / 40);
+    ctx.save();
+    ctx.globalAlpha = 0.92 * a;
+    rr(ctx, W / 2 - 390, H - 86, 780, 64, 14); ctx.fillStyle = 'rgba(10,5,30,.78)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.stroke();
+    T(ctx, 'תנועה: A D · קפיצה: W · התכופפות: S · חסימה: I', W / 2, H - 66, { size: 16, fill: '#ffffff', weight: 700 });
+    T(ctx, 'אגרוף: J · בעיטה: K · מיוחד 1: L · מיוחד 2: U · סופר: O · זריקה: E', W / 2, H - 42, { size: 16, fill: '#ffe14a', weight: 700 });
+    ctx.restore();
+  },
+
   announce(ctx, B) {
     const a = B.announce;
     if (!a || !a.text) return;
     const k = a.t / a.max;
     const sc = a.t < 8 ? 1.7 - 0.7 * Ease.outBack(a.t / 8) : 1;
     const al = k > 0.85 ? (1 - k) / 0.15 : 1;
-    T(ctx, a.text, W / 2, 200, { size: a.size, font: 'disp', fill: a.col, stroke: OUT, lw: a.size * 0.2, alpha: al, scale: sc, shadow: 'rgba(0,0,0,.35)', shadowY: a.size * 0.1 });
+    T(ctx, a.text, W / 2, 152, { size: a.size, font: 'disp', fill: a.col, stroke: OUT, lw: a.size * 0.2, alpha: al, scale: sc, shadow: 'rgba(0,0,0,.35)', shadowY: a.size * 0.1 });
   },
 };

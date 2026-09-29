@@ -19,6 +19,7 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; background: #0d0720; color: var(--ink); font-family: var(--f-ui); overflow: hidden; overscroll-behavior: none; font-size: clamp(13px, 1.9vmin + 4px, 22px); }
 button, input, select { font-family: inherit; }
+html, body { touch-action: manipulation; }
 #app { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 0%, #3d1c85 0%, #140b2e 68%); }
 #view { position: absolute; display: none; }
 body[data-view=attract] #view, body[data-view=fight] #view { display: block; }
@@ -89,7 +90,7 @@ body[data-screen=vs] #mute { display: none; }
 .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.1vmin; align-content: start; overflow-y: auto; padding: 6px; }
 .card {
   --pc: #888; position: relative; appearance: none; border: 4px solid var(--line); border-radius: 18px; cursor: pointer; color: #fff; padding: .5rem .3rem .45rem;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 55%, #1a0e40) 0%, #1a0e40 100%); box-shadow: 0 5px 0 var(--line);
+  background: #2a1a5a; background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 55%, #1a0e40) 0%, #1a0e40 100%); box-shadow: 0 5px 0 var(--line);
   display: flex; flex-direction: column; align-items: center; gap: .15rem; transition: transform .1s, filter .15s;
 }
 .card img { width: 100%; max-width: 110px; aspect-ratio: 1; }
@@ -245,7 +246,7 @@ body.portrait #stickzone { height: 100%; }
 #stickknob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; border-radius: 50%; background: rgba(255,255,255,.6); border: 3px solid rgba(0,0,0,.4); transform: translate(-50%, -50%); }
 #stickzone .hint { position: absolute; left: 6%; bottom: 10%; width: 120px; height: 120px; border-radius: 50%; border: 3px dashed rgba(255,255,255,.28); display: grid; place-items: center; font-size: 13px; color: rgba(255,255,255,.55); text-align: center; padding: 14px; pointer-events: none; }
 #stickzone.used .hint { display: none; }
-#tbtns { position: absolute; right: 2.2vmin; bottom: 2.2vmin; display: grid; grid-template-columns: repeat(3, var(--tb)); grid-template-rows: repeat(2, var(--tb)); gap: 1.4vmin; pointer-events: auto; }
+#tbtns { position: absolute; right: max(2.2vmin, env(safe-area-inset-right, 0px)); bottom: max(2.2vmin, env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(3, var(--tb)); grid-template-rows: repeat(2, var(--tb)); gap: 1.4vmin; pointer-events: auto; }
 body.portrait #tbtns { --tb: min(25vw, 104px); right: 4vw; bottom: 3vh; grid-template-columns: repeat(2, var(--tb)); grid-template-rows: repeat(3, var(--tb)); gap: 2vw; }
 body.portrait .tb.e { grid-area: 1 / 1; } body.portrait .tb.c { grid-area: 1 / 2; } body.portrait .tb.b { grid-area: 2 / 1; }
 body.portrait .tb.a { grid-area: 2 / 2; } body.portrait .tb.k { grid-area: 3 / 1; } body.portrait .tb.s { grid-area: 3 / 2; }
@@ -257,7 +258,7 @@ body.portrait .tb.a { grid-area: 2 / 2; } body.portrait .tb.k { grid-area: 3 / 1
 .tb.down { transform: scale(.9); filter: brightness(1.4); }
 .tb .cdfill { position: absolute; left: 0; bottom: 0; width: 100%; height: 0; background: rgba(0,0,0,.6); pointer-events: none; }
 /* small utility buttons: dash + grab */
-.tsm { position: absolute; width: calc(var(--tb) * .78); height: calc(var(--tb) * .78); bottom: 2.2vmin; border-radius: 50%; border: 3px solid rgba(0,0,0,.65); background: rgba(255,255,255,.3); color: #fff; font: 400 calc(var(--tb) * .19) var(--f-disp); pointer-events: auto; touch-action: none; box-shadow: 0 4px 0 rgba(0,0,0,.5); cursor: pointer; padding: 0; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
+.tsm { position: absolute; width: calc(var(--tb) * .78); height: calc(var(--tb) * .78); bottom: max(2.2vmin, env(safe-area-inset-bottom, 0px)); border-radius: 50%; border: 3px solid rgba(0,0,0,.65); background: rgba(255,255,255,.3); color: #fff; font: 400 calc(var(--tb) * .19) var(--f-disp); pointer-events: auto; touch-action: none; box-shadow: 0 4px 0 rgba(0,0,0,.5); cursor: pointer; padding: 0; text-shadow: 0 2px 0 rgba(0,0,0,.6); }
 #tdash { right: calc(2.2vmin + var(--tb) * 3 + 4.2vmin); }
 #tgrab { right: calc(2.2vmin + var(--tb) * 3 + 4.2vmin + var(--tb) * .78 + 1.6vmin); background: rgba(255, 130, 60, .55); }
 .tsm.down { filter: brightness(1.5); transform: scale(.92); }
@@ -298,6 +299,15 @@ body.portrait #tpause { left: auto; right: 8px; top: 8px; }
   .title-wrap { padding: 1vmin 4vmin; }
   .menu .btn.big small { display: none; }
   .foot { display: none; }
+}
+@media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .selbody { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
+  .grid { grid-template-columns: repeat(7, 1fr); gap: .8vmin; }
+  .card { padding: .3rem .1rem; border-width: 3px; border-radius: 12px; }
+  .card span { display: none; }
+  .card b { font-size: .8em; }
+  .bar { padding: 1vmin 3vmin; }
+  .bar h2 { font-size: 20px; }
 }
 @media (prefers-reduced-motion: reduce) { .logo .l1, .logo .l2, .screen.on { animation: none; } }
 </style>
@@ -619,21 +629,26 @@ const ENT = {
     ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-20, 8); ctx.lineTo(20, -8); ctx.stroke();
   },
 
-  bulldozer(ctx, e) {
+  roller(ctx, e) {
     const bob = Math.sin(e.t * 0.9) * 1.5;
     ctx.translate(0, bob);
-    // tracks
-    rr(ctx, -80, 26, 150, 34, 16); ol(ctx, '#33363d');
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = '#5a5f6b'; ctx.beginPath(); ctx.arc(-58 + i * 24, 43, 6, 0, TAU); ctx.fill(); }
-    // body
-    rr(ctx, -70, -22, 110, 52, 8); ol(ctx, '#f4b400');
-    rr(ctx, -20, -64, 62, 46, 8); ol(ctx, '#f4b400');
-    rr(ctx, -10, -56, 42, 30, 5); ol(ctx, '#bfe6ff', 2.5);
-    ctx.fillStyle = '#333'; ctx.fillRect(-60, -46, 10, 26);
-    // blade
-    ctx.beginPath(); ctx.moveTo(48, -40); ctx.lineTo(96, -52); ctx.lineTo(102, 50); ctx.lineTo(56, 60); ctx.closePath(); ol(ctx, '#c9cdd6');
-    ctx.strokeStyle = '#8b90a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(72, -30); ctx.lineTo(76, 44); ctx.stroke();
-    ctx.fillStyle = OUT; ctx.font = '900 16px Arial'; ctx.textAlign = 'center'; ctx.fillText('NO DEAL', -14, 8);
+    // rear wheel
+    ctx.beginPath(); ctx.arc(-46, 24, 40, 0, TAU); ol(ctx, '#3d414d');
+    ctx.beginPath(); ctx.arc(-46, 24, 16, 0, TAU); ol(ctx, '#f4b400', 2.5);
+    // body + cabin
+    rr(ctx, -70, -30, 120, 44, 10); ol(ctx, '#f4b400');
+    rr(ctx, -62, -76, 58, 50, 8); ol(ctx, '#f4b400');
+    rr(ctx, -54, -68, 42, 32, 5); ol(ctx, '#bfe6ff', 2.5);
+    ctx.fillStyle = OUT; ctx.fillRect(-68, -84, 74, 9);
+    // front drum
+    const g = ctx.createLinearGradient(0, -20, 0, 70);
+    g.addColorStop(0, '#dfe4ee'); g.addColorStop(0.5, '#9aa3b5'); g.addColorStop(1, '#5d6577');
+    ctx.beginPath(); ctx.arc(66, 26, 44, 0, TAU); ol(ctx, g);
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 3;
+    for (let k = 0; k < 6; k++) { const a = e.t * 0.12 + k * 1.05; ctx.beginPath(); ctx.moveTo(66, 26); ctx.lineTo(66 + Math.cos(a) * 42, 26 + Math.sin(a) * 42); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(66, 26, 12, 0, TAU); ol(ctx, '#f4b400', 2.5);
+    // exhaust puff
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(-86, -70 - (e.t % 12), 7, 0, TAU); ctx.fill();
   },
 
   like(ctx, e) {
@@ -1111,6 +1126,7 @@ function poseOf(f) {
 
   // expression overrides
   if (st === 'idle' && f.hurtPct < 0.25) { p.eyes = 'angry'; }
+  else if (p.eyes === 'open' && ((f.clock || 0) + (f.def.look.h || 1) * 97) % 230 < 6) p.eyes = 'blink';
   return p;
 }
 
@@ -1317,7 +1333,9 @@ function drawHead(ctx, f, look, p, C, tintFn) {
   for (const [ex, es] of eyeSpec) {
     ctx.save(); ctx.translate(ex, eyeY); ctx.scale(es, es);
     const ee = p.eyes;
-    if (ee === 'happy') {
+    if (ee === 'blink') {
+      ctx.beginPath(); ctx.moveTo(-7, 2); ctx.quadraticCurveTo(0, 6, 7, 2); ctx.lineWidth = 3.2; ctx.strokeStyle = OUT; ctx.stroke();
+    } else if (ee === 'happy') {
       ctx.beginPath(); ctx.arc(0, 2, 7, Math.PI * 1.1, Math.PI * 1.9); ctx.lineWidth = 3.5; ctx.strokeStyle = OUT; ctx.stroke();
     } else if (ee === 'hurt') {
       ctx.lineWidth = 3.5; ctx.strokeStyle = OUT; ctx.beginPath(); ctx.moveTo(-6, -5); ctx.lineTo(4, 0); ctx.lineTo(-6, 5); ctx.stroke();
@@ -2186,11 +2204,17 @@ const STAGES = [
 const Stages = {
   lx(f, cx) { return -(W / 2) * (1 - f) + cx * (1 - f); },
   res: 1.25, cache: new Map(), vig: null,
-  setRes(r) { r = clamp(Math.round(r * 4) / 4, 1, 2); if (r !== this.res) { this.res = r; this.cache.clear(); this.vig = null; } },
+  order: [],
+  setRes(r) { r = clamp(Math.round(r * 4) / 4, 1, 1.5); if (r !== this.res) { this.res = r; this.cache.clear(); this.order = []; this.vig = null; } },
   layerCanvas(stage, idx) {
     const key = stage.id + ':' + idx;
     let cv = this.cache.get(key);
     if (cv) return cv;
+    // keep the bitmaps of at most two stages in memory (phones)
+    if (!this.order.includes(stage.id)) {
+      this.order.push(stage.id);
+      while (this.order.length > 2) { const old = this.order.shift(); for (const k of Array.from(this.cache.keys())) if (k.startsWith(old + ':')) this.cache.delete(k); }
+    }
     const L = stage.layers[idx];
     const w = Math.ceil(W + (STAGE_W - W) * L.f), h = H;
     cv = document.createElement('canvas');
@@ -2776,7 +2800,7 @@ const ROSTER = [
       L: ['ג׳אב דיפלומטי', 'jab'],
       H: ['בעיטת הסברה', 'kick', { dmg: 9.5 }],
       FH: ['אצבע מדגישה', 'point', { dmg: 10, startup: 17, hb: [24, -196, 96, 130] }],
-      DL: ['בעיטה מתחת לשולחן', 'lowkick'],
+      DL: ['בעיטת ספסל', 'lowkick'],
       DH: ['הצהרה מסעירה', 'uppercut'],
     },
     sp1: spCast({
@@ -2884,8 +2908,8 @@ const ROSTER = [
     stats: { hp: 110, spd: 0.96 }, rating: { pow: 3, spd: 3, def: 2, rng: 4, dif: 3 },
     ai: { style: 'zone', space: 300 },
     passive: {
-      id: 'tax', name: 'שר האוצר', desc: 'כל פגיעה גוזלת 6 נקודות הייפ מהיריב ומעבירה חלק אליך.',
-      onDealt(f, def) { if (def.meter > 0) { def.meter = Math.max(0, def.meter - 6); f.gain(3); Fx.coins(def.x, def.y - 100, 3, f.face); } },
+      id: 'tax', name: 'שר האוצר', desc: 'כל פגיעה גוזלת 8 נקודות הייפ מהיריב ומעבירה חלק אליך.',
+      onDealt(f, def) { if (def.meter > 0) { def.meter = Math.max(0, def.meter - 8); f.gain(3); Fx.coins(def.x, def.y - 100, 3, f.face); } },
     },
     normals: {
       L: ['מכת מחשבון', 'jab', { prop: 'calc' }],
@@ -2940,8 +2964,8 @@ const ROSTER = [
       L: ['משא ומתן', 'jab', { startup: 5, dmg: 4.4 }],
       H: ['שכר טרחה', 'hook', { dmg: 9.5, startup: 13, hb: [24, -132, 96, 52], lunge: null }],
       FH: ['חתימה על הסכם', 'chop', { prop: 'pen' }],
-      DL: ['מתחת לשולחן', 'lowkick'],
-      DH: ['הצעה שאי אפשר לסרב לה', 'uppercut'],
+      DL: ['בעיטת כיסא', 'lowkick'],
+      DH: ['הצעה מפתיעה', 'uppercut'],
     },
     sp1: spCast({
       name: 'הזמנה לשיחה', desc: 'מכתב הזמנה שמושך את היריב אליו ומסחרר אותו.', icon: 'letter', frames: 32, release: 12, cd: 240,
@@ -2998,13 +3022,13 @@ const ROSTER = [
       apply(f) { f.tm.iron = 300; },
     }),
     sup: SP({
-      name: 'מסע הבולדוזר', desc: 'בולדוזר ענק עובר על כל המסך ומעיף את כל מי שבדרך.', icon: 'bulldozer', frames: 100, anim: 'buff', glow: '#f4b400', invAfter: 30,
+      name: 'המכבש', desc: 'מכבש כבישים ענק דוהר על כל המסך ומעיף את כל מי שבדרך.', icon: 'roller', frames: 100, anim: 'buff', glow: '#f4b400', invAfter: 30,
       ai: { min: 0, max: 800, kind: 'zone' },
       tick(f, t, B) {
         if (t < 50) f.inv = Math.max(f.inv, 2);
         if (t === 16) {
           Snd.play('honk');
-          B.ent({ kind: 'bulldozer', owner: f, dir: f.face, x: f.x - f.face * 620, y: GROUND - 80, vx: f.face * 13.5, w: 190, h: 160, dmg: 33, hitstun: 54, blockstun: 22, kx: 9, ky: -9, knockdown: true, life: 240, pierce: true, interval: 999, isSuper: true, chip: 0.3, clash: false, z: 1, hitstop: 12,
+          B.ent({ kind: 'roller', owner: f, dir: f.face, x: f.x - f.face * 620, y: GROUND - 80, vx: f.face * 13.5, w: 200, h: 160, dmg: 33, hitstun: 54, blockstun: 22, kx: 9, ky: -9, knockdown: true, life: 240, pierce: true, interval: 999, isSuper: true, chip: 0.3, clash: false, z: 1, hitstop: 12,
             onTick(e) { if (e.t % 4 === 0) { Fx.shake(4); Fx.dust(e.x - e.dir * 90, GROUND, -e.dir, 2); } } });
         }
       },
@@ -3017,7 +3041,7 @@ const ROSTER = [
   fighterDef({
     id: 'lapid', name: 'יאיר לפיד', short: 'לפיד', party: 'ya', title: 'הרייטינג', arch: 'תקשורתי',
     blurb: 'קליעים ויראליים והייפ שמתמלא מהר. כל פגיעה היא עוד כותרת.',
-    stats: { hp: 106, spd: 1.06, pow: 0.96, meter: 1.3 }, rating: { pow: 2, spd: 4, def: 2, rng: 5, dif: 3 },
+    stats: { hp: 104, spd: 1.06, pow: 0.96, meter: 1.3 }, rating: { pow: 2, spd: 4, def: 2, rng: 5, dif: 3 },
     ai: { style: 'zone', space: 360 },
     passive: {
       id: 'rating', name: 'רייטינג', desc: 'ההייפ מתמלא מהר ב-30%, ופגיעה בקליע מוסיפה עוד.',
@@ -3066,7 +3090,7 @@ const ROSTER = [
         if (t < 30) f.inv = Math.max(f.inv, 2);
         if (t === 24) {
           Snd.play('zap');
-          B.ent({ kind: 'beam', owner: f, dir: f.face, x: f.x + f.face * 380, y: f.y - 100, w: 700, h: 96, dmg: 2.7, hitstun: 20, blockstun: 8, kx: 0.5, life: 50, pierce: true, interval: 4, maxHits: 99, isSuper: true, chip: 0.25, clash: false, hitstop: 3, z: 1,
+          B.ent({ kind: 'beam', owner: f, dir: f.face, x: f.x + f.face * 380, y: f.y - 100, w: 700, h: 96, dmg: 3.1, hitstun: 20, blockstun: 8, kx: 0.5, life: 50, pierce: true, interval: 4, maxHits: 99, isSuper: true, chip: 0.25, clash: false, hitstop: 3, z: 1,
             onTick(e) { e.x = e.owner.x + e.dir * 380; e.y = e.owner.y - 100; Fx.shake(3); if (e.life <= 6) { e.dmg = 8; e.kx = 10; e.ky = -9; e.knockdown = true; e.hitstun = 40; e.interval = 999; } },
             draw(ctx, e) { ctx.translate(-e.w / 2 + 30, 0); const g = Math.min(1, e.t / 5) * (e.life < 8 ? e.life / 8 : 1); ENT.beam(ctx, { len: e.w, h: e.h, col: '#7ad7ff', grow: g }); ENT.flash(ctx, { t: e.t }); } });
         }
@@ -3080,7 +3104,7 @@ const ROSTER = [
   fighterDef({
     id: 'gantz', name: 'בני גנץ', short: 'גנץ', party: 'bw', title: 'משמעת', arch: 'מפקד',
     blurb: 'מגן קודם, מכה אחר כך. בלוק מושלם אצלו מסתיים בתגובה מיידית.',
-    stats: { hp: 130, spd: 1, pow: 1.06, def: 0.96 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
+    stats: { hp: 136, spd: 1, pow: 1.08, def: 0.96 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 200 },
     passive: {
       id: 'discipline', name: 'משמעת צבאית', desc: 'בלוק מושלם מפעיל מכת נגד אוטומטית ומטעין 12 הייפ.',
@@ -3103,7 +3127,7 @@ const ROSTER = [
       tick(f, t, B) {
         if (t !== 12) return;
         Snd.play('cast');
-        [200, 330, 460].forEach((d, i) => {
+        [170, 290, 410].forEach((d, i) => {
           B.ent({ kind: 'crate', owner: f, dir: f.face, x: clamp(f.x + f.face * d, WALL_L, WALL_R), y: -300 - i * 60, vy: 4.5, w: 54, h: 54, dmg: 11.5, hitstun: 26, blockstun: 14, kx: 4, life: 200, delay: i * 9, ground: true, clash: false, n: i, z: 1, hitstop: 6, falling: true,
             onTick(e) { e.falling = !e.landed; e.vy = e.landed ? 0 : 4.5 + e.t * 0.05; },
             onLand(e) { Fx.confetti(e.x, e.y, 16, 6); Fx.dust(e.x, GROUND, 0, 5); Fx.shake(5); Snd.play('land'); e.life = 8; } });
@@ -3419,7 +3443,7 @@ const ROSTER = [
         [14, 22, 30, 38].forEach((at, i) => {
           if (t !== at) return;
           if (i === 0) Snd.play('honk');
-          B.ent({ kind: 'train', n: i, owner: f, dir: f.face, x: f.x - f.face * 480, y: GROUND - 52, vx: f.face * 19, w: 200, h: 104, dmg: i === 3 ? 14 : 9.5, hitstun: 30, blockstun: 16, kx: 6, ky: i === 3 ? -9 : 0, knockdown: i === 3, life: 200, pierce: true, interval: 999, isSuper: true, chip: 0.25, clash: false, z: 1, hitstop: 6,
+          B.ent({ kind: 'train', n: i, owner: f, dir: f.face, x: f.x - f.face * 480, y: GROUND - 52, vx: f.face * 19, w: 200, h: 104, dmg: i === 3 ? 13 : 8.8, hitstun: 30, blockstun: 16, kx: 6, ky: i === 3 ? -9 : 0, knockdown: i === 3, life: 200, pierce: true, interval: 999, isSuper: true, chip: 0.25, clash: false, z: 1, hitstop: 6,
             onTick(e) { if (e.t % 3 === 0) Fx.shake(4); } });
         });
       },
@@ -3447,7 +3471,7 @@ const EXTRA = [
   fighterDef({
     id: 'edelstein', name: 'יולי אדלשטיין', short: 'אדלשטיין', party: 'likud', title: 'יושב הראש', arch: 'שופט', unlock: { wins: 10, text: 'נצחו 10 קרבות' },
     blurb: 'שולט באולם. כל פגיעה חמישית מסמנת "לסדר!" ומשתיקה את היכולות של היריב.',
-    stats: { hp: 128, spd: 0.98, pow: 1.09 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
+    stats: { hp: 134, spd: 0.98, pow: 1.1 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 220 },
     passive: {
       id: 'order', name: 'קורא לסדר', desc: 'כל פגיעה חמישית משתיקה את יכולות היריב לשלוש שניות.',
@@ -3511,7 +3535,7 @@ const EXTRA = [
   fighterDef({
     id: 'threshold', boss: true, name: 'אחוז החסימה', short: 'אחוז החסימה', party: 'neutral', title: '3.25%', arch: 'בוס', scale: 1.22, unlock: { arcade: true, text: 'סיימו מסע שלם' },
     blurb: 'קלפי מהלכת. מתעלמת ממכות קטנות: מתחת לסף, כלומר בלי השפעה.',
-    stats: { hp: 175, spd: 0.86, pow: 1.1, meter: 0.7 }, rating: { pow: 5, spd: 2, def: 5, rng: 3, dif: 3 },
+    stats: { hp: 160, spd: 0.86, pow: 1.05, meter: 0.7 }, rating: { pow: 5, spd: 2, def: 5, rng: 3, dif: 3 },
     ai: { style: 'tank', space: 170 },
     passive: {
       id: 'threshold', name: 'מתחת לסף', desc: 'מכות של פחות מ-4.5 נזק נספגות ב-65%.',
@@ -3702,6 +3726,8 @@ class Fighter {
       const d = this.opp.x - this.x;
       this.lookDir = Math.abs(d) < 8 ? 0 : (d > 0 ? this.face : -this.face);
     }
+    // Buffered presses are frozen (not aged) while this fighter is in hit-stop, so cancels pressed during the freeze still work.
+    if (this.hitstop > 0) for (const k in this.pressAt) if (this.pressAt[k] > -50) this.pressAt[k]++;
     this.readInput();
     if (this.hitstop > 0) { this.hitstop--; this.updatePose(); return; }
 
@@ -3945,7 +3971,7 @@ class Fighter {
     this.vx = 0;
     // opponent follows the hands
     const lift = t < 8 ? 0 : t < 24 ? Math.sin(((t - 8) / 16) * Math.PI * 0.5) * 120 : 120 - ((t - 24) / 8) * 120;
-    o.x = this.x + this.face * (t < 24 ? 40 : 40 + (t - 24) * 8);
+    o.x = clamp(this.x + this.face * (t < 24 ? 40 : 40 + (t - 24) * 8), WALL_L, WALL_R);
     o.y = GROUND - lift;
     o.face = -this.face;
     o.thrownSpin = t < 24 ? 0 : (t - 24) * 0.2;
@@ -4057,6 +4083,19 @@ class Fighter {
 const MAX_SEP = 800;
 const THROW_INFO = { dmg: 11, hitstun: 30, blockstun: 0, kx: 6, ky: -5, knockdown: true, unblockable: true, hitstop: 10, isThrow: true, height: 'mid', chip: 0, rank: 0 };
 
+// Comic speech bubble (screen-independent, drawn in world space above a fighter)
+function drawSpeech(ctx, text, x, y, tailDir, alpha = 1, sc = 1) {
+  ctx.save();
+  ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha *= alpha;
+  ctx.font = `700 22px ${FONT.ui}`; ctx.direction = 'rtl';
+  const w = Math.min(340, ctx.measureText(text).width + 36), h = 46;
+  ctx.beginPath(); ctx.moveTo(tailDir * 8 - 12, -4); ctx.lineTo(tailDir * 26, 20); ctx.lineTo(tailDir * 8 + 14, -4); ctx.closePath(); ol(ctx, '#ffffff', 3.5);
+  rr(ctx, -w / 2, -h, w, h, 18); ol(ctx, '#ffffff', 3.5);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(tailDir * 8 - 10, -6, 22, 6);
+  T(ctx, text, 0, -h / 2 + 1, { size: 22, fill: OUT, weight: 800 });
+  ctx.restore();
+}
+
 class Battle {
   constructor(cfg) {
     this.cfg = cfg;
@@ -4084,6 +4123,8 @@ class Battle {
     this.roundWinner = -1;
     this.stats = { maxCombo: 0, supers: 0, perfects: 0, flawless: false, hitsLanded: [0, 0] };
     this.dmgGhost = [1, 1];
+    this.introQuote = this.f.map((f) => pick(f.def.quotes.intro));
+    this.pk = [];
     this.startRound(true);
   }
 
@@ -4093,9 +4134,14 @@ class Battle {
 
   startRound(first) {
     this.ents.length = 0;
+    this.pk = [];
     Fx.reset();
-    this.f.forEach((f) => { f.reset(first); });
+    this.f.forEach((f) => {
+      f.reset(first);
+      if (first && f.opt.startHp) f.hp = Math.max(1, Math.min(f.maxHp, f.opt.startHp));   // survival / daily carry-over
+    });
     this.f.forEach((f) => { if (f.passive.roundStart) f.passive.roundStart(f, this); });
+    if (!this.training) this.f.forEach((f) => { f.st = 'intro'; f.t = 0; });
     this.phase = 'intro'; this.phaseT = 0;
     this.timeLeft = this.timeMax;
     this.roundWinner = -1;
@@ -4120,6 +4166,7 @@ class Battle {
       case 'intro':
         if (this.phaseT >= 64) {
           this.phase = 'fight'; this.phaseT = 0;
+          this.f.forEach((f) => { if (f.st === 'intro') { f.st = 'idle'; f.t = 0; } });
           if (!this.cfg.attract) { this.say('!קרב', { life: 46, col: '#ffe14a', size: 110 }); Snd.play('fight'); }
         }
         break;
@@ -4130,10 +4177,10 @@ class Battle {
         }
         break;
       case 'ko': case 'timeup':
-        if (this.phaseT > (this.phase === 'ko' ? 110 : 90)) this.endRound();
+        if (this.phaseT > (this.phase === 'ko' ? 96 : 80)) this.endRound();
         break;
       case 'roundend':
-        if (this.phaseT > 130) this.nextRound();
+        if (this.phaseT > 116) this.nextRound();
         break;
       case 'matchend':
         if (this.phaseT > 170 && !this.over) { this.over = true; this.emit('matchEnd', this.matchWinner); }
@@ -4143,6 +4190,7 @@ class Battle {
     const order = this.frame % 2 ? [0, 1] : [1, 0];
     for (const i of order) this.f[i].update();
     this.updateEnts();
+    this.updatePickups();
     this.separate();
     this.updateCombos();
     Fx.update();
@@ -4151,6 +4199,35 @@ class Battle {
     if (this.slowT > 0 && --this.slowT === 0) this.timeScale = 1;
     if (this.training) {
       for (const f of this.f) { if (f.hp < f.maxHp * 0.36 && f.hp > 0) f.hp = f.maxHp; if (this.cfg.infMeter) f.meter = 100; }
+    }
+  }
+
+  // Lucky drops (survival / daily): grab them for health, hype or a damage boost.
+  updatePickups() {
+    if (!this.cfg.pickups || this.phase !== 'fight') return;
+    if (this.frame % 60 === 0 && this.pk.length < 2 && this.rng() < 0.1) {
+      const r = this.rng(), kind = r < 0.4 ? 'heart' : r < 0.75 ? 'bolt' : 'fist';
+      this.pk.push({ kind, x: clamp(this.cam.x + (this.rng() * 2 - 1) * 300, WALL_L + 60, WALL_R - 60), y: -30, vy: 0, t: 0, life: 720 });
+      Snd.play('coin');
+    }
+    for (let i = this.pk.length - 1; i >= 0; i--) {
+      const p = this.pk[i];
+      p.t++; p.life--;
+      if (p.y < GROUND - 28) { p.vy = Math.min(9, p.vy + 0.35); p.y = Math.min(GROUND - 28, p.y + p.vy); }
+      let taken = null;
+      for (const f of this.f) {
+        if (f.hp <= 0 || f.ko) continue;
+        const hb = f.hurtbox();
+        if (overlap({ x: p.x - 24, y: p.y - 24, w: 48, h: 48 }, hb)) { taken = f; break; }
+      }
+      if (taken) {
+        const f = taken;
+        if (p.kind === 'heart') { f.heal(16); Snd.play('heal'); }
+        else if (p.kind === 'bolt') { f.gain(40); Snd.play('buff'); Fx.text(f.x, f.y - 215, '+הייפ', { size: 24, col: '#7ce8ff' }); }
+        else { f.tm.dmgUp = 480; f.val.dmgUpMul = 1.3; Snd.play('buff'); Fx.text(f.x, f.y - 215, '!כוח', { size: 24, col: '#ff8a3d' }); }
+        Fx.ring(p.x, p.y, 8, 70, 'rgba(255,255,255,.9)', 16, 5); Fx.stars(p.x, p.y, 8, '#ffe14a', 5);
+        this.pk.splice(i, 1);
+      } else if (p.life <= 0) this.pk.splice(i, 1);
     }
   }
 
@@ -4398,8 +4475,13 @@ class Battle {
     if (saved && def.passive.onSaved) def.passive.onSaved(def, this);
     this.emit('hit', att, def, info, dmg, src ? (src.srcKey || 'proj') : (att.mk || 'x'));
     if (n >= 3 && att.slot === 0) this.emit('combo', att, n, cb.dmg);
+    if (!this.cfg.attract && (n === 5 || n === 8 || n === 12 || n === 16)) {
+      const cheer = { 5: '!יפה', 8: '!פצצה', 12: '!מטורף', 16: '!אגדי' }[n];
+      Fx.text(att.x + att.face * 20, att.y - 250, cheer, { size: 34 + n, col: n >= 12 ? '#ff6a5a' : '#ffe14a', life: 46, rot: -0.06 });
+      Snd.play('toast');
+    }
 
-    if (ko) this.koHit(att, def, pushDir);
+    if (ko) this.koHit(att, def, pushDir, info);
     return 'hit';
   }
 
@@ -4469,13 +4551,15 @@ class Battle {
     Fx.shake(10); Fx.dust(def.x, GROUND, 0, 10);
   }
 
-  koHit(att, def, pushDir) {
+  koHit(att, def, pushDir, info) {
     this.phase = 'ko'; this.phaseT = 0;
     this.roundWinner = att.slot;
-    this.timeScale = 0.3; this.slowT = 70;
+    this.timeScale = 0.35; this.slowT = 42;
     Fx.flash('#ffffff', 0.75); Fx.shake(16); Fx.punch = 5;
     Snd.play('ko');
-    this.say('!נפילה', { life: 100, col: '#ff5a5a', size: 120 });
+    const closing = this.wins[att.slot] + 1 >= this.rtw && !this.training;
+    if (closing && info && info.isSuper) this.say('!פירוק קואליציה', { life: 110, col: '#ff5a5a', size: 84 });
+    else this.say('!נפילה', { life: 100, col: '#ff5a5a', size: 120 });
     this.ents.forEach((e) => { if (e.owner === def) e.dead = true; });
     this.emit('ko', att, def);
   }
@@ -4505,7 +4589,8 @@ class Battle {
     }
     this.phase = 'roundend'; this.phaseT = 0;
     if (w >= 0 && !this.cfg.attract) {
-      this.say('סיבוב ל' + this.f[w].def.short, { life: 100, col: '#ffe14a', size: 50 });
+      const perfect = !this.f[w].tookDamage;
+      this.say(perfect ? '!ניצחון מוחלט' : 'סיבוב ל' + this.f[w].def.short, { life: 100, col: perfect ? '#7dff9a' : '#ffe14a', size: perfect ? 70 : 50 });
       Snd.play('win');
     }
     Fx.confetti(this.f[Math.max(0, w)].x, GROUND - 120, w >= 0 ? 40 : 0, 8);
@@ -4514,6 +4599,7 @@ class Battle {
     if (done) {
       const mw = this.wins[0] >= this.rtw && this.wins[1] >= this.rtw ? (this.wins[0] === this.wins[1] ? w : (this.wins[0] > this.wins[1] ? 0 : 1)) : (this.wins[0] >= this.rtw ? 0 : 1);
       this.matchWinner = mw;
+      this.endQuote = [pick(this.f[mw].def.quotes.win), pick(this.f[1 - mw].def.quotes.lose)];
       this.phase = 'matchend'; this.phaseT = 0;
       this.say('ניצחון ל' + this.f[mw].def.short + '!', { life: 160, col: '#ffe14a', size: 58 });
       Fx.confetti(this.f[mw].x, GROUND - 160, 90, 10);
@@ -4600,7 +4686,35 @@ class Battle {
       }
     }
     for (const e of this.ents) if (e.z >= 0 && e.delay <= 0) this.drawEntity(ctx, e);
+    for (const p of this.pk) {
+      if (p.life < 150 && Math.floor(p.life / 6) % 2) continue;
+      const bob = Math.sin(p.t * 0.12) * 4, col = p.kind === 'heart' ? '#ff5a7a' : p.kind === 'bolt' ? '#7ce8ff' : '#ff8a3d';
+      ctx.fillStyle = 'rgba(10,5,30,.35)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND + 2, 22, 6, 0, 0, TAU); ctx.fill();
+      ctx.save(); ctx.translate(p.x, p.y + bob); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 60, col, 0.55); ctx.restore();
+      ctx.beginPath(); ctx.arc(p.x, p.y + bob, 27, 0, TAU); ctx.fillStyle = 'rgba(20,10,50,.65)'; ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.stroke();
+      drawEnt(ctx, p.kind, p.x, p.y + bob, { sc: p.kind === 'fist' ? 0.55 : p.kind === 'heart' ? 0.7 : 0.55, t: p.t });
+    }
     Fx.draw(ctx);
+    this.drawBubbles(ctx);
+  }
+
+  // Character catch-phrases: at the very start of the match and when it ends.
+  drawBubbles(ctx) {
+    if (this.cfg.attract || this.training) return;
+    const lo = this.cam.x - 380, hi = this.cam.x + 380;
+    const show = (f, text, age, ttl) => {
+      const k = Math.min(1, age / 8), out = age > ttl - 8 ? (ttl - age) / 8 : 1;
+      if (out <= 0) return;
+      drawSpeech(ctx, text, clamp(f.x, lo + 120, hi - 120), f.y - 214, f.x < this.cam.x ? 1 : -1, out, Ease.outBack(k) * (f.scale > 1 ? 1.1 : 1));
+    };
+    if (this.phase === 'intro' && this.round === 1) {
+      const age = this.phaseT - 6;
+      if (age > 0 && age < 56) this.f.forEach((f, i) => show(f, this.introQuote[i], age, 56));
+    } else if (this.phase === 'matchend' && this.endQuote) {
+      const w = this.matchWinner;
+      if (this.phaseT > 12 && this.phaseT < 170) show(this.f[w], this.endQuote[0], this.phaseT - 12, 158);
+      if (this.phaseT > 60 && this.phaseT < 170) show(this.f[1 - w], this.endQuote[1], this.phaseT - 60, 110);
+    }
   }
 
   drawEntity(ctx, e) {
@@ -4685,6 +4799,7 @@ const Hud = {
     this.timer(ctx, B);
     this.combos(ctx, B);
     if (!cine) this.announce(ctx, B);
+    this.hint(ctx, B);
     if (B.training) T(ctx, 'מצב אימון', W / 2, 108, { size: 18, fill: '#fff', stroke: OUT, lw: 5 });
   },
 
@@ -4830,13 +4945,25 @@ const Hud = {
     });
   },
 
+  // First-run key reminder (keyboard players only)
+  hint(ctx, B) {
+    if (!B.cfg.hint || B.phase !== 'fight' || B.phaseT > 60 * 16) return;
+    const a = Math.min(1, (60 * 16 - B.phaseT) / 40);
+    ctx.save();
+    ctx.globalAlpha = 0.92 * a;
+    rr(ctx, W / 2 - 390, H - 86, 780, 64, 14); ctx.fillStyle = 'rgba(10,5,30,.78)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.stroke();
+    T(ctx, 'תנועה: A D · קפיצה: W · התכופפות: S · חסימה: I', W / 2, H - 66, { size: 16, fill: '#ffffff', weight: 700 });
+    T(ctx, 'אגרוף: J · בעיטה: K · מיוחד 1: L · מיוחד 2: U · סופר: O · זריקה: E', W / 2, H - 42, { size: 16, fill: '#ffe14a', weight: 700 });
+    ctx.restore();
+  },
+
   announce(ctx, B) {
     const a = B.announce;
     if (!a || !a.text) return;
     const k = a.t / a.max;
     const sc = a.t < 8 ? 1.7 - 0.7 * Ease.outBack(a.t / 8) : 1;
     const al = k > 0.85 ? (1 - k) / 0.15 : 1;
-    T(ctx, a.text, W / 2, 200, { size: a.size, font: 'disp', fill: a.col, stroke: OUT, lw: a.size * 0.2, alpha: al, scale: sc, shadow: 'rgba(0,0,0,.35)', shadowY: a.size * 0.1 });
+    T(ctx, a.text, W / 2, 152, { size: a.size, font: 'disp', fill: a.col, stroke: OUT, lw: a.size * 0.2, alpha: al, scale: sc, shadow: 'rgba(0,0,0,.35)', shadowY: a.size * 0.1 });
   },
 };
 
@@ -5087,6 +5214,16 @@ const ACHIEVEMENTS = [
   { id: 'daily3', name: 'רצף יומי', desc: 'סיימו אתגר יומי 3 ימים ברצף.', test: (d) => d.daily.best >= 3 },
 ];
 
+const RANKS = [
+  [0, 'מתמחה בלשכה'], [3, 'עוזר פרלמנטרי'], [8, 'חבר כנסת מתחיל'], [15, 'יושב ראש ועדה'], [30, 'שר בממשלה'],
+  [50, 'סגן ראש הממשלה'], [80, 'ראש הממשלה'], [130, 'ראש ממשלה לכל החיים'], [220, 'מלך המנדטים'],
+];
+function rankOf(wins) {
+  let r = RANKS[0], next = null;
+  for (let i = 0; i < RANKS.length; i++) { if (wins >= RANKS[i][0]) { r = RANKS[i]; next = RANKS[i + 1] || null; } }
+  return { name: r[1], next: next ? next[0] - wins : 0, nextName: next ? next[1] : '' };
+}
+
 const Save = {
   key: 'ks_smackdown_v1',
   d: null,
@@ -5158,7 +5295,7 @@ const BILLS = [
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const ICON_SC = { bulldozer: 0.2, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
+const ICON_SC = { roller: 0.22, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
 const iconCache = new Map();
 function iconURL(kind, size = 64) {
   const key = kind + ':' + size;
@@ -5207,7 +5344,8 @@ const UI = {
       Snd.init(); Snd.resume();
       this.act(t.dataset.act, t, e);
     });
-    document.addEventListener('pointerdown', () => { Snd.init(); Snd.resume(); if (Snd.music.pending) { Snd.playMusic(Snd.music.pending); } }, { passive: true });
+    const unlock = () => { Snd.init(); Snd.resume(); if (Snd.music.pending) Snd.playMusic(Snd.music.pending); };
+    ['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, unlock, { passive: true }));
     document.addEventListener('keydown', (e) => this.onKey(e));
     $('#mute').addEventListener('click', () => { Snd.init(); this.setMuted(!Snd.muted); });
     this.applyMuteIcon();
@@ -5437,7 +5575,8 @@ const UI = {
   enter_title() {
     Game.setScene('attract');
     const s = Save.d;
-    $('#title-stats').textContent = `ניצחונות: ${s.wins} · שיא במרתון: גל ${s.survivalBest} · הישגים: ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`;
+    const rk = rankOf(s.wins);
+    $('#title-stats').textContent = `דרגה: ${rk.name}${rk.next ? ' (עוד ' + rk.next + ' ניצחונות ל' + rk.nextName + ')' : ''} · ניצחונות: ${s.wins} · שיא במרתון: גל ${s.survivalBest} · הישגים: ${Object.keys(s.ach).length}/${ACHIEVEMENTS.length}`;
     const dk = todayKey();
     $('#daily-sub').textContent = s.daily.done[dk] ? 'הושלם היום! רצף: ' + s.daily.streak : (s.daily.streak ? 'רצף נוכחי: ' + s.daily.streak : 'חוק חדש כל יום');
     Snd.playMusic('menu');
@@ -5484,7 +5623,7 @@ const UI = {
     const def = ROSTER_BY_ID[id];
     if (!def) return;
     S.hover = id;
-    $$('#grid .card').forEach((c) => c.classList.toggle('sel', c.dataset.id === id));
+    $$('#grid .card').forEach((c) => { c.classList.toggle('sel', c.dataset.id === id); c.classList.toggle('autofocus', c.dataset.id === id); });
     const locked = !Save.isUnlocked(def);
     $('#btn-confirm').disabled = locked;
     $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : (S.mode === 'training' && S.step === 0 ? 'הלאה: בחירת יריב' : 'בחירה')));
@@ -5493,7 +5632,7 @@ const UI = {
   },
   detailHTML(def, locked) {
     const r = def.rating;
-    const mv = (label, m, cls) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}</em> ${m.name}</b> <span class="cdc">${cdText(m)}</span><p>${m.desc}</p></div></div>`;
+    const mv = (label, m, cls) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}</em> ${m.name}</b> <span class="cdc">${cls === 'sup' ? 'דורש הייפ מלא' : cdText(m)}</span><p>${m.desc}</p></div></div>`;
     const nm = def.moves;
     return `<div class="dwrap" style="--pc:${def.color}"><div class="dhead">
         <img src="${portraitURL(def.id)}" alt="">
@@ -5605,6 +5744,7 @@ const Game = {
   // ------------------------------------------------------------------ boot / loop
   init() {
     this.cv = $('#cv'); this.ctx = this.cv.getContext('2d');
+    try { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); } catch (e) { /* optional */ }
     Save.load();
     const s = Save.d.settings;
     Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
@@ -5800,9 +5940,10 @@ const Game = {
     const spec = this.spec;
     const B = new Battle({
       fighters: [f1, f2], stage: spec.stage, rounds: spec.rounds || 2, time: spec.time || 60, training: !!spec.training, infMeter: this.infMeter,
-      speed: spec.speed || 1, onEvent: (n, a, b, c, d) => this.onEvent(n, a, b, c, d),
+      speed: spec.speed || 1, pickups: spec.mode === 'survival' || spec.mode === 'daily', onEvent: (n, a, b, c, d) => this.onEvent(n, a, b, c, d),
     });
     if (spec.training) { B.phase = 'fight'; B.phaseT = 0; }
+    B.cfg.hint = !Save.d.seenHelp && !this.touchEnabled() && spec.mode !== 'versus';
     this.B = B;
     UI.hide();
     this.setScene('fight', { B });
@@ -5839,12 +5980,16 @@ const Game = {
     const S = Save.d, B = this.B, spec = this.spec;
     const won = winner === 0;
     S.matches++;
-    if (won) {
+    S.seenHelp = true;
+    const rankBefore = rankOf(S.wins).name;
+    if (spec.mode === 'versus') { /* two humans: personal stats are not touched */ }
+    else if (won) {
       S.wins++; S.winsBy[spec.p1.id] = (S.winsBy[spec.p1.id] || 0) + 1; S.ko++;
       if (B.f[0].hp / B.f[0].maxHp < 0.1) S.comebacks++;
     } else S.losses++;
     Save.save();
     this.checkAch();
+    if (won && rankOf(S.wins).name !== rankBefore) UI.toast('דרגה חדשה!', rankOf(S.wins).name, 'unlock');
     const res = { won, winner, B, stats: B.stats, hpLeft: B.f[0].hp, hpPct: B.f[0].hp / B.f[0].maxHp, maxCombo: B.stats.maxCombo, rounds: B.wins.slice(), time: B.frame };
     Inp.capture = false; TouchUI.show(false);
     Snd.playMusic(won ? 'victory' : 'menu');
@@ -5878,7 +6023,7 @@ const Game = {
       case 'quit': this.quit(); break;
       case 'rematch': this.startFight(this.spec); break;
       case 'menu': this.quit(); break;
-      case 'closemoves': this.togglePause(true); this.pauseOpen(); break;
+      case 'closemoves': this.pauseOpen(); break;
       case 'next-arcade': this.nextArcadeFight(); break;
       case 'retry': this.startFight(this.spec); break;
       case 'bill': this.pickBill(el.dataset.id); break;
@@ -5905,9 +6050,9 @@ const Game = {
   },
 
   // ------------------------------------------------------------------ pause
-  togglePause(force) {
+  togglePause() {
     if (!this.scene || this.scene.kind !== 'fight' || this.B.over) return;
-    this.paused = force !== undefined ? !force : !this.paused;
+    this.paused = !this.paused;
     this.B.paused = this.paused;
     if (this.paused) { Inp.capture = false; this.pauseOpen(); }
     else { $('#s-pause').classList.remove('on'); Inp.capture = true; document.body.dataset.screen = 'fight'; Snd.resume(); }
@@ -5936,18 +6081,18 @@ const Game = {
   // ------------------------------------------------------------------ ARCADE
   startArcade(id, diff) {
     const others = shuffle(ROSTER.map((d) => d.id).filter((x) => x !== id));
-    const ladder = others.slice(0, 6).concat(['threshold']);
+    const ladder = others.slice(0, 6).concat([id === 'threshold' ? others[6] : 'threshold']);   // the boss is a mirror-free final
     this.arc = { id, diff, ladder, idx: 0, tries: 0, t0: Date.now() };
     this.nextArcadeFight();
   },
   nextArcadeFight() {
     const A = this.arc, i = A.idx, oid = A.ladder[i], boss = oid === 'threshold';
-    const base = [0.2, 0.48, 0.76][A.diff];
-    const level = clamp(base + i * 0.05 + (boss ? 0.08 : 0), 0.1, 0.98);
+    const base = [0.15, 0.4, 0.66][A.diff];
+    const level = clamp(base + i * 0.045 + (boss ? 0.06 : 0), 0.1, 0.98);
     const stage = STAGES[(hashStr(A.id + i) + i) % STAGES.length].id;
     this.startFight({
       mode: 'arcade', p1: { id: A.id, human: true },
-      p2: { id: oid, level, hpMul: 1 + [0, 0.05, 0.12][A.diff] + i * 0.02, dmgMul: [0.85, 1, 1.1][A.diff] },
+      p2: { id: oid, level, hpMul: (1 + [0, 0.05, 0.12][A.diff] + i * 0.02) * (boss ? [0.8, 0.9, 1][A.diff] : 1), dmgMul: [0.85, 1, 1.1][A.diff] * (boss ? [0.85, 0.95, 1][A.diff] : 1) },
       stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer, label: `קרב ${i + 1} מתוך ${A.ladder.length}` + (boss ? ' · הבוס הסודי' : ''),
       onDone: (res) => this.arcadeDone(res),
     });
@@ -5984,7 +6129,7 @@ const Game = {
     const R = this.surv, w = R.wave;
     const boss = w % 5 === 0;
     const pool = ROSTER.map((d) => d.id).filter((x) => x !== R.fighter);
-    const oid = boss ? 'threshold' : pool[(Math.random() * pool.length) | 0];
+    const oid = boss && R.fighter !== 'threshold' ? 'threshold' : pool[(Math.random() * pool.length) | 0];
     const level = clamp(0.2 + w * 0.035, 0.15, 0.96);
     const me = ROSTER_BY_ID[R.fighter];
     const mods = R.mods;
@@ -6112,21 +6257,20 @@ function makeDemo(def) {
     { say: 'סופר: ' + M.sup.name, go: 250, meter: true }, { press: IN.S, wait: 230 },
     { say: 'זריקה', go: 70 }, { press: IN.A | IN.B, wait: 90 },
   ];
-  let i = 0, wait = 0, pressLeft = 0, pressBits = 0, started = false;
+  let i = 0, wait = 0, pressLeft = 0, pressBits = 0, stepT = 0;
   const ctrl = (f, B) => {
     const o = f.opp;
     if (!o || B.phase !== 'fight') return 0;
-    if (!f.pv.demoInit) { f.pv.demoInit = true; }
     if (wait > 0) { wait--; return pressLeft-- > 0 ? pressBits : 0; }
     const s = seq[i % seq.length];
     if (s.say) B.demoLabel = s.say;
     if (s.meter) f.meter = 100;
-    if (s.go) {
+    if (s.go && stepT++ < 110) {      // walk to the wanted distance (give up after ~2s, e.g. when pinned against a wall)
       const dx = o.x - f.x, d = Math.abs(dx), toward = dx > 0 ? IN.R : IN.L, away = dx > 0 ? IN.L : IN.R;
-      if (o.x > WALL_R - 120 || o.x < WALL_L + 120) { /* dummy pinned in corner */ }
       if (d > s.go + 14) return toward;
       if (d < s.go - 14) return away;
     }
+    stepT = 0;
     if (s.press) { pressBits = s.press; pressLeft = 2; wait = s.wait || 10; i++; return pressBits; }
     i++;
     return 0;
@@ -6253,7 +6397,7 @@ function simMatch(idA, idB, opt = {}) {
 }
 
 if (/[?&]debug/.test(location.search)) {
-  window.KS = { Brain, ROSTER, EXTRA, ROSTER_BY_ID, Battle, Fighter, makeCtrl, simMatch, STAGES, Stages, Snd, Fx, IN, drawFighter, poseOf, Game, UI, Save, W, H };
+  window.KS = { SFX, TRACKS, Brain, ROSTER, EXTRA, ROSTER_BY_ID, Battle, Fighter, makeCtrl, simMatch, STAGES, Stages, Snd, Fx, IN, drawFighter, poseOf, Game, UI, Save, W, H };
   // deterministic screenshot helpers
   KS.mk = (a, b, stage, opt = {}) => {
     const fa = new Fighter(ROSTER_BY_ID[a], 0, { ctrl: opt.ca || makeCtrl(0.7, 11) });

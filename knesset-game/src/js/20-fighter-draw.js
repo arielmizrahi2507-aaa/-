@@ -163,6 +163,7 @@ function poseOf(f) {
 
   // expression overrides
   if (st === 'idle' && f.hurtPct < 0.25) { p.eyes = 'angry'; }
+  else if (p.eyes === 'open' && ((f.clock || 0) + (f.def.look.h || 1) * 97) % 230 < 6) p.eyes = 'blink';
   return p;
 }
 
@@ -369,7 +370,9 @@ function drawHead(ctx, f, look, p, C, tintFn) {
   for (const [ex, es] of eyeSpec) {
     ctx.save(); ctx.translate(ex, eyeY); ctx.scale(es, es);
     const ee = p.eyes;
-    if (ee === 'happy') {
+    if (ee === 'blink') {
+      ctx.beginPath(); ctx.moveTo(-7, 2); ctx.quadraticCurveTo(0, 6, 7, 2); ctx.lineWidth = 3.2; ctx.strokeStyle = OUT; ctx.stroke();
+    } else if (ee === 'happy') {
       ctx.beginPath(); ctx.arc(0, 2, 7, Math.PI * 1.1, Math.PI * 1.9); ctx.lineWidth = 3.5; ctx.strokeStyle = OUT; ctx.stroke();
     } else if (ee === 'hurt') {
       ctx.lineWidth = 3.5; ctx.strokeStyle = OUT; ctx.beginPath(); ctx.moveTo(-6, -5); ctx.lineTo(4, 0); ctx.lineTo(-6, 5); ctx.stroke();

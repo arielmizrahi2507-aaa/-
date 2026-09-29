@@ -128,21 +128,26 @@ const ENT = {
     ctx.strokeStyle = '#111'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-20, 8); ctx.lineTo(20, -8); ctx.stroke();
   },
 
-  bulldozer(ctx, e) {
+  roller(ctx, e) {
     const bob = Math.sin(e.t * 0.9) * 1.5;
     ctx.translate(0, bob);
-    // tracks
-    rr(ctx, -80, 26, 150, 34, 16); ol(ctx, '#33363d');
-    for (let i = 0; i < 6; i++) { ctx.fillStyle = '#5a5f6b'; ctx.beginPath(); ctx.arc(-58 + i * 24, 43, 6, 0, TAU); ctx.fill(); }
-    // body
-    rr(ctx, -70, -22, 110, 52, 8); ol(ctx, '#f4b400');
-    rr(ctx, -20, -64, 62, 46, 8); ol(ctx, '#f4b400');
-    rr(ctx, -10, -56, 42, 30, 5); ol(ctx, '#bfe6ff', 2.5);
-    ctx.fillStyle = '#333'; ctx.fillRect(-60, -46, 10, 26);
-    // blade
-    ctx.beginPath(); ctx.moveTo(48, -40); ctx.lineTo(96, -52); ctx.lineTo(102, 50); ctx.lineTo(56, 60); ctx.closePath(); ol(ctx, '#c9cdd6');
-    ctx.strokeStyle = '#8b90a0'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(72, -30); ctx.lineTo(76, 44); ctx.stroke();
-    ctx.fillStyle = OUT; ctx.font = '900 16px Arial'; ctx.textAlign = 'center'; ctx.fillText('NO DEAL', -14, 8);
+    // rear wheel
+    ctx.beginPath(); ctx.arc(-46, 24, 40, 0, TAU); ol(ctx, '#3d414d');
+    ctx.beginPath(); ctx.arc(-46, 24, 16, 0, TAU); ol(ctx, '#f4b400', 2.5);
+    // body + cabin
+    rr(ctx, -70, -30, 120, 44, 10); ol(ctx, '#f4b400');
+    rr(ctx, -62, -76, 58, 50, 8); ol(ctx, '#f4b400');
+    rr(ctx, -54, -68, 42, 32, 5); ol(ctx, '#bfe6ff', 2.5);
+    ctx.fillStyle = OUT; ctx.fillRect(-68, -84, 74, 9);
+    // front drum
+    const g = ctx.createLinearGradient(0, -20, 0, 70);
+    g.addColorStop(0, '#dfe4ee'); g.addColorStop(0.5, '#9aa3b5'); g.addColorStop(1, '#5d6577');
+    ctx.beginPath(); ctx.arc(66, 26, 44, 0, TAU); ol(ctx, g);
+    ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 3;
+    for (let k = 0; k < 6; k++) { const a = e.t * 0.12 + k * 1.05; ctx.beginPath(); ctx.moveTo(66, 26); ctx.lineTo(66 + Math.cos(a) * 42, 26 + Math.sin(a) * 42); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(66, 26, 12, 0, TAU); ol(ctx, '#f4b400', 2.5);
+    // exhaust puff
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.arc(-86, -70 - (e.t % 12), 7, 0, TAU); ctx.fill();
   },
 
   like(ctx, e) {

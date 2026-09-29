@@ -143,6 +143,8 @@ class Fighter {
       const d = this.opp.x - this.x;
       this.lookDir = Math.abs(d) < 8 ? 0 : (d > 0 ? this.face : -this.face);
     }
+    // Buffered presses are frozen (not aged) while this fighter is in hit-stop, so cancels pressed during the freeze still work.
+    if (this.hitstop > 0) for (const k in this.pressAt) if (this.pressAt[k] > -50) this.pressAt[k]++;
     this.readInput();
     if (this.hitstop > 0) { this.hitstop--; this.updatePose(); return; }
 
@@ -386,7 +388,7 @@ class Fighter {
     this.vx = 0;
     // opponent follows the hands
     const lift = t < 8 ? 0 : t < 24 ? Math.sin(((t - 8) / 16) * Math.PI * 0.5) * 120 : 120 - ((t - 24) / 8) * 120;
-    o.x = this.x + this.face * (t < 24 ? 40 : 40 + (t - 24) * 8);
+    o.x = clamp(this.x + this.face * (t < 24 ? 40 : 40 + (t - 24) * 8), WALL_L, WALL_R);
     o.y = GROUND - lift;
     o.face = -this.face;
     o.thrownSpin = t < 24 ? 0 : (t - 24) * 0.2;

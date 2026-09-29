@@ -17,6 +17,16 @@ const ACHIEVEMENTS = [
   { id: 'daily3', name: 'רצף יומי', desc: 'סיימו אתגר יומי 3 ימים ברצף.', test: (d) => d.daily.best >= 3 },
 ];
 
+const RANKS = [
+  [0, 'מתמחה בלשכה'], [3, 'עוזר פרלמנטרי'], [8, 'חבר כנסת מתחיל'], [15, 'יושב ראש ועדה'], [30, 'שר בממשלה'],
+  [50, 'סגן ראש הממשלה'], [80, 'ראש הממשלה'], [130, 'ראש ממשלה לכל החיים'], [220, 'מלך המנדטים'],
+];
+function rankOf(wins) {
+  let r = RANKS[0], next = null;
+  for (let i = 0; i < RANKS.length; i++) { if (wins >= RANKS[i][0]) { r = RANKS[i]; next = RANKS[i + 1] || null; } }
+  return { name: r[1], next: next ? next[0] - wins : 0, nextName: next ? next[1] : '' };
+}
+
 const Save = {
   key: 'ks_smackdown_v1',
   d: null,
