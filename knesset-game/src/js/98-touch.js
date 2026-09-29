@@ -37,22 +37,25 @@ const TouchUI = {
     const zone = $('#stickzone'), base = $('#stickbase'), knob = $('#stickknob');
     const STICK = IN.L | IN.R | IN.U | IN.D;
     const set = (mask) => { Inp.touch = (Inp.touch & ~STICK) | mask; };
+    // top-left corner of the stick zone inside the app box (layout offsets ignore the landscape-mode rotation)
+    const zoneOrigin = () => { let x = 0, y = 0, el = zone; while (el && el.id !== 'app') { x += el.offsetLeft; y += el.offsetTop; el = el.offsetParent; } return [x, y]; };
     zone.addEventListener('pointerdown', (e) => {
       if (this.pid !== null) return;
       e.preventDefault(); Snd.init(); Snd.resume();
       this.pid = e.pointerId; zone.setPointerCapture(e.pointerId);
-      const r = zone.getBoundingClientRect();
-      this.ox = e.clientX; this.oy = e.clientY;
-      base.style.left = (this.ox - r.left) + 'px'; base.style.top = (this.oy - r.top) + 'px';
+      const [px, py] = Game.toApp(e.clientX, e.clientY), [zx, zy] = zoneOrigin();
+      this.ox = px; this.oy = py;
+      base.style.left = (this.ox - zx) + 'px'; base.style.top = (this.oy - zy) + 'px';
       base.classList.add('on'); knob.style.transform = 'translate(-50%,-50%)';
       zone.classList.add('used');
     });
     zone.addEventListener('pointermove', (e) => {
       if (e.pointerId !== this.pid) return;
       e.preventDefault();
-      let dx = e.clientX - this.ox, dy = e.clientY - this.oy;
+      const [px, py] = Game.toApp(e.clientX, e.clientY);
+      let dx = px - this.ox, dy = py - this.oy;
       const len = Math.hypot(dx, dy), max = 52;
-      if (len > max) { this.ox += dx / len * (len - max); this.oy += dy / len * (len - max); dx = e.clientX - this.ox; dy = e.clientY - this.oy; }
+      if (len > max) { this.ox += dx / len * (len - max); this.oy += dy / len * (len - max); dx = px - this.ox; dy = py - this.oy; }
       knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
       let m = 0;
       if (dx < -16) m |= IN.L; else if (dx > 16) m |= IN.R;

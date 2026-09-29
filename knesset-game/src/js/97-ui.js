@@ -94,7 +94,7 @@ const UI = {
     if (Game.scene && Game.scene.kind === 'fight' && (k === 'Escape' || k === 'KeyP')) {
       e.preventDefault();
       if (e.repeat) return;
-      const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"]');
+      const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"], .screen.on [data-act="back"]');
       if (sub) sub.click(); else Game.togglePause();
       return;
     }
@@ -131,7 +131,7 @@ const UI = {
     const n = Inp.padNav();   // polled every frame so the edge detection stays fresh
     if (Game.scene && Game.scene.kind === 'fight') {
       // Start pauses / resumes; B closes a sub-card or resumes
-      if (n.start || (n.back && this.cur === 'pause')) { const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"]'); if (sub) sub.click(); else Game.togglePause(); return; }
+      if (n.start || (n.back && this.cur === 'pause')) { const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"], .screen.on [data-act="back"]'); if (sub) sub.click(); else Game.togglePause(); return; }
     }
     if (this.cur === null || Inp.capture) return;
     if (n.dx || n.dy) this.nav(n.dx, n.dy);
@@ -160,6 +160,11 @@ const UI = {
             <button class="btn nav" data-act="achv">הישגים</button>
             <button class="btn nav" data-act="settings">הגדרות</button>
             <button class="btn nav" data-act="help">איך משחקים</button>
+          </div>
+          <div class="rotbox">
+            <button class="btn cyan nav" data-act="rotate-on" id="rot-on"><b>↻ <span id="rot-label">שחקו על הצד (מצב רוחב)</span></b><small>מסובב את כל המשחק, גם אם הטלפון נשאר נעול לאורך</small></button>
+            <button class="btn nav" data-act="rotate-flip" id="rot-flip">↺ הפוך כיוון</button>
+            <button class="btn nav" data-act="rotate-off" id="rot-off">חזרה לתצוגה רגילה</button>
           </div>
         </nav>
       </div>
@@ -202,7 +207,7 @@ const UI = {
 
   tplSettings() {
     return `<section class="screen" id="s-settings">
-      <header class="bar"><button class="btn ghost nav" data-act="back">חזרה</button><div class="ttl"><h2>הגדרות</h2></div><span></span></header>
+      <header class="bar"><button class="btn ghost nav" data-act="back" id="set-back">חזרה</button><div class="ttl"><h2>הגדרות</h2></div><span></span></header>
       <div class="panel narrow">
         <label class="row">עוצמת אפקטים<input type="range" min="0" max="100" id="set-sfx" class="nav"></label>
         <label class="row">עוצמת מוזיקה<input type="range" min="0" max="100" id="set-music" class="nav"></label>
@@ -210,11 +215,14 @@ const UI = {
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
         <label class="row">כפתורי מגע
           <select id="set-touch" class="nav"><option value="auto">אוטומטי</option><option value="on">תמיד</option><option value="off">כבוי</option></select></label>
-        <label class="row">סיבובים לניצחון
+        <label class="row touchonly">מצב רוחב (לטלפון שנשאר במסך לאורך)
+          <select id="set-rotate" class="nav"><option value="off">כבוי</option><option value="cw">סיבוב ימינה ↻</option><option value="ccw">סיבוב שמאלה ↺</option></select></label>
+        <div class="row fsonly"><button class="btn nav" data-act="fullscreen">מסך מלא</button></div>
+        <label class="row nextmatch">סיבובים לניצחון
           <select id="set-rounds" class="nav"><option value="1">1 (קרב חטוף)</option><option value="2">2 (מומלץ)</option><option value="3">3 (ארוך)</option></select></label>
-        <label class="row">זמן סיבוב
+        <label class="row nextmatch">זמן סיבוב
           <select id="set-timer" class="nav"><option value="45">45 שניות</option><option value="60">60 שניות</option><option value="90">90 שניות</option></select></label>
-        <div class="row"><button class="btn danger nav" data-act="reset">איפוס כל ההתקדמות</button></div>
+        <div class="row nextmatch"><button class="btn danger nav" data-act="reset">איפוס כל ההתקדמות</button></div>
       </div>
     </section>`;
   },
@@ -288,7 +296,10 @@ const UI = {
           <button class="btn nav" data-act="restart">התחלה מחדש</button>
           <button class="btn nav" data-act="pause-moves">המכות שלי</button>
         </div>
-        <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        <div class="two">
+          <button class="btn nav" data-act="pause-settings">הגדרות</button>
+          <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        </div>
         <button class="btn danger nav" data-act="quit">${ICONS.close}<span id="pause-quit">יציאה לתפריט הראשי</span></button>
       </div>
       <p class="keyhint">במקלדת: Esc או P להמשך</p>
@@ -389,11 +400,14 @@ const UI = {
   },
 
   // ---------------------------------------------------------------- Settings
-  enter_settings() {
-    Game.setScene('none');
+  enter_settings(p) {
+    const inFight = !!(p && p.keepScene);       // opened from the pause menu: the paused fight stays underneath
+    if (!inFight) Game.setScene('none');
+    $$('#s-settings .nextmatch').forEach((r) => { r.style.display = inFight ? 'none' : ''; });
+    $('#set-back').textContent = inFight ? 'חזרה להפסקה' : 'חזרה';
     const s = Save.d.settings;
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
-    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch;
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotate || 'off';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
   },
   bindSettings() {
@@ -404,6 +418,7 @@ const UI = {
     on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-touch', 'change', (e) => { s().touch = e.target.value; Save.save(); Game.layout(); });
+    on('#set-rotate', 'change', (e) => { Game.setRotate(e.target.value); });
     on('#set-rounds', 'change', (e) => { s().rounds = +e.target.value; Save.save(); });
     on('#set-timer', 'change', (e) => { s().timer = +e.target.value; Save.save(); });
   },
@@ -437,6 +452,7 @@ const UI = {
     }
   },
   back() {
+    if (Game.paused && this.cur === 'settings') { Game.pauseOpen(); return; }
     const S = this.sel;
     if (this.cur === 'select' && S && S.step > 0 && (S.mode === 'versus' || S.mode === 'training')) { this.show('select', { mode: S.mode, step: S.step - 1, picks: S.picks.slice(0, S.step - 1) }); return; }
     Game.setScene('attract');

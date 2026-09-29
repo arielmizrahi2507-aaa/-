@@ -18,6 +18,7 @@ const Game = {
     const s = Save.d.settings;
     Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
     Inp.init();
+    if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs');
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
     TouchUI.init();
@@ -26,6 +27,7 @@ const Game = {
     ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
     this.applySettings();
     window.addEventListener('resize', () => this.layout());
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
     window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
     document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
     this.last = performance.now();
@@ -66,8 +68,23 @@ const Game = {
     if (sc.kind === 'fight') { TouchUI.updateHints(B); FightUI.tick(B); }
   },
 
+  // Screen geometry. With "landscape mode" on, a phone that the host keeps in portrait gets the whole UI turned by 90 degrees,
+  // so it can be held sideways: everything below works in the rotated ("logical") size, and CSS uses --u-vw / --u-vh instead of vw / vh.
   layout() {
-    const vw = window.innerWidth, vh = window.innerHeight;
+    const set = Save.d.settings;
+    const pw0 = window.innerWidth, ph0 = window.innerHeight;
+    const physPortrait = ph0 > pw0 * 1.02;
+    const rot = set.rotate && set.rotate !== 'off' && physPortrait ? (set.rotate === 'ccw' ? -1 : 1) : 0;
+    this.rot = rot;
+    const vw = rot ? ph0 : pw0, vh = rot ? pw0 : ph0;
+    const B0 = document.body, RS = document.documentElement.style;
+    RS.setProperty('--u-vw', vw / 100 + 'px'); RS.setProperty('--u-vh', vh / 100 + 'px');
+    RS.setProperty('--lw', vw + 'px'); RS.setProperty('--lh', vh + 'px'); RS.setProperty('--vpw', pw0 + 'px'); RS.setProperty('--vph', ph0 + 'px');
+    B0.classList.toggle('rot', !!rot); B0.classList.toggle('rot-cw', rot === 1); B0.classList.toggle('rot-ccw', rot === -1);
+    B0.classList.toggle('lp', vw / vh <= 1);                       // portrait layout (as the player sees it)
+    B0.classList.toggle('ls', vh <= 520 && vw / vh >= 1);           // short landscape (phones on their side)
+    B0.classList.toggle('phys-portrait', physPortrait);
+    B0.classList.toggle('touchdev', this.touchEnabled());
     const view = document.body.dataset.view || 'none';
     const cv = this.cv, box = $('#view');
     const touchOn = this.touchEnabled();
@@ -79,7 +96,7 @@ const Game = {
     const isPortrait = view === 'fight' && touchOn && portrait;
     document.body.classList.toggle('portrait', isPortrait);
     Battle.minZoom = isPortrait ? 1.3 : 1;
-    if (isPortrait && !this.rotateHinted && this.scene && this.scene.kind === 'fight') { this.rotateHinted = true; UI.toast('טיפ', 'לחוויה מלאה סובבו את הטלפון לרוחב', 'unlock'); }
+    if (isPortrait && !this.rotateHinted && this.scene && this.scene.kind === 'fight') { this.rotateHinted = true; UI.toast('טיפ', 'לחוויה מלאה סובבו את הטלפון לרוחב. אם המסך לא מסתובב: תפריט ← הגדרות ← מצב רוחב', 'unlock'); }
     document.body.classList.toggle('touch-on', view === 'fight' && touchOn);
     box.style.cssText = `left:${left}px;top:${top}px;width:${w}px;height:${h}px`;
     document.documentElement.style.setProperty('--vx', left + 'px'); document.documentElement.style.setProperty('--vy', top + 'px');
@@ -89,6 +106,29 @@ const Game = {
     const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
     if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
     Stages.setRes(pw / W * 1.15);
+  },
+
+  // client (viewport) coordinates -> coordinates inside the app box, undoing the landscape-mode rotation
+  toApp(cx, cy) {
+    if (!this.rot) return [cx, cy];
+    return this.rot === 1 ? [cy, window.innerWidth - cx] : [window.innerHeight - cy, cx];
+  },
+  setRotate(v) {
+    Save.d.settings.rotate = v; Save.save(); this.layout();
+    const sel = $('#set-rotate'); if (sel) sel.value = v;
+    Snd.play('select');
+  },
+  toggleFullscreen() {
+    const d = document, el = d.documentElement;
+    const fs = d.fullscreenElement || d.webkitFullscreenElement;
+    const fail = () => UI.toast('מסך מלא', 'הדפדפן לא מאפשר מסך מלא כאן', 'unlock');
+    try {
+      if (!fs) {
+        const req = el.requestFullscreen || el.webkitRequestFullscreen;
+        if (!req) { fail(); return; }
+        Promise.resolve(req.call(el)).then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* not supported */ } }).catch(fail);
+      } else (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    } catch (e) { fail(); }
   },
 
   touchEnabled() {
@@ -292,6 +332,11 @@ const Game = {
       case 'resume': this.togglePause(); break;
       case 'pause-sound': UI.setMuted(!Snd.muted); $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל'; Snd.play('select'); break;
       case 'pause-moves': this.showMovesCard(); break;
+      case 'rotate-on': this.setRotate('cw'); break;
+      case 'rotate-flip': this.setRotate(Save.d.settings.rotate === 'ccw' ? 'cw' : 'ccw'); break;
+      case 'rotate-off': this.setRotate('off'); break;
+      case 'fullscreen': this.toggleFullscreen(); break;
+      case 'pause-settings': UI.show('settings', { keepScene: true }); $('#s-pause').classList.remove('on'); break;
       case 'restart': this.paused = false; this.startFight(this.spec); break;
       case 'quit': this.askQuit(); break;
       case 'quit-yes': this.quit(); break;
@@ -300,9 +345,6 @@ const Game = {
       case 'menu': this.quit(); break;
       case 'closemoves': this.pauseOpen(); break;
       case 'train-reset': this.trainReset(); break;
-      case 'train-exit': this.quit(); break;
-      case 'train-dummy': this.cycleDummy(); if (this.paused) this.pauseOpen(); break;
-      case 'train-meter': this.toggleMeter(); if (this.paused) this.pauseOpen(); break;
       case 'next-arcade': this.nextArcadeFight(); break;
       case 'retry': this.startFight(this.spec); break;
       case 'bill': this.pickBill(el.dataset.id); break;

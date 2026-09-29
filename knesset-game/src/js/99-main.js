@@ -24,7 +24,7 @@ function simMatch(idA, idB, opt = {}) {
 }
 
 if (/[?&]debug/.test(location.search)) {
-  window.KS = { SFX, TRACKS, Brain, ROSTER, EXTRA, ROSTER_BY_ID, Battle, Fighter, makeCtrl, simMatch, STAGES, Stages, Snd, Fx, IN, drawFighter, poseOf, Game, UI, Save, W, H };
+  window.KS = { SFX, TRACKS, Brain, ROSTER, EXTRA, ROSTER_BY_ID, Battle, Fighter, makeCtrl, simMatch, STAGES, Stages, Snd, Fx, IN, drawFighter, poseOf, drawPortrait, LOOKS, Game, UI, Save, Inp, TouchUI, FightUI, Hud, W, H };
   // deterministic screenshot helpers
   KS.mk = (a, b, stage, opt = {}) => {
     const fa = new Fighter(ROSTER_BY_ID[a], 0, { ctrl: opt.ca || makeCtrl(0.7, 11) });
