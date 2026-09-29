@@ -31,7 +31,6 @@ const Inp = {
   solo: true,            // one human -> P1 accepts every key layout
   capture: false,        // true while a fight is on screen: swallow game keys
   padPrev: [],
-  onPause: null,
   anyKey: null,
 
   init() {
@@ -39,7 +38,6 @@ const Inp = {
       if (e.repeat && this.capture) { if (this.isGameKey(e.code)) e.preventDefault(); return; }
       this.keys.add(e.code);
       if (this.capture && this.isGameKey(e.code)) e.preventDefault();
-      if (this.capture && (e.code === 'Escape' || e.code === 'KeyP') && this.onPause) this.onPause();
       if (this.anyKey) this.anyKey(e);
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); });

@@ -39,6 +39,7 @@ body[data-view=attract] #view, body[data-view=fight] #view { display: block; }
 #s-title { background: linear-gradient(90deg, rgba(20,11,46,.05) 0%, rgba(20,11,46,.55) 55%, rgba(20,11,46,.86) 100%); }
 
 .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.6vmin 3vmin; flex: none; }
+.screen > .bar:first-child { position: sticky; top: 0; z-index: 6; background: linear-gradient(#170b3d 72%, rgba(23,11,61,0)); }
 .bar .ttl { text-align: center; flex: 1; }
 .bar h2 { margin: 0; font: 400 clamp(22px, 4.2vmin, 40px)/1.1 var(--f-disp); text-shadow: 0 3px 0 var(--line); }
 .bar small { color: var(--muted); font-weight: 500; }
@@ -60,6 +61,7 @@ body[data-view=attract] #view, body[data-view=fight] #view { display: block; }
 .btn.ghost { background: rgba(255,255,255,.08); }
 .btn.danger { background: linear-gradient(#b02a48, #781430); }
 .btn.big { padding: .7em 1.3em; }
+.btn svg { width: 1.05em; height: 1.05em; fill: currentColor; vertical-align: -.14em; margin-inline-end: .45em; }
 .btn b { font: 400 1.32em/1.1 var(--f-disp); display: block; }
 .btn small { display: block; font-weight: 500; opacity: .85; font-size: .7em; margin-top: .3em; }
 .btn[disabled] { opacity: .6; filter: grayscale(.7); cursor: not-allowed; transform: none; }
@@ -152,6 +154,8 @@ body[data-screen=vs] #mute { display: none; }
 .vs-foot { position: absolute; bottom: 4vmin; inset-inline: 0; text-align: center; }
 .vs-foot b { font: 400 clamp(18px, 3.6vmin, 34px) var(--f-disp); display: block; text-shadow: 0 3px 0 var(--line); }
 .vs-foot span { color: var(--muted); }
+.vs-skip { display: block; margin-top: .5rem; font-style: normal; font-size: .82em; color: var(--muted); opacity: .8; }
+.vs-cancel { position: absolute; top: max(10px, env(safe-area-inset-top, 0px)); inset-inline-end: 12px; z-index: 3; }
 
 /* ------------------------------------------------------------ cards / results */
 .res-card { background: linear-gradient(#2c186c, #170c3c); border: 4px solid var(--line); border-radius: 24px; box-shadow: 0 10px 0 var(--line), 0 0 70px rgba(130, 90, 255, .35); padding: 3vmin 4vmin; width: 100%; max-width: min(94vw, 720px); text-align: center; max-height: 94vh; overflow-y: auto; }
@@ -201,6 +205,11 @@ body[data-screen=vs] #mute { display: none; }
 .darrow { font-size: 1.6em; color: var(--gold); }
 .okmsg { color: #7dff9a; font-weight: 800; margin: 0; }
 .movecard { text-align: start; max-height: 70vh; overflow-y: auto; }
+.pause-card { max-width: min(92vw, 520px); }
+.pause-card .pmode { margin: -.3rem 0 .2rem; color: var(--cyan); font-weight: 800; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2vmin; }
+.keyhint { color: var(--muted); font-size: .78em; margin: 1.2vmin 0 0; }
+@media (hover: none) { .keyhint { display: none; } }
 
 /* ------------------------------------------------------------ panels */
 .panel { margin: 0 auto; padding: 1vmin 3vmin 4vmin; width: 100%; max-width: 620px; }
@@ -265,9 +274,41 @@ body.portrait .tb.a { grid-area: 2 / 2; } body.portrait .tb.k { grid-area: 3 / 1
 body.portrait .tsm { --tb: min(25vw, 104px); bottom: auto; top: 12px; }
 body.portrait #tdash { right: auto; left: 5vw; }
 body.portrait #tgrab { right: auto; left: calc(5vw + var(--tb) * .78 + 3vw); }
-#tpause { position: absolute; width: 40px; height: 40px; border-radius: 12px; border: 3px solid var(--line); background: rgba(40, 20, 90, .8); color: #fff; padding: 9px; pointer-events: auto; cursor: pointer; left: calc(var(--vx, 0px) + var(--vw, 100vw) / 2 - 20px); top: calc(var(--vy, 0px) + var(--vh, 56vw) * .19); }
-body.portrait #tpause { left: auto; right: 8px; top: 8px; }
-#tpause svg { width: 100%; height: 100%; fill: currentColor; }
+/* ------------------------------------------------------------ always-visible fight menu + training toolbar */
+body:not([data-screen=fight]) #touch { display: none !important; }
+#fmenu, #trainbar { display: none; position: absolute; z-index: 12; }
+body[data-view=fight][data-screen=fight] #fmenu { display: flex; }
+body[data-view=fight][data-screen=fight].training:not(.touch-on) #trainbar { display: block; }
+#fmenu {
+  --fs: clamp(12px, calc(var(--vh, 56vw) * .03), 19px);
+  left: calc(var(--vx, 0px) + var(--vw, 100vw) / 2); top: calc(var(--vy, 0px) + var(--vh, 56vw) * .168); transform: translateX(-50%);
+  align-items: center; gap: .5em; padding: 0 1em 0 .85em; min-height: max(30px, calc(var(--vh, 56vw) * .056));
+  font: 800 var(--fs)/1 var(--f-ui); color: #fff; background: rgba(36, 18, 84, .86); border: 3px solid var(--line); border-radius: 999px;
+  cursor: pointer; box-shadow: 0 3px 0 var(--line), inset 0 1px 0 rgba(255,255,255,.2); white-space: nowrap; user-select: none; -webkit-user-select: none;
+}
+#fmenu svg { width: 1.3em; height: 1.3em; fill: currentColor; flex: none; }
+#fmenu kbd { font: 700 .68em var(--f-ui); color: var(--muted); border: 1.5px solid rgba(255,255,255,.35); border-radius: 6px; padding: .12em .4em; }
+#fmenu:hover { filter: brightness(1.3); }
+#fmenu:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 1px 0 var(--line); }
+@media (hover: none) { #fmenu kbd { display: none; } #fmenu { min-height: 44px; min-width: 96px; justify-content: center; } }
+body.portrait #fmenu { left: auto; right: 10px; top: calc(56.25vw + 24px + 8px); transform: none; }
+body.portrait #fmenu:active { transform: translateY(2px); }
+#trainbar {
+  --fs: clamp(11px, calc(var(--vh, 56vw) * .027), 16px);
+  left: calc(var(--vx, 0px) + var(--vw, 100vw) / 2); top: calc(var(--vy, 0px) + var(--vh, 56vw) * .238); transform: translateX(-50%);
+  width: max-content; max-width: calc(var(--vw, 100vw) * .62); text-align: center; font: 700 var(--fs)/1.1 var(--f-ui); user-select: none; -webkit-user-select: none;
+}
+#trainbar .trow { display: flex; gap: .4em; align-items: center; justify-content: center; }
+#trainbar .tlabel { background: linear-gradient(#78f4ff, #1aa3d6); color: #00222e; border: 2.5px solid var(--line); border-radius: 999px; padding: .38em .9em; font-weight: 900; }
+#trainbar button {
+  appearance: none; font: inherit; color: #fff; background: rgba(36, 18, 84, .86); border: 2.5px solid var(--line); border-radius: 999px; padding: .38em .85em;
+  cursor: pointer; box-shadow: 0 2px 0 var(--line); white-space: nowrap; display: inline-flex; align-items: center; gap: .35em;
+}
+#trainbar button:hover { filter: brightness(1.3); }
+#trainbar button:active { transform: translateY(2px); box-shadow: none; }
+#trainbar button.exit { background: linear-gradient(#b02a48, #781430); }
+#trainbar button svg { width: 1em; height: 1em; fill: currentColor; }
+#trainbar .tstat { display: inline-block; margin-top: .45em; padding: .3em 1em; min-height: 1.9em; background: rgba(8, 4, 24, .72); border: 2px solid var(--line); border-radius: 999px; color: #fff3b0; font-weight: 700; white-space: pre; }
 
 /* ------------------------------------------------------------ responsive */
 @media (max-aspect-ratio: 1/1) {
@@ -301,6 +342,11 @@ body.portrait #tpause { left: auto; right: 8px; top: 8px; }
   .foot { display: none; }
 }
 @media (max-height: 520px) and (min-aspect-ratio: 1/1) {
+  .pause-card { padding: 1.6vmin 3vmin; max-width: min(94vw, 640px); }
+  .pause-card h2 { font-size: 22px; margin: 0; }
+  .pause-card .stack { gap: .8vmin; margin-top: 1vmin; }
+  .pause-card .btn { padding: .38em .8em; }
+  .pause-card .btn.big { padding: .45em 1em; }
   .selbody { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
   .grid { grid-template-columns: repeat(7, 1fr); gap: .8vmin; }
   .card { padding: .3rem .1rem; border-width: 3px; border-radius: 12px; }
@@ -316,6 +362,8 @@ body.portrait #tpause { left: auto; right: 8px; top: 8px; }
 <div id="app">
   <div id="view"><canvas id="cv" width="960" height="540"></canvas></div>
   <div id="touch"></div>
+  <button id="fmenu" type="button" tabindex="-1" aria-label="תפריט והפסקה"></button>
+  <div id="trainbar" role="toolbar" aria-label="כלי אימון"></div>
   <div id="screens"></div>
   <button id="mute" class="iconbtn" aria-label="השתקה"></button>
   <div id="toasts"></div>
@@ -2527,7 +2575,6 @@ const Inp = {
   solo: true,            // one human -> P1 accepts every key layout
   capture: false,        // true while a fight is on screen: swallow game keys
   padPrev: [],
-  onPause: null,
   anyKey: null,
 
   init() {
@@ -2535,7 +2582,6 @@ const Inp = {
       if (e.repeat && this.capture) { if (this.isGameKey(e.code)) e.preventDefault(); return; }
       this.keys.add(e.code);
       if (this.capture && this.isGameKey(e.code)) e.preventDefault();
-      if (this.capture && (e.code === 'Escape' || e.code === 'KeyP') && this.onPause) this.onPause();
       if (this.anyKey) this.anyKey(e);
     });
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
@@ -4132,7 +4178,7 @@ class Battle {
   emit(name, a, b, c, d, e) { if (this.cfg.onEvent) this.cfg.onEvent(name, a, b, c, d, e); }
   say(text, o = {}) { this.announce = { text, t: 0, max: o.life || 60, col: o.col || '#ffffff', size: o.size || 92 }; }
 
-  startRound(first) {
+  startRound(first, quiet) {
     this.ents.length = 0;
     this.pk = [];
     Fx.reset();
@@ -4149,8 +4195,9 @@ class Battle {
     this.combo.forEach((c) => { c.hits = 0; c.dmg = 0; c.show = 0; c.last = -999; });
     this.dmgGhost = [1, 1];
     this.cam.x = STAGE_W / 2; this.cam.zoom = 1.05;
-    this.say(this.cfg.attract ? '' : (this.rtw > 2 && this.wins[0] === this.rtw - 1 && this.wins[1] === this.rtw - 1 ? 'סיבוב מכריע' : 'סיבוב ' + this.round), { life: 62, size: 84 });
-    if (!this.cfg.attract) Snd.play('round');
+    const silent = this.cfg.attract || quiet || this.training;
+    this.say(silent ? '' : (this.rtw > 2 && this.wins[0] === this.rtw - 1 && this.wins[1] === this.rtw - 1 ? 'סיבוב מכריע' : 'סיבוב ' + this.round), { life: 62, size: 84 });
+    if (!silent) Snd.play('round');
     this.emit('roundStart', this.round);
   }
 
@@ -4800,7 +4847,6 @@ const Hud = {
     this.combos(ctx, B);
     if (!cine) this.announce(ctx, B);
     this.hint(ctx, B);
-    if (B.training) T(ctx, 'מצב אימון', W / 2, 108, { size: 18, fill: '#fff', stroke: OUT, lw: 5 });
   },
 
   bar(ctx, B, f, s) {
@@ -5328,6 +5374,8 @@ const ICONS = {
   sound: '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',
   mute: '<svg viewBox="0 0 24 24"><path d="M16.5 12a4.5 4.5 0 0 0-2.5-4v2.2l2.5 2.5zM19 12a7 7 0 0 1-.9 3.4l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1a7 7 0 0 1 5 6.7zM4.3 3 3 4.3 7.7 9H3v6h4l5 4v-6.7l4.3 4.3c-.7.5-1.4.9-2.3 1.2v2.1a9 9 0 0 0 3.6-1.8l2 2 1.3-1.3L4.3 3zM12 5 9.9 7.1 12 9.2V5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  menu: '<svg viewBox="0 0 24 24"><path d="M3 5.5h18v3H3zM3 10.5h18v3H3zM3 15.5h18v3H3z"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M5.6 3.5 3.5 5.6 9.9 12l-6.4 6.4 2.1 2.1L12 14.1l6.4 6.4 2.1-2.1L14.1 12l6.4-6.4-2.1-2.1L12 9.9z"/></svg>',
 };
 
 const UI = {
@@ -5379,9 +5427,17 @@ const UI = {
   },
 
   // ---------------------------------------------------------------- key / pad navigation
+  // Esc / P in a fight: running -> pause, pause card -> resume, sub-card (moves, confirm) -> back to the pause card
   onKey(e) {
-    if (this.cur === null || Inp.capture) return;
     const k = e.code;
+    if (Game.scene && Game.scene.kind === 'fight' && (k === 'Escape' || k === 'KeyP')) {
+      e.preventDefault();
+      if (e.repeat) return;
+      const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"]');
+      if (sub) sub.click(); else Game.togglePause();
+      return;
+    }
+    if (this.cur === null || Inp.capture) return;
     if (k === 'Escape' || k === 'Backspace') {
       const b = $('.screen.on [data-act="back"], .screen.on [data-act="close"]');
       if (b) { e.preventDefault(); b.click(); }
@@ -5411,11 +5467,15 @@ const UI = {
     if (best) { best.focus(); Snd.play('move'); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); if (best.dataset.act === 'pick') this.preview(best.dataset.id); }
   },
   padPoll() {
+    const n = Inp.padNav();   // polled every frame so the edge detection stays fresh
+    if (Game.scene && Game.scene.kind === 'fight') {
+      // Start pauses / resumes; B closes a sub-card or resumes
+      if (n.start || (n.back && this.cur === 'pause')) { const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"]'); if (sub) sub.click(); else Game.togglePause(); return; }
+    }
     if (this.cur === null || Inp.capture) return;
-    const n = Inp.padNav();
     if (n.dx || n.dy) this.nav(n.dx, n.dy);
     if (n.ok) { const a = document.activeElement; if (a && a.click && a.closest('.screen.on')) a.click(); }
-    if (n.back) { const b = $('.screen.on [data-act="back"]'); if (b) b.click(); }
+    if (n.back) { const b = $('.screen.on [data-act="back"], .screen.on [data-act="close"], .screen.on [data-act="closemoves"], .screen.on [data-act="stay"]'); if (b) b.click(); }
   },
 
   // ---------------------------------------------------------------- templates
@@ -5474,7 +5534,8 @@ const UI = {
         <div class="vs-mid"><div class="vs-burst">VS</div></div>
         <div class="vs-side r"><canvas id="vs-b" width="360" height="360"></canvas><h3 id="vs-bn"></h3><div id="vs-bp"></div><q id="vs-bq"></q></div>
       </div>
-      <div class="vs-foot"><b id="vs-stage"></b><span id="vs-info"></span></div>
+      <div class="vs-foot"><b id="vs-stage"></b><span id="vs-info"></span><em class="vs-skip">לחצו בכל מקום כדי לדלג</em></div>
+      <button class="btn ghost vs-cancel" data-act="menu">${ICONS.close}<span>ביטול</span></button>
     </section>`;
   },
 
@@ -5556,16 +5617,21 @@ const UI = {
     return `<section class="screen" id="s-bills"><div class="res-card wide-card" id="bills-card"></div></section>`;
   },
   tplPause() {
-    return `<section class="screen dim" id="s-pause"><div class="res-card">
+    return `<section class="screen dim" id="s-pause"><div class="res-card pause-card">
       <h2>הפסקה</h2>
+      <p class="pmode" id="pause-mode"></p>
       <div class="stack">
-        <button class="btn primary big nav autofocus" data-act="resume">המשך</button>
-        <button class="btn nav" data-act="pause-moves">רשימת המכות שלי</button>
-        <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        <button class="btn primary big nav autofocus" data-act="resume">המשך לשחק</button>
         <div id="pause-train" class="stack"></div>
-        <button class="btn nav" data-act="restart">התחלה מחדש</button>
-        <button class="btn danger nav" data-act="quit">יציאה לתפריט</button>
-      </div></div></section>`;
+        <div class="two">
+          <button class="btn nav" data-act="restart">התחלה מחדש</button>
+          <button class="btn nav" data-act="pause-moves">המכות שלי</button>
+        </div>
+        <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        <button class="btn danger nav" data-act="quit">${ICONS.close}<span id="pause-quit">יציאה לתפריט הראשי</span></button>
+      </div>
+      <p class="keyhint">במקלדת: Esc או P להמשך</p>
+    </div></section>`;
   },
   tplDaily() {
     return `<section class="screen" id="s-daily"><div class="res-card" id="daily-card"></div></section>`;
@@ -5728,6 +5794,56 @@ const UI = {
   },
 };
 
+/* ---- 98-fightui.js ---- */
+// ===== In-fight overlay: an always-visible menu button and the training toolbar =====
+const DUMMY_NAMES = { stand: 'עומד', block: 'חוסם', crouch: 'חוסם בהתכופפות', jump: 'קופץ', cpu: 'נלחם' };
+
+const FightUI = {
+  last: null,          // training: the last clean hit {name, dmg}
+  statTxt: '',
+
+  init() {
+    const menu = this.menu = $('#fmenu'), bar = this.bar = $('#trainbar');
+    menu.innerHTML = `${ICONS.menu}<span>תפריט</span><kbd>Esc</kbd>`;
+    bar.innerHTML = `<div class="trow">
+        <span class="tlabel">מצב אימון</span>
+        <button type="button" tabindex="-1" data-t="reset">איפוס עמדות</button>
+        <button type="button" tabindex="-1" data-t="dummy"></button>
+        <button type="button" tabindex="-1" data-t="meter"></button>
+        <button type="button" tabindex="-1" class="exit" data-t="exit">${ICONS.close}<span>יציאה מהאימון</span></button>
+      </div><div class="tstat" id="tstat"></div>`;
+    const press = (el, fn) => {
+      // the buttons must never take keyboard focus (Space = block and Enter = super would "click" them)
+      el.addEventListener('mousedown', (e) => e.preventDefault());
+      el.addEventListener('click', (e) => { e.preventDefault(); el.blur(); Snd.init(); Snd.resume(); fn(el); });
+    };
+    press(menu, () => Game.togglePause());
+    $$('button', bar).forEach((b) => press(b, () => Game.act('train-' + b.dataset.t)));
+  },
+
+  // labels + whether the toolbar is shown (called whenever a fight starts or a training option changes)
+  sync() {
+    const tr = !!(Game.spec && Game.spec.training);
+    document.body.classList.toggle('training', tr);
+    this.last = null; this.statTxt = '';
+    if (!tr) return;
+    $('[data-t=dummy]', this.bar).textContent = 'יריב: ' + DUMMY_NAMES[Game.dummy];
+    $('[data-t=meter]', this.bar).textContent = 'הייפ אינסופי: ' + (Game.infMeter ? 'כן' : 'לא');
+    this.tick(Game.B, true);
+  },
+
+  // training read-out: last hit and current combo
+  tick(B, force) {
+    if (!B || !Game.spec || !Game.spec.training) return;
+    if (!force && B.frame % 6) return;
+    const c = B.combo[0], l = this.last;
+    let t = 'תקפו את היריב וראו כאן את הנזק';
+    if (l) t = `מכה אחרונה: ${l.name ? l.name + ' · ' : ''}${(Math.round(l.dmg * 10) / 10)} נזק`;
+    if (c.hits >= 2) t += `  |  קומבו: ${c.hits} פגיעות, ${Math.round(c.dmg)} נזק`;
+    if (t !== this.statTxt) { this.statTxt = t; $('#tstat').textContent = t; }
+  },
+};
+
 /* ---- 98-game.js ---- */
 // ===== Game controller: scenes, modes (arcade / survival / versus / training / daily), results =====
 const MUTATORS = [
@@ -5749,10 +5865,12 @@ const Game = {
     const s = Save.d.settings;
     Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
     Inp.init();
-    Inp.onPause = () => this.togglePause();
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
     TouchUI.init();
+    FightUI.init();
+    // when embedded in another page (preview panes, iframes) keys only arrive once the frame has focus
+    ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
     this.applySettings();
     window.addEventListener('resize', () => this.layout());
     window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
@@ -5792,7 +5910,7 @@ const Game = {
     c.clearRect(0, 0, W, H);
     B.render(c);
     if (sc.kind !== 'preview') Stages.vignette(c);
-    if (sc.kind === 'fight') TouchUI.updateHints(B);
+    if (sc.kind === 'fight') { TouchUI.updateHints(B); FightUI.tick(B); }
   },
 
   layout() {
@@ -5950,13 +6068,15 @@ const Game = {
     Snd.quiet = false;
     Snd.playMusic('battle');
     TouchUI.show(true);
+    FightUI.sync();
     this.layout();
   },
 
   // ------------------------------------------------------------------ events during a fight
   onEvent(name, a, b, c, d) {
     const S = Save.d, B = this.B;
-    if (!B || this.spec.training) return;
+    if (B && this.spec.training) { if (name === 'hit' && a.slot === 0 && d > 0) FightUI.last = { name: c && c.name, dmg: d }; return; }
+    if (!B) return;
     if (name === 'combo') { if (b > S.bestCombo) S.bestCombo = b; }
     else if (name === 'super') { if (a.slot === 0) S.supers++; }
     else if (name === 'block') { if (b === undefined) return; if (c && a.slot !== 0 && b.slot === 0) S.perfects++; }
@@ -6020,19 +6140,21 @@ const Game = {
       case 'pause-sound': UI.setMuted(!Snd.muted); $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל'; Snd.play('select'); break;
       case 'pause-moves': this.showMovesCard(); break;
       case 'restart': this.paused = false; this.startFight(this.spec); break;
-      case 'quit': this.quit(); break;
+      case 'quit': this.askQuit(); break;
+      case 'quit-yes': this.quit(); break;
+      case 'stay': this.pauseOpen(); break;
       case 'rematch': this.startFight(this.spec); break;
       case 'menu': this.quit(); break;
       case 'closemoves': this.pauseOpen(); break;
+      case 'train-reset': this.trainReset(); break;
+      case 'train-exit': this.quit(); break;
+      case 'train-dummy': this.cycleDummy(); if (this.paused) this.pauseOpen(); break;
+      case 'train-meter': this.toggleMeter(); if (this.paused) this.pauseOpen(); break;
       case 'next-arcade': this.nextArcadeFight(); break;
       case 'retry': this.startFight(this.spec); break;
       case 'bill': this.pickBill(el.dataset.id); break;
-      case 'dummy-mode': {
-        const modes = ['stand', 'block', 'crouch', 'jump', 'cpu'];
-        this.dummy = modes[(modes.indexOf(this.dummy) + 1) % modes.length];
-        this.pauseOpen(); break;
-      }
-      case 'dummy-meter': this.infMeter = !this.infMeter; if (this.B) this.B.cfg.infMeter = this.infMeter; this.pauseOpen(); break;
+      case 'dummy-mode': this.cycleDummy(); this.pauseOpen(); break;
+      case 'dummy-meter': this.toggleMeter(); this.pauseOpen(); break;
       case 'daily-start': this.startDaily(); break;
       case 'reselect': UI.show('select', { mode: this.spec.mode }); break;
       case 'again': this.startSurvival(this.surv.fighter); break;
@@ -6040,8 +6162,37 @@ const Game = {
     }
   },
 
+  cycleDummy() {
+    const modes = ['stand', 'block', 'crouch', 'jump', 'cpu'];
+    this.dummy = modes[(modes.indexOf(this.dummy) + 1) % modes.length];
+    FightUI.sync();
+  },
+  toggleMeter() {
+    this.infMeter = !this.infMeter;
+    if (this.B) this.B.cfg.infMeter = this.infMeter;
+    FightUI.sync();
+  },
+  // training: both fighters back to their corners with full health, no cooldowns
+  trainReset() {
+    const B = this.B;
+    if (!B || !this.spec || !this.spec.training) return;
+    B.startRound(true, true);
+    B.phase = 'fight'; B.phaseT = 0; B.announce = null;
+    B.f.forEach((f) => { f.st = 'idle'; f.t = 0; });
+    B.timeLeft = B.timeMax;
+    FightUI.last = null;
+    Snd.play('select');
+    if (this.paused) this.togglePause();
+  },
+
   quit() {
     this.paused = false; clearTimeout(this.vsTimer);
+    // leaving a marathon mid-run still counts the waves already cleared
+    if (this.spec && this.spec.mode === 'survival' && this.surv) {
+      const done = this.surv.wave - 1;
+      if (done > Save.d.survivalBest) { Save.d.survivalBest = done; Save.save(); this.checkAch(); }
+    }
+    document.body.classList.remove('training');
     Inp.capture = false; TouchUI.show(false);
     $$('#s-pause, #s-result, #s-bills, #s-daily').forEach((s) => s.classList.remove('on'));
     this.setScene('attract');
@@ -6057,21 +6208,42 @@ const Game = {
     if (this.paused) { Inp.capture = false; this.pauseOpen(); }
     else { $('#s-pause').classList.remove('on'); Inp.capture = true; document.body.dataset.screen = 'fight'; Snd.resume(); }
   },
+  modeName(spec) {
+    return { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', daily: 'האתגר היומי', versus: 'קרב חברים', training: 'מצב אימון' }[spec.mode] || '';
+  },
   pauseOpen() {
+    const spec = this.spec || {};
     $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל';
+    $('#pause-mode').textContent = [this.modeName(spec), spec.label].filter(Boolean).join(' · ');
+    $('#pause-quit').textContent = spec.training ? 'יציאה מהאימון' : 'יציאה לתפריט הראשי';
     const t = $('#pause-train');
-    if (this.spec && this.spec.training) {
-      const names = { stand: 'עומד', block: 'חוסם', crouch: 'חוסם בהתכופפות', jump: 'קופץ', cpu: 'נלחם' };
-      t.innerHTML = `<button class="btn nav" data-act="dummy-mode">התנהגות היריב: ${names[this.dummy]}</button><button class="btn nav" data-act="dummy-meter">הייפ אינסופי: ${this.infMeter ? 'פועל' : 'כבוי'}</button>`;
+    if (spec.training) {
+      t.innerHTML = `<button class="btn nav" data-act="train-reset">איפוס עמדות ובריאות</button>
+        <button class="btn nav" data-act="dummy-mode">התנהגות היריב: ${DUMMY_NAMES[this.dummy]}</button>
+        <button class="btn nav" data-act="dummy-meter">הייפ אינסופי: ${this.infMeter ? 'פועל' : 'כבוי'}</button>`;
     } else t.innerHTML = '';
     UI.show('pause');
     $('#s-pause').classList.add('on');
   },
-  showMovesCard() {
-    const def = this.B.f[0].def;
-    $('#res-card').innerHTML = `<div class="movecard">${UI.detailHTML(def, false)}</div><div class="stack"><button class="btn primary nav autofocus" data-act="closemoves">חזרה להפסקה</button></div>`;
+  // a card shown on top of the paused fight (move list, "really leave?")
+  pauseSub(html) {
+    $('#res-card').innerHTML = html;
     $('#s-pause').classList.remove('on');
     $('#s-result').classList.add('on'); document.body.dataset.screen = 'result';
+    $('#s-result').scrollTop = 0;
+    requestAnimationFrame(() => { const f = $('#s-result .autofocus'); if (f && matchMedia('(hover:hover)').matches) f.focus({ preventScroll: true }); });
+  },
+  showMovesCard() {
+    const def = this.B.f[0].def;
+    this.pauseSub(`<div class="movecard">${UI.detailHTML(def, false)}</div><div class="stack"><button class="btn primary nav autofocus" data-act="closemoves">חזרה להפסקה</button></div>`);
+  },
+  // leaving a run (arcade / marathon / daily) asks first; training and friendly matches just leave
+  askQuit() {
+    const spec = this.spec || {};
+    const what = { arcade: 'המסע', survival: 'המרתון', daily: 'האתגר היומי' }[spec.mode];
+    if (!what) { this.quit(); return; }
+    const note = spec.mode === 'survival' ? `הגלים שכבר ניצחתם (${Math.max(0, this.surv.wave - 1)}) נשמרים בשיא.` : 'ההתקדמות בריצה הנוכחית תאבד.';
+    this.pauseSub(`<h2>לעזוב את ${what}?</h2><p class="next">${note}</p><div class="stack"><button class="btn primary big nav autofocus" data-act="stay">חזרה להפסקה</button><button class="btn danger nav" data-act="quit-yes">כן, יציאה לתפריט</button></div>`);
   },
 
   versusDone(res) {
@@ -6163,7 +6335,8 @@ const Game = {
     const choices = shuffle(BILLS).slice(0, 3);
     this.billChoices = choices;
     this.card(`<h2>גל ${R.wave} הושלם</h2><p class="next">מרפאים 30%. בחרו חוק להעברה:</p>
-      <div class="bills">${choices.map((b) => `<button class="bill nav" data-act="bill" data-id="${b.id}" style="--pc:${b.col}"><img src="${iconURL(b.icon)}" alt=""><b>${b.name}</b><span>${b.desc}</span></button>`).join('')}</div>`, 'bills');
+      <div class="bills">${choices.map((b) => `<button class="bill nav" data-act="bill" data-id="${b.id}" style="--pc:${b.col}"><img src="${iconURL(b.icon)}" alt=""><b>${b.name}</b><span>${b.desc}</span></button>`).join('')}</div>
+      <div class="stack"><button class="btn nav" data-act="menu">סיום הריצה ויציאה לתפריט</button></div>`, 'bills');
   },
   pickBill(id) {
     const R = this.surv, b = BILLS.find((x) => x.id === id);
@@ -6201,7 +6374,7 @@ const Game = {
       <div class="darrow">◀</div>
       <div class="dfoes">${D.foes.map((f) => `<img src="${portraitURL(f, 96)}" alt="">`).join('')}</div></div>
       <p class="next">שלושה קרבות ברצף, בלי מנוחה. רצף נוכחי: ${Save.d.daily.streak} · שיא: ${Save.d.daily.best}</p>
-      <div class="stack">${done ? '<p class="okmsg">כבר הושלם היום! אפשר לשחק שוב לכיף.</p>' : ''}<button class="btn primary big nav autofocus" data-act="daily-start">יוצאים לדרך</button><button class="btn nav" data-act="menu">חזרה</button></div>`, 'daily');
+      <div class="stack">${done ? '<p class="okmsg">כבר הושלם היום! אפשר לשחק שוב לכיף.</p>' : ''}<button class="btn primary big nav autofocus" data-act="daily-start">יוצאים לדרך</button><button class="btn nav" data-act="menu">חזרה לתפריט</button></div>`, 'daily');
   },
   startDaily() {
     const D = this.daily();
@@ -6238,7 +6411,7 @@ const Game = {
       Snd.play('crowd');
       return;
     }
-    this.card(`${this.winnerBanner(res)}<p class="next">מרפאים 25%. הקרב הבא מתחיל מיד.</p><div class="stack"><button class="btn primary big nav autofocus" data-act="daily-next">לקרב הבא</button></div>`);
+    this.card(`${this.winnerBanner(res)}<p class="next">מרפאים 25%. הקרב הבא מתחיל מיד.</p><div class="stack"><button class="btn primary big nav autofocus" data-act="daily-next">לקרב הבא</button><button class="btn nav" data-act="menu">יציאה לתפריט</button></div>`);
   },
 };
 Game.actExtra = { 'daily-next': () => Game.nextDaily() };
@@ -6293,8 +6466,7 @@ const TouchUI = {
         ${btn(IN.K, 'חסימה', 'k')}${btn(IN.B, 'בעיטה', 'b')}${btn(IN.A, 'אגרוף', 'a')}
       </div>
       <button id="tgrab" class="tsm" aria-label="תפיסה"><span>תפיסה</span></button>
-      <button id="tdash" class="tsm" aria-label="ריצה"><span>ריצה</span></button>
-      <button id="tpause" aria-label="הפסקה">${ICONS.pause}</button>`;
+      <button id="tdash" class="tsm" aria-label="ריצה"><span>ריצה</span></button>`;
     el.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // action buttons (multi-touch friendly)
@@ -6314,7 +6486,6 @@ const TouchUI = {
     grab.addEventListener('pointerdown', (e) => { e.preventDefault(); grab.classList.add('down'); Inp.touchSet(IN.G, true); });
     const gup = () => { grab.classList.remove('down'); Inp.touchSet(IN.G, false); };
     grab.addEventListener('pointerup', gup); grab.addEventListener('pointercancel', gup);
-    $('#tpause').addEventListener('pointerdown', (e) => { e.preventDefault(); Game.togglePause(); });
 
     // floating stick
     const zone = $('#stickzone'), base = $('#stickbase'), knob = $('#stickknob');

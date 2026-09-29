@@ -18,10 +18,12 @@ const Game = {
     const s = Save.d.settings;
     Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
     Inp.init();
-    Inp.onPause = () => this.togglePause();
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
     TouchUI.init();
+    FightUI.init();
+    // when embedded in another page (preview panes, iframes) keys only arrive once the frame has focus
+    ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
     this.applySettings();
     window.addEventListener('resize', () => this.layout());
     window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
@@ -61,7 +63,7 @@ const Game = {
     c.clearRect(0, 0, W, H);
     B.render(c);
     if (sc.kind !== 'preview') Stages.vignette(c);
-    if (sc.kind === 'fight') TouchUI.updateHints(B);
+    if (sc.kind === 'fight') { TouchUI.updateHints(B); FightUI.tick(B); }
   },
 
   layout() {
@@ -219,13 +221,15 @@ const Game = {
     Snd.quiet = false;
     Snd.playMusic('battle');
     TouchUI.show(true);
+    FightUI.sync();
     this.layout();
   },
 
   // ------------------------------------------------------------------ events during a fight
   onEvent(name, a, b, c, d) {
     const S = Save.d, B = this.B;
-    if (!B || this.spec.training) return;
+    if (B && this.spec.training) { if (name === 'hit' && a.slot === 0 && d > 0) FightUI.last = { name: c && c.name, dmg: d }; return; }
+    if (!B) return;
     if (name === 'combo') { if (b > S.bestCombo) S.bestCombo = b; }
     else if (name === 'super') { if (a.slot === 0) S.supers++; }
     else if (name === 'block') { if (b === undefined) return; if (c && a.slot !== 0 && b.slot === 0) S.perfects++; }
@@ -289,19 +293,21 @@ const Game = {
       case 'pause-sound': UI.setMuted(!Snd.muted); $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל'; Snd.play('select'); break;
       case 'pause-moves': this.showMovesCard(); break;
       case 'restart': this.paused = false; this.startFight(this.spec); break;
-      case 'quit': this.quit(); break;
+      case 'quit': this.askQuit(); break;
+      case 'quit-yes': this.quit(); break;
+      case 'stay': this.pauseOpen(); break;
       case 'rematch': this.startFight(this.spec); break;
       case 'menu': this.quit(); break;
       case 'closemoves': this.pauseOpen(); break;
+      case 'train-reset': this.trainReset(); break;
+      case 'train-exit': this.quit(); break;
+      case 'train-dummy': this.cycleDummy(); if (this.paused) this.pauseOpen(); break;
+      case 'train-meter': this.toggleMeter(); if (this.paused) this.pauseOpen(); break;
       case 'next-arcade': this.nextArcadeFight(); break;
       case 'retry': this.startFight(this.spec); break;
       case 'bill': this.pickBill(el.dataset.id); break;
-      case 'dummy-mode': {
-        const modes = ['stand', 'block', 'crouch', 'jump', 'cpu'];
-        this.dummy = modes[(modes.indexOf(this.dummy) + 1) % modes.length];
-        this.pauseOpen(); break;
-      }
-      case 'dummy-meter': this.infMeter = !this.infMeter; if (this.B) this.B.cfg.infMeter = this.infMeter; this.pauseOpen(); break;
+      case 'dummy-mode': this.cycleDummy(); this.pauseOpen(); break;
+      case 'dummy-meter': this.toggleMeter(); this.pauseOpen(); break;
       case 'daily-start': this.startDaily(); break;
       case 'reselect': UI.show('select', { mode: this.spec.mode }); break;
       case 'again': this.startSurvival(this.surv.fighter); break;
@@ -309,8 +315,37 @@ const Game = {
     }
   },
 
+  cycleDummy() {
+    const modes = ['stand', 'block', 'crouch', 'jump', 'cpu'];
+    this.dummy = modes[(modes.indexOf(this.dummy) + 1) % modes.length];
+    FightUI.sync();
+  },
+  toggleMeter() {
+    this.infMeter = !this.infMeter;
+    if (this.B) this.B.cfg.infMeter = this.infMeter;
+    FightUI.sync();
+  },
+  // training: both fighters back to their corners with full health, no cooldowns
+  trainReset() {
+    const B = this.B;
+    if (!B || !this.spec || !this.spec.training) return;
+    B.startRound(true, true);
+    B.phase = 'fight'; B.phaseT = 0; B.announce = null;
+    B.f.forEach((f) => { f.st = 'idle'; f.t = 0; });
+    B.timeLeft = B.timeMax;
+    FightUI.last = null;
+    Snd.play('select');
+    if (this.paused) this.togglePause();
+  },
+
   quit() {
     this.paused = false; clearTimeout(this.vsTimer);
+    // leaving a marathon mid-run still counts the waves already cleared
+    if (this.spec && this.spec.mode === 'survival' && this.surv) {
+      const done = this.surv.wave - 1;
+      if (done > Save.d.survivalBest) { Save.d.survivalBest = done; Save.save(); this.checkAch(); }
+    }
+    document.body.classList.remove('training');
     Inp.capture = false; TouchUI.show(false);
     $$('#s-pause, #s-result, #s-bills, #s-daily').forEach((s) => s.classList.remove('on'));
     this.setScene('attract');
@@ -326,21 +361,42 @@ const Game = {
     if (this.paused) { Inp.capture = false; this.pauseOpen(); }
     else { $('#s-pause').classList.remove('on'); Inp.capture = true; document.body.dataset.screen = 'fight'; Snd.resume(); }
   },
+  modeName(spec) {
+    return { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', daily: 'האתגר היומי', versus: 'קרב חברים', training: 'מצב אימון' }[spec.mode] || '';
+  },
   pauseOpen() {
+    const spec = this.spec || {};
     $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל';
+    $('#pause-mode').textContent = [this.modeName(spec), spec.label].filter(Boolean).join(' · ');
+    $('#pause-quit').textContent = spec.training ? 'יציאה מהאימון' : 'יציאה לתפריט הראשי';
     const t = $('#pause-train');
-    if (this.spec && this.spec.training) {
-      const names = { stand: 'עומד', block: 'חוסם', crouch: 'חוסם בהתכופפות', jump: 'קופץ', cpu: 'נלחם' };
-      t.innerHTML = `<button class="btn nav" data-act="dummy-mode">התנהגות היריב: ${names[this.dummy]}</button><button class="btn nav" data-act="dummy-meter">הייפ אינסופי: ${this.infMeter ? 'פועל' : 'כבוי'}</button>`;
+    if (spec.training) {
+      t.innerHTML = `<button class="btn nav" data-act="train-reset">איפוס עמדות ובריאות</button>
+        <button class="btn nav" data-act="dummy-mode">התנהגות היריב: ${DUMMY_NAMES[this.dummy]}</button>
+        <button class="btn nav" data-act="dummy-meter">הייפ אינסופי: ${this.infMeter ? 'פועל' : 'כבוי'}</button>`;
     } else t.innerHTML = '';
     UI.show('pause');
     $('#s-pause').classList.add('on');
   },
-  showMovesCard() {
-    const def = this.B.f[0].def;
-    $('#res-card').innerHTML = `<div class="movecard">${UI.detailHTML(def, false)}</div><div class="stack"><button class="btn primary nav autofocus" data-act="closemoves">חזרה להפסקה</button></div>`;
+  // a card shown on top of the paused fight (move list, "really leave?")
+  pauseSub(html) {
+    $('#res-card').innerHTML = html;
     $('#s-pause').classList.remove('on');
     $('#s-result').classList.add('on'); document.body.dataset.screen = 'result';
+    $('#s-result').scrollTop = 0;
+    requestAnimationFrame(() => { const f = $('#s-result .autofocus'); if (f && matchMedia('(hover:hover)').matches) f.focus({ preventScroll: true }); });
+  },
+  showMovesCard() {
+    const def = this.B.f[0].def;
+    this.pauseSub(`<div class="movecard">${UI.detailHTML(def, false)}</div><div class="stack"><button class="btn primary nav autofocus" data-act="closemoves">חזרה להפסקה</button></div>`);
+  },
+  // leaving a run (arcade / marathon / daily) asks first; training and friendly matches just leave
+  askQuit() {
+    const spec = this.spec || {};
+    const what = { arcade: 'המסע', survival: 'המרתון', daily: 'האתגר היומי' }[spec.mode];
+    if (!what) { this.quit(); return; }
+    const note = spec.mode === 'survival' ? `הגלים שכבר ניצחתם (${Math.max(0, this.surv.wave - 1)}) נשמרים בשיא.` : 'ההתקדמות בריצה הנוכחית תאבד.';
+    this.pauseSub(`<h2>לעזוב את ${what}?</h2><p class="next">${note}</p><div class="stack"><button class="btn primary big nav autofocus" data-act="stay">חזרה להפסקה</button><button class="btn danger nav" data-act="quit-yes">כן, יציאה לתפריט</button></div>`);
   },
 
   versusDone(res) {
@@ -432,7 +488,8 @@ const Game = {
     const choices = shuffle(BILLS).slice(0, 3);
     this.billChoices = choices;
     this.card(`<h2>גל ${R.wave} הושלם</h2><p class="next">מרפאים 30%. בחרו חוק להעברה:</p>
-      <div class="bills">${choices.map((b) => `<button class="bill nav" data-act="bill" data-id="${b.id}" style="--pc:${b.col}"><img src="${iconURL(b.icon)}" alt=""><b>${b.name}</b><span>${b.desc}</span></button>`).join('')}</div>`, 'bills');
+      <div class="bills">${choices.map((b) => `<button class="bill nav" data-act="bill" data-id="${b.id}" style="--pc:${b.col}"><img src="${iconURL(b.icon)}" alt=""><b>${b.name}</b><span>${b.desc}</span></button>`).join('')}</div>
+      <div class="stack"><button class="btn nav" data-act="menu">סיום הריצה ויציאה לתפריט</button></div>`, 'bills');
   },
   pickBill(id) {
     const R = this.surv, b = BILLS.find((x) => x.id === id);
@@ -470,7 +527,7 @@ const Game = {
       <div class="darrow">◀</div>
       <div class="dfoes">${D.foes.map((f) => `<img src="${portraitURL(f, 96)}" alt="">`).join('')}</div></div>
       <p class="next">שלושה קרבות ברצף, בלי מנוחה. רצף נוכחי: ${Save.d.daily.streak} · שיא: ${Save.d.daily.best}</p>
-      <div class="stack">${done ? '<p class="okmsg">כבר הושלם היום! אפשר לשחק שוב לכיף.</p>' : ''}<button class="btn primary big nav autofocus" data-act="daily-start">יוצאים לדרך</button><button class="btn nav" data-act="menu">חזרה</button></div>`, 'daily');
+      <div class="stack">${done ? '<p class="okmsg">כבר הושלם היום! אפשר לשחק שוב לכיף.</p>' : ''}<button class="btn primary big nav autofocus" data-act="daily-start">יוצאים לדרך</button><button class="btn nav" data-act="menu">חזרה לתפריט</button></div>`, 'daily');
   },
   startDaily() {
     const D = this.daily();
@@ -507,7 +564,7 @@ const Game = {
       Snd.play('crowd');
       return;
     }
-    this.card(`${this.winnerBanner(res)}<p class="next">מרפאים 25%. הקרב הבא מתחיל מיד.</p><div class="stack"><button class="btn primary big nav autofocus" data-act="daily-next">לקרב הבא</button></div>`);
+    this.card(`${this.winnerBanner(res)}<p class="next">מרפאים 25%. הקרב הבא מתחיל מיד.</p><div class="stack"><button class="btn primary big nav autofocus" data-act="daily-next">לקרב הבא</button><button class="btn nav" data-act="menu">יציאה לתפריט</button></div>`);
   },
 };
 Game.actExtra = { 'daily-next': () => Game.nextDaily() };

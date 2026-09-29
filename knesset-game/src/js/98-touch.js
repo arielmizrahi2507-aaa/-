@@ -12,8 +12,7 @@ const TouchUI = {
         ${btn(IN.K, 'חסימה', 'k')}${btn(IN.B, 'בעיטה', 'b')}${btn(IN.A, 'אגרוף', 'a')}
       </div>
       <button id="tgrab" class="tsm" aria-label="תפיסה"><span>תפיסה</span></button>
-      <button id="tdash" class="tsm" aria-label="ריצה"><span>ריצה</span></button>
-      <button id="tpause" aria-label="הפסקה">${ICONS.pause}</button>`;
+      <button id="tdash" class="tsm" aria-label="ריצה"><span>ריצה</span></button>`;
     el.addEventListener('contextmenu', (e) => e.preventDefault());
 
     // action buttons (multi-touch friendly)
@@ -33,7 +32,6 @@ const TouchUI = {
     grab.addEventListener('pointerdown', (e) => { e.preventDefault(); grab.classList.add('down'); Inp.touchSet(IN.G, true); });
     const gup = () => { grab.classList.remove('down'); Inp.touchSet(IN.G, false); };
     grab.addEventListener('pointerup', gup); grab.addEventListener('pointercancel', gup);
-    $('#tpause').addEventListener('pointerdown', (e) => { e.preventDefault(); Game.togglePause(); });
 
     // floating stick
     const zone = $('#stickzone'), base = $('#stickbase'), knob = $('#stickknob');

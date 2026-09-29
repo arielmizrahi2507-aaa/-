@@ -8,7 +8,6 @@ const Hud = {
     this.combos(ctx, B);
     if (!cine) this.announce(ctx, B);
     this.hint(ctx, B);
-    if (B.training) T(ctx, 'מצב אימון', W / 2, 108, { size: 18, fill: '#fff', stroke: OUT, lw: 5 });
   },
 
   bar(ctx, B, f, s) {

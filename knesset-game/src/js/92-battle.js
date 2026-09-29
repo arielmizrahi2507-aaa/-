@@ -51,7 +51,7 @@ class Battle {
   emit(name, a, b, c, d, e) { if (this.cfg.onEvent) this.cfg.onEvent(name, a, b, c, d, e); }
   say(text, o = {}) { this.announce = { text, t: 0, max: o.life || 60, col: o.col || '#ffffff', size: o.size || 92 }; }
 
-  startRound(first) {
+  startRound(first, quiet) {
     this.ents.length = 0;
     this.pk = [];
     Fx.reset();
@@ -68,8 +68,9 @@ class Battle {
     this.combo.forEach((c) => { c.hits = 0; c.dmg = 0; c.show = 0; c.last = -999; });
     this.dmgGhost = [1, 1];
     this.cam.x = STAGE_W / 2; this.cam.zoom = 1.05;
-    this.say(this.cfg.attract ? '' : (this.rtw > 2 && this.wins[0] === this.rtw - 1 && this.wins[1] === this.rtw - 1 ? 'סיבוב מכריע' : 'סיבוב ' + this.round), { life: 62, size: 84 });
-    if (!this.cfg.attract) Snd.play('round');
+    const silent = this.cfg.attract || quiet || this.training;
+    this.say(silent ? '' : (this.rtw > 2 && this.wins[0] === this.rtw - 1 && this.wins[1] === this.rtw - 1 ? 'סיבוב מכריע' : 'סיבוב ' + this.round), { life: 62, size: 84 });
+    if (!silent) Snd.play('round');
     this.emit('roundStart', this.round);
   }
 

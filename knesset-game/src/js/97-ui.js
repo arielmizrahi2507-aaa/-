@@ -35,6 +35,8 @@ const ICONS = {
   sound: '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 4V5L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>',
   mute: '<svg viewBox="0 0 24 24"><path d="M16.5 12a4.5 4.5 0 0 0-2.5-4v2.2l2.5 2.5zM19 12a7 7 0 0 1-.9 3.4l1.5 1.5A9 9 0 0 0 21 12a9 9 0 0 0-7-8.8v2.1a7 7 0 0 1 5 6.7zM4.3 3 3 4.3 7.7 9H3v6h4l5 4v-6.7l4.3 4.3c-.7.5-1.4.9-2.3 1.2v2.1a9 9 0 0 0 3.6-1.8l2 2 1.3-1.3L4.3 3zM12 5 9.9 7.1 12 9.2V5z"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>',
+  menu: '<svg viewBox="0 0 24 24"><path d="M3 5.5h18v3H3zM3 10.5h18v3H3zM3 15.5h18v3H3z"/></svg>',
+  close: '<svg viewBox="0 0 24 24"><path d="M5.6 3.5 3.5 5.6 9.9 12l-6.4 6.4 2.1 2.1L12 14.1l6.4 6.4 2.1-2.1L14.1 12l6.4-6.4-2.1-2.1L12 9.9z"/></svg>',
 };
 
 const UI = {
@@ -86,9 +88,17 @@ const UI = {
   },
 
   // ---------------------------------------------------------------- key / pad navigation
+  // Esc / P in a fight: running -> pause, pause card -> resume, sub-card (moves, confirm) -> back to the pause card
   onKey(e) {
-    if (this.cur === null || Inp.capture) return;
     const k = e.code;
+    if (Game.scene && Game.scene.kind === 'fight' && (k === 'Escape' || k === 'KeyP')) {
+      e.preventDefault();
+      if (e.repeat) return;
+      const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"]');
+      if (sub) sub.click(); else Game.togglePause();
+      return;
+    }
+    if (this.cur === null || Inp.capture) return;
     if (k === 'Escape' || k === 'Backspace') {
       const b = $('.screen.on [data-act="back"], .screen.on [data-act="close"]');
       if (b) { e.preventDefault(); b.click(); }
@@ -118,11 +128,15 @@ const UI = {
     if (best) { best.focus(); Snd.play('move'); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); if (best.dataset.act === 'pick') this.preview(best.dataset.id); }
   },
   padPoll() {
+    const n = Inp.padNav();   // polled every frame so the edge detection stays fresh
+    if (Game.scene && Game.scene.kind === 'fight') {
+      // Start pauses / resumes; B closes a sub-card or resumes
+      if (n.start || (n.back && this.cur === 'pause')) { const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"]'); if (sub) sub.click(); else Game.togglePause(); return; }
+    }
     if (this.cur === null || Inp.capture) return;
-    const n = Inp.padNav();
     if (n.dx || n.dy) this.nav(n.dx, n.dy);
     if (n.ok) { const a = document.activeElement; if (a && a.click && a.closest('.screen.on')) a.click(); }
-    if (n.back) { const b = $('.screen.on [data-act="back"]'); if (b) b.click(); }
+    if (n.back) { const b = $('.screen.on [data-act="back"], .screen.on [data-act="close"], .screen.on [data-act="closemoves"], .screen.on [data-act="stay"]'); if (b) b.click(); }
   },
 
   // ---------------------------------------------------------------- templates
@@ -181,7 +195,8 @@ const UI = {
         <div class="vs-mid"><div class="vs-burst">VS</div></div>
         <div class="vs-side r"><canvas id="vs-b" width="360" height="360"></canvas><h3 id="vs-bn"></h3><div id="vs-bp"></div><q id="vs-bq"></q></div>
       </div>
-      <div class="vs-foot"><b id="vs-stage"></b><span id="vs-info"></span></div>
+      <div class="vs-foot"><b id="vs-stage"></b><span id="vs-info"></span><em class="vs-skip">לחצו בכל מקום כדי לדלג</em></div>
+      <button class="btn ghost vs-cancel" data-act="menu">${ICONS.close}<span>ביטול</span></button>
     </section>`;
   },
 
@@ -263,16 +278,21 @@ const UI = {
     return `<section class="screen" id="s-bills"><div class="res-card wide-card" id="bills-card"></div></section>`;
   },
   tplPause() {
-    return `<section class="screen dim" id="s-pause"><div class="res-card">
+    return `<section class="screen dim" id="s-pause"><div class="res-card pause-card">
       <h2>הפסקה</h2>
+      <p class="pmode" id="pause-mode"></p>
       <div class="stack">
-        <button class="btn primary big nav autofocus" data-act="resume">המשך</button>
-        <button class="btn nav" data-act="pause-moves">רשימת המכות שלי</button>
-        <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        <button class="btn primary big nav autofocus" data-act="resume">המשך לשחק</button>
         <div id="pause-train" class="stack"></div>
-        <button class="btn nav" data-act="restart">התחלה מחדש</button>
-        <button class="btn danger nav" data-act="quit">יציאה לתפריט</button>
-      </div></div></section>`;
+        <div class="two">
+          <button class="btn nav" data-act="restart">התחלה מחדש</button>
+          <button class="btn nav" data-act="pause-moves">המכות שלי</button>
+        </div>
+        <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
+        <button class="btn danger nav" data-act="quit">${ICONS.close}<span id="pause-quit">יציאה לתפריט הראשי</span></button>
+      </div>
+      <p class="keyhint">במקלדת: Esc או P להמשך</p>
+    </div></section>`;
   },
   tplDaily() {
     return `<section class="screen" id="s-daily"><div class="res-card" id="daily-card"></div></section>`;
