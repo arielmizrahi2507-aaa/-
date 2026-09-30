@@ -253,7 +253,7 @@ function emitBody(mesh, S, L, opt) {
   // neck + collar
   {
     const a = S.neckBase, b = S.neckTop;
-    emitTube(mesh, a, b, 7.7, 7.1, skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
+    emitTube(mesh, a, b, 7.7 * (look.neck || 1), 7.1 * (look.neck || 1), skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
     const d = V3.norm(V3.sub(b, a));
     emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.5, 8.0, look.open ? skin : shirt, look.open ? MAT_SKIN : MAT_CLOTH, { sides: 12, rings: 3, bulge: 0 });
   }

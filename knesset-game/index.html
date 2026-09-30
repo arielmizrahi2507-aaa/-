@@ -335,7 +335,7 @@ body[data-view=fight][data-screen=fight] #fmenu { display: flex; }
 body[data-view=fight][data-screen=fight].training #trainbar { display: block; }
 #fmenu {
   --fs: clamp(12px, calc(var(--vh, 56vw) * .03), 19px);
-  left: calc(var(--vx, 0px) + var(--vw, 100vw) / 2); top: calc(var(--vy, 0px) + var(--vh, 56vw) * .168); transform: translateX(-50%);
+  left: calc(var(--vx, 0px) + var(--vw, 100vw) / 2); top: calc(var(--vy, 0px) + var(--vh, 56vw) - 46px); transform: translateX(-50%);        /* on the floor, below the fighters' feet: never over the "FIGHT!" banner or the HUD */
   align-items: center; gap: .5em; padding: 0 1em 0 .85em; min-height: max(30px, calc(var(--vh, 56vw) * .056));
   font: 800 var(--fs)/1 var(--f-ui); color: #fff; background: rgba(36, 18, 84, .86); border: 3px solid var(--line); border-radius: 999px;
   cursor: pointer; box-shadow: 0 3px 0 var(--line), inset 0 1px 0 rgba(255,255,255,.2); white-space: nowrap; user-select: none; -webkit-user-select: none;
@@ -344,7 +344,7 @@ body[data-view=fight][data-screen=fight].training #trainbar { display: block; }
 #fmenu kbd { font: 700 .68em var(--f-ui); color: var(--muted); border: 1.5px solid rgba(255,255,255,.35); border-radius: 6px; padding: .12em .4em; }
 #fmenu:hover { filter: brightness(1.3); }
 #fmenu:active { transform: translateX(-50%) translateY(2px); box-shadow: 0 1px 0 var(--line); }
-@media (hover: none) { #fmenu kbd { display: none; } #fmenu { min-height: 44px; min-width: 96px; justify-content: center; } }
+@media (hover: none) { #fmenu kbd, #fmenu span { display: none; } #fmenu { top: calc(var(--vy, 0px) + var(--vh, 56vw) - 52px); min-height: 44px; min-width: 52px; padding: 0 .8em; justify-content: center; } #fmenu svg { width: 1.5em; height: 1.5em; } }
 body.portrait #fmenu { left: auto; right: 10px; top: calc(calc(56.25 * var(--u-vw)) + 24px + 8px); transform: none; }
 body.portrait #fmenu:active { transform: translateY(2px); }
 #trainbar {
@@ -398,10 +398,11 @@ body.portrait #trainbar { top: calc(calc(56.25 * var(--u-vw)) + 24px + 104px); m
   body.ls .pause-card .btn { padding: .38em .8em; }
   body.ls .pause-card .btn.big { padding: .45em 1em; }
   body.ls .selbody { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
-  body.ls .grid { grid-template-columns: repeat(8, 1fr); gap: .7vmin; }
-  body.ls .card { padding: .3rem .1rem; border-width: 3px; border-radius: 12px; }
+  body.ls .grid { grid-template-columns: repeat(5, 1fr); gap: 1.1vmin; }
+  body.ls .card { padding: .3rem .15rem; border-width: 3px; border-radius: 12px; min-height: 58px; }
+  body.ls .card img { max-width: 62px; }
   body.ls .card span { display: none; }
-  body.ls .card b { font-size: .8em; }
+  body.ls .card b { font-size: .92em; }
   body.ls .bar { padding: 1vmin 3vmin; }
   body.ls .bar h2 { font-size: 20px; }
 
@@ -2886,7 +2887,7 @@ function paintBrow3(c, side, e, look, pal) {
   else if (e === 'squint') { inY = 7.8; midY = 9.2; outY = 8.0; }
   else if (e === 'happy') { inY = 8.8; midY = 11.4; outY = 9.4; }
   else if (e === 'ko') { inY = 9.6; midY = 10.6; outY = 8.4; }
-  c.save(); c.translate(faceX(side * 6.0), faceY(0)); c.scale(side * FT, -FT);
+  c.save(); c.translate(faceX(side * 6.0 * (look.eyeGap || 1)), faceY(0)); c.scale(side * FT, -FT);
   c.lineCap = 'round';
   const P = [[-3.6, inY], [-0.8, midY - 0.2], [2.4, midY], [5.2, outY]];
   const bez = (t) => { const u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, f = t * t * t; return [a * P[0][0] + b * P[1][0] + d * P[2][0] + f * P[3][0], a * P[0][1] + b * P[1][1] + d * P[2][1] + f * P[3][1]]; };
@@ -2910,7 +2911,7 @@ function paintBrow3(c, side, e, look, pal) {
 
 function paintMouth3(c, m, pal, look) {
   const female = !!look.female, lip = rgbHex(pal.lip), dark = '#3d1019', shade = rgbHex(pal.skinDD);
-  c.save(); c.translate(faceX(0), faceY(-12.2)); c.scale(FT, -FT);      // units, y up
+  c.save(); c.translate(faceX(0), faceY(-12.2)); c.scale(FT * (0.92 + 0.08 * (look.lips || 1)) * (look.mouthW || 1), -FT);      // units, y up
   c.lineCap = 'round'; c.lineJoin = 'round';
   const line = 'rgba(38,12,14,.85)';
   const lips = (w, up, lo) => {                                       // closed lips: cupid's bow on top, fuller lower lip
@@ -2972,7 +2973,7 @@ function paintFaceExpr(c, look, pal, eyes, mouth) {
   }
   const K = 0.82 * FT * (look.eyeSize || 1);
   for (const side of [-1, 1]) {
-    c.save(); c.translate(faceX(side * 5.7), faceY(3.5)); c.scale(side * K, K);
+    c.save(); c.translate(faceX(side * 5.7 * (look.eyeGap || 1)), faceY(3.5)); c.scale(side * K, K);
     paintEye3(c, eyes, look, pal, 0.3);
     c.restore();
   }
@@ -3160,23 +3161,29 @@ const ipoly = (xs, ys, x) => {                       // piecewise-linear lookup
 function headPt(th, ph, look) {
   const cp = Math.cos(ph), sp = Math.sin(ph), ct = Math.cos(th), st = Math.sin(th);
   const jk = look.jaw || 1, female = !!look.female;
+  // individual face structure (all optional, 1 = average): fw head width, cheek fullness, chin size, jowl (heavy lower cheeks, 0..1),
+  // ridge (brow ridge), fore (forehead prominence), lips (fullness), eyeGap
+  const G = (v) => 1 + ((v || 1) - 1) * 1.35;          // a caricature: differences between people are exaggerated a little
+  const fw = G(look.fw), chk = G(look.cheek), chinK = G(look.chin), jowl = (look.jowl || 0) * 1.35, ridge = G(look.ridge), fore = G(look.fore), lipK = G(look.lips), eg = look.eyeGap || 1;
   const low = sstep(0.1, -1.2, ph);                                   // 0 above the cheeks .. 1 at the chin
-  let f = HD.Rf * cp * ct, y = HD.Ry * sp, l = HD.Rl * cp * st;
+  let f = HD.Rf * cp * ct, y = HD.Ry * sp, l = HD.Rl * fw * cp * st;
   l *= 1 - low * ((female ? 0.32 : 0.25) - (jk - 1) * 0.55);
   f *= 1 - 0.05 * low;
   const at = Math.abs(th);
-  f += 0.9 * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                                // forehead
-  f += (female ? 0.8 : 1.5) * bump(ph, 0.36, 0.13) * bump(at, 0.38, 0.55);                          // brow ridge
-  f -= 1.4 * bump(ph, 0.14, 0.15) * bump(at, 0.36, 0.17);                                            // eye sockets
-  l += Math.sign(st) * 1.1 * bump(ph, -0.1, 0.22) * bump(at, 0.85, 0.3);                             // cheekbones
-  f += 1.0 * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                               // upper lip
-  f += 1.6 * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                              // lower lip
-  f += (2.0 + (jk - 1) * 3) * bump(ph, -1.12, 0.16) * bump(th, 0, female ? 0.42 : 0.52);           // chin
+  f += 0.9 * fore * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                        // forehead
+  f += (female ? 0.8 : 1.5) * ridge * bump(ph, 0.36, 0.13) * bump(at, 0.38, 0.55);                 // brow ridge
+  f -= 1.4 * bump(ph, 0.14, 0.15) * bump(at, 0.36 * eg, 0.17);                                      // eye sockets
+  l += Math.sign(st) * (1.1 * chk + 0.5 * (chk - 1)) * bump(ph, -0.1, 0.22) * bump(at, 0.85, 0.3);  // cheekbones
+  l += Math.sign(st) * 0.9 * (chk - 1) * bump(ph, -0.4, 0.28) * bump(at, 1.05, 0.4);                // fuller (or leaner) cheeks
+  l += Math.sign(st) * jowl * 1.7 * bump(ph, -0.78, 0.2) * bump(at, 1.1, 0.4);                      // jowls
+  f += 1.0 * lipK * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                       // upper lip
+  f += 1.6 * lipK * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                      // lower lip
+  f += (2.0 * chinK + (jk - 1) * 3) * bump(ph, -1.12, 0.16) * bump(th, 0, (female ? 0.42 : 0.52) * (0.85 + 0.15 * chinK));   // chin
   l += Math.sign(st) * (female ? 0.9 : 1.5) * bump(ph, -0.72, 0.2) * bump(at, 1.25, 0.3) * jk;      // jaw angle
   f -= 0.8 * bump(ph, 0.1, 0.35) * bump(Math.PI - at, 0, 0.6);                                       // back of the skull
   return [f, y, l];
 }
-function ellNormal(p) { return V3.norm([p[0] / (HD.Rf * HD.Rf), p[1] / (HD.Ry * HD.Ry), p[2] / (HD.Rl * HD.Rl)]); }
+function ellNormal(p, rl = HD.Rl) { return V3.norm([p[0] / (HD.Rf * HD.Rf), p[1] / (HD.Ry * HD.Ry), p[2] / (rl * rl)]); }
 
 function headGrid(look, nu, nv) {
   const P = [], TH = [], PH = [];
@@ -3198,6 +3205,7 @@ const HL_AT = [0, 0.5, 1.0, 1.4, 1.9, 2.5, Math.PI];
 const hairline = (k, at) => ipoly(HL_AT, k, at);
 
 function buildHeadMeshes(look, pal) {
+  const RLL = HD.Rl * (1 + ((look.fw || 1) - 1) * 1.35);                    // this person's head half-width
   const skinMesh = new Mesh(3200, 15000), hairMesh = new Mesh(14000, 60000), accMesh = new Mesh(2600, 12000);
   const G = headGrid(look, 73, 49);
   const skinCol = packRGBA(1, 1, 1, 1);
@@ -3215,10 +3223,10 @@ function buildHeadMeshes(look, pal) {
 
   // ---- nose
   {
-    const nk = look.nose || 1, female = !!look.female, sc = (female ? 0.9 : 1) * nk;
-    const tipF = 16.6 + 4.2 * (0.55 + 0.45 * sc);
-    const rings = [   // [f, y, half-width, half-depth]
-      [15.6, 5.8, 1.7, 1.3], [16.6, 3.2, 2.0, 2.0], [17.7, 0.2, 2.5, 2.7], [18.9, -3.0, 3.1, 3.2], [tipF - 0.6, -5.4, 3.8, 3.4], [tipF, -6.9, 3.5, 3.0], [tipF - 1.3, -7.7, 3.0, 2.2],
+    const gx = (v) => 1 + ((v || 1) - 1) * 1.35, nk = gx(look.nose), female = !!look.female, sc = (female ? 0.9 : 1) * nk, nw = gx(look.noseW), nl = gx(look.noseL), br = look.bridge || 0;
+    const tipF = 16.6 + 4.2 * (0.55 + 0.45 * sc) * nl;
+    const rings = [   // [f, y, half-width, half-depth]  (bridge > 0: a bump on the bridge, < 0: a dip)
+      [15.6, 5.8, 1.7 * nw, 1.3], [16.6 + br * 0.5, 3.2, 2.0 * nw, 2.0], [17.7 + br * 1.0, 0.2, 2.5 * nw, 2.7], [18.9 + br * 0.5, -3.0, 3.1 * nw, 3.2], [tipF - 0.6, -5.4, 3.8 * nw, 3.4], [tipF, -6.9, 3.5 * nw, 3.0], [tipF - 1.3, -7.7, 3.0 * nw, 2.2],
     ];
     const P = [], n = 14;
     for (const [f, y, w, d] of rings) for (let i = 0; i < n; i++) { const a = (i / n) * TAU; P.push([f + d * Math.cos(a) * 0.9, y, w * Math.sin(a)]); }
@@ -3228,8 +3236,8 @@ function buildHeadMeshes(look, pal) {
 
   // ---- ears
   for (const s of [-1, 1]) {
-    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (HD.Rl - 0.3)], [2.6, 0.7, 0], [1.0, 5.0, 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
-    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (HD.Rl + 0.5)], [1.4, 0.4, 0], [0.5, 3.0, 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
+    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (RLL - 0.3)], [2.6 * (look.ear || 1), 0.7, 0], [1.0, 5.0 * (look.ear || 1), 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
+    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (RLL + 0.5)], [1.4 * (look.ear || 1), 0.4, 0], [0.5, 3.0 * (look.ear || 1), 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
   }
 
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
@@ -3240,7 +3248,7 @@ function buildHeadMeshes(look, pal) {
     const PS = [], COV = [], SH = [];
     for (let k = 0; k < H.P.length; k++) {
       const { cov, t, shade } = fieldFn(H.TH[k], H.PH[k], H.P[k], k);
-      const base = H.P[k], n = ellNormal(base), lift = cov > 0.02 ? Math.max(0.3, t) : 0.25;
+      const base = H.P[k], n = ellNormal(base, RLL), lift = cov > 0.02 ? Math.max(0.3, t) : 0.25;
       PS.push([base[0] + n[0] * lift, base[1] + n[1] * lift, base[2] + n[2] * lift]); COV.push(cov); SH.push(shade === undefined ? 1 : shade);
     }
     gridSurface(mesh, PS, NU, NV, false, O, (i, j) => { const k = j * NU + i, s = SH[k]; return { uv: uvfn(i, j, k), col: packRGBA(s, s, s, COV[k]), mat: matv }; });
@@ -3276,7 +3284,7 @@ function buildHeadMeshes(look, pal) {
         const a = -2.05 + (i / (cols - 1)) * 4.1 + Math.PI, th = wrapPi(a), edge = Math.abs(i / (cols - 1) - 0.5) * 2;
         const yy = 8 - t * (look.hair.len || 42), wob = Math.sin(t * 5 + i * 0.7) * 1.4 * t;
         const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t) * (1 - 0.1 * edge * t);
-        PS.push([Math.cos(th) * HD.Rf * rad - 3 * t + wob, yy, Math.sin(th) * HD.Rl * 1.03 * rad]);
+        PS.push([Math.cos(th) * HD.Rf * rad - 3 * t + wob, yy, Math.sin(th) * RLL * 1.03 * rad]);
       }
     }
     gridSurface(hairMesh, PS, cols, rows, false, [0, -14, 0], (i, j) => ({ uv: [(i / (cols - 1)) * 2, (j / (rows - 1)) * 2], col: packRGBA(0.85 + 0.15 * (j / (rows - 1)), 0.85 + 0.15 * (j / (rows - 1)), 0.85 + 0.15 * (j / (rows - 1)), 1), mat: hairMat }));
@@ -3302,7 +3310,7 @@ function buildHeadMeshes(look, pal) {
         const t = j / (rows - 1);
         for (let i = 0; i < cols; i++) {
           const a = -1.25 + (i / (cols - 1)) * 2.5, w = (1 - 0.72 * t) * (0.85 + 0.15 * Math.cos(a));
-          PS.push([HD.Rf * 0.66 * (1 - 0.35 * t) * Math.cos(a) * 0.6 + 6.5 - 3 * t, -18.5 - t * drop, HD.Rl * 0.56 * w * Math.sin(a)]);
+          PS.push([HD.Rf * 0.66 * (1 - 0.35 * t) * Math.cos(a) * 0.6 + 6.5 - 3 * t, -18.5 - t * drop, RLL * 0.56 * w * Math.sin(a)]);
         }
       }
       gridSurface(hairMesh, PS, cols, rows, false, [0, -18, 0], (i, j) => ({ uv: [(i / (cols - 1)) * 1.4, (j / (rows - 1)) * 1.4], col: packRGBA(0.92, 0.92, 0.92, 1), mat: bMat }));
@@ -3326,7 +3334,7 @@ function buildHeadMeshes(look, pal) {
       for (let i = 0; i < na; i++) {
         const a = (i / na) * TAU, d = V3.add(V3.mul(axis, Math.cos(r)), V3.mul(V3.add(V3.mul(e1, Math.cos(a)), V3.mul(e2, Math.sin(a))), Math.sin(r)));
         const ph = Math.asin(Math.max(-1, Math.min(1, d[1]))), th = Math.atan2(d[2], d[0]);
-        const base = headPt(th, ph, look), n = ellNormal(base), fall = j / (nr - 1);
+        const base = headPt(th, ph, look), n = ellNormal(base, RLL), fall = j / (nr - 1);
         const lift = (hasHair ? 2.5 : 1.2) + 0.5 * (1 - fall) - 0.5 * sstep(0.8, 1, fall);
         PS.push([base[0] + n[0] * lift, base[1] + n[1] * lift, base[2] + n[2] * lift]);
       }
@@ -3360,7 +3368,7 @@ function buildHeadMeshes(look, pal) {
   if (look.glasses) {
     const gl = look.glasses, gc = hexRGB(gl.color || '#222'), col = packRGBA(gc[0] * 1.3, gc[1] * 1.3, gc[2] * 1.3, 1), mat = packMat(0.85, 0.7, 0.4, LAYER.WHITE, CLS.METAL);
     const round = gl.shape === 'round', rx = round ? 5.0 : 5.5, ry = round ? 4.7 : 4.1;
-    const surf = (l, y) => HD.Rf * Math.sqrt(Math.max(0.04, 1 - (y / HD.Ry) ** 2 - (l / HD.Rl) ** 2)) + 1.5;
+    const surf = (l, y) => HD.Rf * Math.sqrt(Math.max(0.04, 1 - (y / HD.Ry) ** 2 - (l / RLL) ** 2)) + 1.5;
     for (const s of [-1, 1]) {
       const cx = s * 6.0, cy = 3.3, pts = [];
       for (let i = 0; i < 28; i++) {
@@ -3370,14 +3378,14 @@ function buildHeadMeshes(look, pal) {
       }
       for (let i = 0; i < pts.length; i++) emitTube(accMesh, pts[i], pts[(i + 1) % pts.length], 0.42, 0.42, col, mat, { sides: 5, rings: 2, bulge: 0 });
       const oL = cx + s * rx, from = [surf(oL, cy), cy, oL];
-      emitTube(accMesh, from, [-1.5, 2.6, s * (HD.Rl - 0.6)], 0.4, 0.4, col, mat, { sides: 5, rings: 3, bulge: 0 });
+      emitTube(accMesh, from, [-1.5, 2.6, s * (RLL - 0.6)], 0.4, 0.4, col, mat, { sides: 5, rings: 3, bulge: 0 });
     }
     emitTube(accMesh, [surf(-1, 4.2), 4.2, -1.9], [surf(1, 4.2), 4.2, 1.9], 0.4, 0.4, col, mat, { sides: 5, rings: 2, bulge: 0 });
   }
   // ---- earring
   if (look.earring) {
     const ec = hexRGB(look.earring);
-    for (const s of [-1, 1]) sphere(accMesh, [-1.6, -6.5, s * (HD.Rl + 0.5)], 1.25, packRGBA(ec[0], ec[1], ec[2], 1), packMat(0.9, 0.8, 0.5, LAYER.WHITE, CLS.METAL), { nu: 8, nv: 6 });
+    for (const s of [-1, 1]) sphere(accMesh, [-1.6, -6.5, s * (RLL + 0.5)], 1.25, packRGBA(ec[0], ec[1], ec[2], 1), packMat(0.9, 0.8, 0.5, LAYER.WHITE, CLS.METAL), { nu: 8, nv: 6 });
   }
   return { skin: skinMesh, hair: hairMesh, acc: accMesh };
 }
@@ -3638,7 +3646,7 @@ function emitBody(mesh, S, L, opt) {
   // neck + collar
   {
     const a = S.neckBase, b = S.neckTop;
-    emitTube(mesh, a, b, 7.7, 7.1, skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
+    emitTube(mesh, a, b, 7.7 * (look.neck || 1), 7.1 * (look.neck || 1), skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
     const d = V3.norm(V3.sub(b, a));
     emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.5, 8.0, look.open ? skin : shirt, look.open ? MAT_SKIN : MAT_CLOTH, { sides: 12, rings: 3, bulge: 0 });
   }
@@ -3951,88 +3959,110 @@ F3D.cpuTest = function (f) {
 // Optional face fields (all subtle, 0.9 - 1.15 is the useful range): jaw width, nose size, brow thickness, age (lines), stubble (0-1),
 // beard {color}, stache, glasses, kippah, hat {color} (black brimmed hat), female (lips + lashes), iris colour.
 // hair {style, color, vol (thickness), hl (receding hairline, radians), len (length of long hair)}.
+// Face structure for the 3D head (1 = average): fw head width, cheek fullness, chin, jowl (0..1), ridge (brow ridge), fore (forehead), lips, nose (size), noseL, noseW, bridge (bump), ear, eyeSize, eyeGap, neck.
 const LOOKS = {
   bibi: {
+    fw: 0.96, fore: 1.15, ridge: 1.15, chin: 1.15, cheek: 0.9, nose: 1.08, noseL: 1.12, noseW: 0.95, lips: 0.85, eyeSize: 0.95,
     skin: '#f0c7a3', hair: { style: 'swoop', color: '#dfe3ea', vol: 1.1, hl: 0.05 }, browColor: '#6f6e75', brow: 2.7, age: 0.7, iris: '#5b5648',
     suit: '#1f2a44', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.0, w: 1.0, jaw: 1.0,
   },
   bengvir: {
+    fw: 1.08, cheek: 1.25, jowl: 0.3, chin: 0.95, noseW: 1.05, ridge: 1.1, lips: 1.1, neck: 1.15,
     skin: '#e3b48b', hair: { style: 'crop', color: '#241d1a', vol: 0.8, hl: 0.1 }, kippah: { color: '#2b3a8f', knit: '#f2d24a' }, stubble: 0.4, age: 0.25, brow: 3.3, iris: '#3b2a1e',
     suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.98, w: 1.1, jaw: 1.08,
   },
   smotrich: {
+    fw: 0.97, fore: 1.1, ridge: 1.15, nose: 1.05, ear: 1.05,
     skin: '#eec39b', hair: { style: 'crop', color: '#33261d', vol: 0.8 }, kippah: { color: '#f28a1e', knit: '#ffffff' }, beard: { color: '#2a211c' }, age: 0.3, brow: 2.9, iris: '#3d2c1e',
     suit: '#2a2f4a', shirt: '#ffffff', tie: '#f28a1e', pin: '#f28a1e', h: 1.0, w: 1.0, jaw: 1.02,
   },
   deri: {
+    fw: 1.12, cheek: 1.4, jowl: 0.6, chin: 0.9, nose: 0.9, noseL: 0.9, noseW: 1.1, eyeSize: 0.85, ridge: 1.1, lips: 1.05, neck: 1.1,
     skin: '#e0b088', hair: { style: 'sides', color: '#8a8f9a' }, kippah: { color: '#15141d' }, browColor: '#4a4a55', brow: 3.4, age: 0.55, iris: '#3b2a1e',
     suit: '#191922', shirt: '#ffffff', tie: '#f4c81d', pin: '#f4c81d', h: 0.96, w: 1.14, jaw: 1.12,
   },
   liberman: {
+    fw: 1.1, jowl: 1.0, cheek: 1.2, noseW: 1.15, ridge: 1.25, eyeSize: 0.88, lips: 0.85, neck: 1.2,
     skin: '#efc4a2', hair: { style: 'sides', color: '#b8bcc6' }, browColor: '#5b5f6b', brow: 3.6, age: 0.6, iris: '#4a5560',
     suit: '#2d3542', shirt: '#ffffff', tie: '#b3562a', pin: '#b3562a', h: 1.0, w: 1.14, nose: 1.08, jaw: 1.1,
   },
   lapid: {
+    fw: 0.96, fore: 1.2, ridge: 1.15, chin: 1.1, nose: 1.05, cheek: 0.95, lips: 0.95,
     skin: '#f0caa7', hair: { style: 'part', color: '#a9a59d', vol: 0.9, hl: 0.1 }, browColor: '#6f6b64', stubble: 0.35, age: 0.5, iris: '#55605a',
     suit: '#20242e', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.03, w: 0.96, jaw: 0.98,
   },
   gantz: {
+    chin: 1.3, ridge: 1.15, ear: 1.25, nose: 1.05, fore: 1.1, lips: 0.95, cheek: 0.95, neck: 1.1,
     skin: '#e8bd96', hair: { style: 'crop', color: '#c5c9d2', vol: 0.85 }, browColor: '#7a7f8a', brow: 3.0, age: 0.5, iris: '#4f5a63',
     suit: '#22355a', shirt: '#ffffff', tie: '#6ec6ff', pin: '#6ec6ff', h: 1.09, w: 1.02, jaw: 1.08,
   },
   golan: {
+    fw: 1.08, cheek: 1.15, ridge: 1.15, nose: 1.1, noseW: 1.1, jowl: 0.3,
     skin: '#e4b48c', hair: { style: 'none', color: '#aab0ba' }, beard: { color: '#b4bac4' }, browColor: '#8b919c', brow: 3.0, age: 0.6, iris: '#4a3a2c',
     suit: '#1f3a2c', shirt: '#e8efe6', open: true, pin: '#38b56a', h: 1.0, w: 1.06, jaw: 1.08,
   },
   odeh: {
+    fw: 0.93, cheek: 0.8, fore: 1.15, chin: 0.95, noseW: 0.95, eyeSize: 1.05,
     skin: '#c79770', hair: { style: 'part', color: '#1f1a1a', vol: 0.8, hl: 0.12 }, stache: '#1f1a1a', age: 0.3, brow: 3.0, iris: '#2e2119',
     suit: '#2b2e3b', shirt: '#cfe3ff', tie: '#e23b52', pin: '#e23b52', h: 1.02, w: 0.98,
   },
   abbas: {
+    fw: 1.06, cheek: 1.25, chin: 0.95, noseW: 1.05, ridge: 0.95, lips: 1.1, jowl: 0.2,
     skin: '#c39670', hair: { style: 'crop', color: '#241d1a', vol: 0.7 }, beard: { color: '#3a2f28' }, age: 0.3, iris: '#2e2119',
     suit: '#233a34', shirt: '#f0f4ef', tie: '#a5d63c', pin: '#a5d63c', h: 1.0, w: 1.03,
   },
   tibi: {
+    ridge: 1.2, nose: 1.1, noseW: 1.1, chin: 1.05,
     skin: '#c79770', hair: { style: 'part', color: '#3a3a44', vol: 0.8, hl: 0.15 }, stache: '#33302e', glasses: { shape: 'rect', color: '#2a2a33' }, age: 0.55, iris: '#2e2119',
     suit: '#3a2f4a', shirt: '#ffffff', tie: '#e05fb4', pin: '#e05fb4', h: 0.98, w: 1.0,
   },
   regev: {
+    fw: 0.95, cheek: 1.2, lips: 1.25, nose: 0.95, eyeSize: 1.05,
     skin: '#f0c5a0', hair: { style: 'wavy', color: '#c49a62', len: 30 }, browColor: '#7a5a30', earring: '#ffd24a', female: true, age: 0.3, jaw: 0.92, nose: 0.95, iris: '#5a4028',
     suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.97, w: 0.92, open: true, head: 1.0,
   },
   ohana: {
+    chin: 1.1, cheek: 1.05,
     skin: '#e6bb95', hair: { style: 'crop', color: '#332a24', vol: 0.9 }, stubble: 0.4, browColor: '#3b302a', brow: 2.9, age: 0.3, iris: '#3c2a1e',
     suit: '#1c2436', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.02, w: 1.02, jaw: 1.04,
   },
   gotliv: {
+    fw: 0.93, cheek: 1.25, ridge: 1.1, chin: 0.95, lips: 1.2, eyeSize: 1.05,
     skin: '#efc6a2', hair: { style: 'wavy', color: '#3a2820', len: 46 }, browColor: '#3a2820', female: true, age: 0.35, jaw: 0.94, nose: 1.0, iris: '#4a3220',
     suit: '#221a33', shirt: '#efe6ff', open: true, pin: '#8a4fe0', earring: '#d8d8e6', h: 0.97, w: 0.93, head: 1.0,
   },
   bennett: {
+    fw: 1.04, cheek: 1.2, chin: 0.95, ridge: 1.05, eyeSize: 1.0,
     skin: '#efc8a3', hair: { style: 'crop', color: '#3b2e26', vol: 0.8, hl: 0.1 }, kippah: { color: '#2b3a6b', knit: '#e9eef8' }, stubble: 0.15, browColor: '#3b2e26', brow: 2.7, age: 0.35, iris: '#4a5a4a',
     suit: '#2a3245', shirt: '#dbe6f7', open: true, pin: '#19c6b7', h: 1.0, w: 0.99, jaw: 1.0,
   },
   eisenkot: {
+    fw: 1.04, chin: 1.25, ridge: 1.3, nose: 1.05, ear: 1.1, lips: 0.9, eyeSize: 0.92,
     skin: '#e7bd97', hair: { style: 'crop', color: '#babfc9', vol: 0.85 }, browColor: '#5f6473', brow: 3.6, age: 0.65, iris: '#54606a',
     suit: '#1d2a3c', shirt: '#e9eef7', open: true, pin: '#18b0e0', h: 1.04, w: 1.06, jaw: 1.1, nose: 1.05,
   },
   asher: {
+    fw: 0.94, fore: 1.1, ridge: 1.1, nose: 1.1, cheek: 0.9, lips: 0.9, eyeSize: 0.92,
     skin: '#e5bd98', hair: { style: 'none', color: '#5a5350' }, beard: { color: '#6d6660' }, hat: { color: '#121118' }, browColor: '#4c4642', brow: 3.0, age: 0.6, iris: '#3b2a1e',
     suit: '#14141b', shirt: '#ffffff', h: 0.98, w: 1.06, jaw: 1.05,
   },
   maoz: {
+    fw: 0.95, ridge: 1.15, nose: 1.1, cheek: 0.9, lips: 0.9,
     skin: '#e0b48c', hair: { style: 'none', color: '#a9adb5' }, beard: { color: '#a9adb5' }, kippah: { color: '#15141d' }, browColor: '#7a7f8a', brow: 3.1, age: 0.7, iris: '#3f3428',
     suit: '#2a2732', shirt: '#f2f2f2', h: 0.99, w: 1.03, jaw: 1.06,
   },
   abushehadeh: {
+    fw: 0.98, ridge: 1.1, lips: 1.05,
     skin: '#c99872', hair: { style: 'crop', color: '#211a17', vol: 0.85 }, stubble: 0.55, stache: '#211a17', browColor: '#211a17', brow: 3.1, age: 0.3, iris: '#2e2119',
     suit: '#22303a', shirt: '#eaf3f2', open: true, pin: '#1f8f63', h: 1.01, w: 1.0, jaw: 1.04,
   },
   hendel: {
+    fw: 0.95, cheek: 0.9, nose: 1.05, ridge: 0.95, eyeSize: 1.05,
     skin: '#efc5a1', hair: { style: 'part', color: '#5a4232' }, stubble: 0.3, browColor: '#4c382a', brow: 2.8, age: 0.3, iris: '#4a5a52',
     suit: '#4c5a34', shirt: '#f1efe6', open: true, pin: '#b59f5a', h: 1.0, w: 0.98, jaw: 1.0,
   },
   winter: {
+    fw: 1.06, chin: 1.25, ridge: 1.25, cheek: 1.05, neck: 1.25, lips: 0.95,
     skin: '#e6b990', hair: { style: 'crop', color: '#514c48', vol: 0.7 }, kippah: { color: '#222b3d', knit: '#c9a959' }, stubble: 0.22, browColor: '#3d3835', brow: 3.6, age: 0.4, iris: '#3f4a52',
     suit: '#2a3a2c', shirt: '#f2f2f2', open: true, pin: '#e0a82e', h: 1.06, w: 1.1, jaw: 1.14, nose: 1.02,
   },

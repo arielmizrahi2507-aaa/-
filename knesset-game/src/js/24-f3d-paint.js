@@ -212,7 +212,7 @@ function paintBrow3(c, side, e, look, pal) {
   else if (e === 'squint') { inY = 7.8; midY = 9.2; outY = 8.0; }
   else if (e === 'happy') { inY = 8.8; midY = 11.4; outY = 9.4; }
   else if (e === 'ko') { inY = 9.6; midY = 10.6; outY = 8.4; }
-  c.save(); c.translate(faceX(side * 6.0), faceY(0)); c.scale(side * FT, -FT);
+  c.save(); c.translate(faceX(side * 6.0 * (look.eyeGap || 1)), faceY(0)); c.scale(side * FT, -FT);
   c.lineCap = 'round';
   const P = [[-3.6, inY], [-0.8, midY - 0.2], [2.4, midY], [5.2, outY]];
   const bez = (t) => { const u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, f = t * t * t; return [a * P[0][0] + b * P[1][0] + d * P[2][0] + f * P[3][0], a * P[0][1] + b * P[1][1] + d * P[2][1] + f * P[3][1]]; };
@@ -236,7 +236,7 @@ function paintBrow3(c, side, e, look, pal) {
 
 function paintMouth3(c, m, pal, look) {
   const female = !!look.female, lip = rgbHex(pal.lip), dark = '#3d1019', shade = rgbHex(pal.skinDD);
-  c.save(); c.translate(faceX(0), faceY(-12.2)); c.scale(FT, -FT);      // units, y up
+  c.save(); c.translate(faceX(0), faceY(-12.2)); c.scale(FT * (0.92 + 0.08 * (look.lips || 1)) * (look.mouthW || 1), -FT);      // units, y up
   c.lineCap = 'round'; c.lineJoin = 'round';
   const line = 'rgba(38,12,14,.85)';
   const lips = (w, up, lo) => {                                       // closed lips: cupid's bow on top, fuller lower lip
@@ -298,7 +298,7 @@ function paintFaceExpr(c, look, pal, eyes, mouth) {
   }
   const K = 0.82 * FT * (look.eyeSize || 1);
   for (const side of [-1, 1]) {
-    c.save(); c.translate(faceX(side * 5.7), faceY(3.5)); c.scale(side * K, K);
+    c.save(); c.translate(faceX(side * 5.7 * (look.eyeGap || 1)), faceY(3.5)); c.scale(side * K, K);
     paintEye3(c, eyes, look, pal, 0.3);
     c.restore();
   }
