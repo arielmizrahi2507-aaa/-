@@ -2,7 +2,7 @@
 // Poses come from 20-fighter-draw.js (joints in "rig" units, feet at the origin, +x forward, -y up). The rig is painted
 // BODY_S times larger; the head is drawn in its own units (about 44 tall) and scaled by HEAD_K.
 
-const INK = '#150c2a';          // outline ink
+const INK = '#0e0d11';          // outline ink
 const BODY_S = 1.1;             // on-screen scale of the rig
 const HEAD_K = 0.9;             // head drawing units -> rig units
 const LIGHT = [0.5, -0.85];     // key light: from the front and above
@@ -409,7 +409,7 @@ function drawRobotHead(ctx, f, look, p, C) {
     else { ctx.beginPath(); ctx.ellipse(ex, -6.5, 4.5, e === 'squint' ? 2.2 : 5.4, 0, 0, TAU); ctx.fill(); }
   }
   const open = p.mouth === 'shout' || p.mouth === 'open' || p.mouth === 'o' ? 7 : 3;
-  rr(ctx, -14, 13, 40, open + 2, 3); ctx.fillStyle = C('#1b1330'); ctx.fill();
+  rr(ctx, -14, 13, 40, open + 2, 3); ctx.fillStyle = C('#0e0d11'); ctx.fill();
   ctx.fillStyle = C('#fff'); ctx.fillRect(-9, 14, 29, 1.8);
   ctx.fillStyle = C('#5b6478');
   for (const [rx, ry] of [[-25, -23], [25, -23], [-25, 22], [25, 22]]) { ctx.beginPath(); ctx.arc(rx, ry, 2.2, 0, TAU); ctx.fill(); }
@@ -422,7 +422,7 @@ function drawRobotTorso(ctx, look, C, ink, tint, tw, torsoLen, face = 1) {
   g.addColorStop(0, C(darken(look.suit, 0.2))); g.addColorStop(0.5, C(lighten(look.suit, 0.14))); g.addColorStop(1, C(darken(look.suit, 0.25)));
   rr(ctx, -w, top, w * 2, h, 9); ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 2.6; ctx.strokeStyle = ink; ctx.stroke();
   rr(ctx, -w - 3, top - 6, w * 2 + 6, 13, 5); ctx.fillStyle = C('#eef2fb'); ctx.fill(); ctx.lineWidth = 2.4; ctx.stroke();
-  rr(ctx, -w * 0.5, top - 2, w, 4.5, 2.2); ctx.fillStyle = C('#1b1330'); ctx.fill();
+  rr(ctx, -w * 0.5, top - 2, w, 4.5, 2.2); ctx.fillStyle = C('#0e0d11'); ctx.fill();
   if (!tint) {
     ctx.save(); ctx.translate(4, top - 4); ctx.rotate(-0.12); ctx.fillStyle = '#fff'; ctx.fillRect(-7, -10, 14, 11); ctx.lineWidth = 1.3; ctx.strokeStyle = INK; ctx.strokeRect(-7, -10, 14, 11); ctx.restore();
     ctx.save(); ctx.scale(face, 1);     // the label must read correctly when the fighter faces left

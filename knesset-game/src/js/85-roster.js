@@ -689,7 +689,7 @@ const ROSTER = [
       tick(f, t, B) {
         if (t === 12) {
           const dir = f.face;
-          B.ent({ kind: 'sign', owner: f, dir, x: f.x - dir * 90, y: GROUND - 250, noHit: true, dmg: 0, life: 42, z: 1, isProj: false, clash: false, noFlip: true, draw(ctx, e) { ctx.scale(0.8, 0.8); const bl = Math.floor(e.t / 5) % 2; ctx.fillStyle = bl ? '#ff5a5a' : '#ffe14a'; rr(ctx, -70, -30, 140, 60, 8); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = OUT; ctx.stroke(); T(ctx, 'מגיעה בעוד 3 דק׳', 0, 0, { size: 16, fill: '#1b1330', weight: 900 }); } });
+          B.ent({ kind: 'sign', owner: f, dir, x: f.x - dir * 90, y: GROUND - 250, noHit: true, dmg: 0, life: 42, z: 1, isProj: false, clash: false, noFlip: true, draw(ctx, e) { ctx.scale(0.8, 0.8); const bl = Math.floor(e.t / 5) % 2; ctx.fillStyle = bl ? '#ff5a5a' : '#ffe14a'; rr(ctx, -70, -30, 140, 60, 8); ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = OUT; ctx.stroke(); T(ctx, 'מגיעה בעוד 3 דק׳', 0, 0, { size: 16, fill: '#0e0d11', weight: 900 }); } });
           Snd.play('siren');
         }
         if (t === 34) {

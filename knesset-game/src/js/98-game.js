@@ -15,13 +15,14 @@ const Game = {
     this.cv = $('#cv'); this.ctx = this.cv.getContext('2d');
     // only what the title screen needs is allowed to stop the boot; everything else is logged and skipped
     const soft = (name, fn) => { try { fn(); } catch (e) { console.error('boot: ' + name, e); } };
-    soft('fonts', () => { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); });
+    soft('fonts', () => { document.fonts.load('900 24px Heebo'); document.fonts.load('700 20px Rubik'); });
     Save.load();
     const s = Save.d.settings;
     this.bootChecks(s);
     soft('audio', () => { Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted; });
     soft('input', () => Inp.init());
     soft('fullscreen', () => { if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs'); });
+    soft('zoomguard', () => this.zoomGuard());
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
     soft('touch', () => TouchUI.init());
@@ -46,6 +47,36 @@ const Game = {
     UI.show('title');
     if (this.bootNote) setTimeout(() => UI.toast('שינינו הגדרה', this.bootNote, 'unlock'), 900);
     try { if (window.__ks) window.__ks.ready(); } catch (e) { /* the boot guard is optional */ }
+  },
+
+  // The page must never zoom (a double tap on a phone used to zoom the whole game out of place). Modern browsers obey `touch-action` in the CSS and the
+  // viewport tag; iOS Safari ignores user-scalable=no, so these handlers cover the pinch and double-tap gestures there. Controls keep working.
+  zoomGuard() {
+    const stop = (e) => { if (e.cancelable) e.preventDefault(); };
+    ['gesturestart', 'gesturechange', 'gestureend'].forEach((ev) => document.addEventListener(ev, stop, { passive: false }));
+    document.addEventListener('touchmove', (e) => { if (e.touches && e.touches.length > 1) stop(e); }, { passive: false });
+    document.addEventListener('dblclick', stop, { passive: false });
+    let lastEnd = 0;
+    document.addEventListener('touchend', (e) => {                       // old iOS: the second tap of a quick pair is what zooms
+      const now = Date.now(), t = e.target;
+      if (now - lastEnd < 350 && !(t && t.closest && t.closest('button, [data-act], a, input, select, textarea, label, #touch'))) stop(e);
+      lastEnd = now;
+    }, { passive: false });
+    const vv = window.visualViewport;                                   // if a zoom got through anyway, ask the browser to go back to 100%
+    if (vv) {
+      let timer = 0, flip = false, tries = 0, since = 0;
+      vv.addEventListener('resize', () => {
+        if (vv.scale <= 1.02 || timer) return;
+        const now = Date.now(); if (now - since > 5000) { since = now; tries = 0; }
+        if (++tries > 3) return;                                        // never fight the browser in a loop
+        timer = setTimeout(() => {
+          timer = 0;
+          const m = document.querySelector('meta[name=viewport]'); if (!m) return;
+          flip = !flip;
+          m.setAttribute('content', 'width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=' + (flip ? '1' : '1.0') + ',user-scalable=no,viewport-fit=cover');
+        }, 150);
+      });
+    }
   },
 
   // Safe mode (?safe) and crash recovery: if the last run died while it was starting the 3D renderer, start without it this time.

@@ -2,12 +2,15 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#140b2e">
+<meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="format-detection" content="telephone=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0e0f13">
 <meta name="description" content="מכות בכנסת: משחק לחימה סאטירי עם חברי כנסת קריקטוריים, יכולת מיוחדת ומכות ייחודיות לכל אחד.">
 <title>מכות בכנסת</title>
 <script>
-/* Boot guard: if the game cannot start (an error, or a very slow device) the player sees why instead of an empty purple screen. */
+/* Boot guard: if the game cannot start (an error, or a very slow device) the player sees why instead of an empty dark screen. */
 (function () {
   var W = window, errs = [], ready = false, box = null, t0 = new Date().getTime(), timer = 0;
   function txt(e) { try { return String((e && (e.message || (e.reason && (e.reason.message || e.reason)))) || e); } catch (x) { return 'error'; } }
@@ -18,14 +21,14 @@
     if (!bad && waited < 7000) return;
     if (!box) {
       box = document.createElement('div'); box.id = 'bootguard';
-      box.setAttribute('style', 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:#140b2e;color:#fff;font:16px/1.5 system-ui,Arial,sans-serif;text-align:center;direction:rtl;overflow:auto');
+      box.setAttribute('style', 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:#0e0f13;color:#fff;font:16px/1.5 system-ui,Arial,sans-serif;text-align:center;direction:rtl;overflow:auto');
       document.body.appendChild(box);
     }
-    var b = 'display:block;width:100%;margin:8px 0 0;padding:12px 14px;font:700 16px system-ui,Arial,sans-serif;border:0;border-radius:12px;color:#2b1400;background:#ffc21a';
+    var b = 'display:block;width:100%;margin:8px 0 0;padding:12px 14px;font:700 16px system-ui,Arial,sans-serif;border:0;border-radius:12px;color:#1b1305;background:#d9a93f';
     box.innerHTML = '<div style="max-width:440px;width:100%"><h2 style="margin:0 0 6px;font-size:22px">' + (bad ? 'המשחק לא הצליח להיטען' : 'המשחק עדיין נטען…') + '</h2>' +
       '<p style="margin:0 0 8px;opacity:.85">' + (bad ? 'משהו בטלפון או בדפדפן חסם את ההפעלה.' : 'זה לוקח יותר מהרגיל. אפשר להמתין, או לנסות מצב בטוח.') + ' מומלץ לפתוח בכרום או בספארי מעודכנים, ולהחזיק את הטלפון לרוחב.</p>' +
       '<button id="kb-safe" style="' + b + '">הפעלה במצב בטוח (בלי תלת־ממד)</button>' +
-      '<button id="kb-retry" style="' + b + ';background:#8b6cff;color:#fff">נסו שוב</button>' +
+      '<button id="kb-retry" style="' + b + ';background:#8f1119;color:#fff">נסו שוב</button>' +
       (bad ? '<pre dir="ltr" style="text-align:left;white-space:pre-wrap;word-break:break-word;font:12px/1.4 monospace;opacity:.75;margin:12px 0 0"></pre>' : '') + '</div>';
     if (bad) box.getElementsByTagName('pre')[0].textContent = errs.slice(0, 3).join('\n');
     document.getElementById('kb-safe').onclick = function () { location.href = home() + '?safe'; };
@@ -40,8 +43,8 @@
   W.__ks = { errs: errs, ready: function () { ready = true; clearInterval(timer); if (box && box.parentNode) box.parentNode.removeChild(box); var m = document.getElementById('bootmsg'); if (m && m.parentNode) m.parentNode.removeChild(m); } };
 })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Secular+One&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
-<noscript><link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Secular+One&display=swap" rel="stylesheet"></noscript>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..900&family=Heebo:wght@700..900&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400..900&family=Heebo:wght@700..900&display=swap" rel="stylesheet"></noscript>
 <style>/*__CSS__*/</style>
 </head>
 <body data-view="none" data-screen="title">

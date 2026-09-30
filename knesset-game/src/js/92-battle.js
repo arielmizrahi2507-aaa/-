@@ -87,7 +87,7 @@ class Battle {
         if (this.phaseT >= 64) {
           this.phase = 'fight'; this.phaseT = 0;
           this.f.forEach((f) => { if (f.st === 'intro') { f.st = 'idle'; f.t = 0; } });
-          if (!this.cfg.attract) { this.say('!קרב', { life: 46, col: '#ffe14a', size: 110 }); Snd.play('fight'); }
+          if (!this.cfg.attract) { this.say('!קרב', { life: 46, col: '#ecc35a', size: 110 }); Snd.play('fight'); }
         }
         break;
       case 'fight':
@@ -308,7 +308,7 @@ class Battle {
     if (src && def.passive.reflect && (def.st === 'block' || def.st === 'blockstun') && src.reflectable !== false && src.isProj && attackFrom === def.face) {
       src.owner = def; src.vx = -src.vx * 1.15; src.dir = -src.dir; src.hits = 0; src.nextHit = this.frame + 6; src.life = Math.max(src.life, 80);
       Fx.burst(src.x, src.y, { r: 46, col: '#fff', col2: '#ffe14a', life: 10 }); Snd.play('perfect');
-      Fx.text(def.x, def.y - 200, '!החזרה', { size: 24, col: '#ffe14a' });
+      Fx.text(def.x, def.y - 200, '!החזרה', { size: 24, col: '#ecc35a' });
       return 'reflect';
     }
 
@@ -348,7 +348,7 @@ class Battle {
     let saved = false;
     if (def.hp - dmg <= 0) {
       if (def.passive.survive && def.passive.survive(def, dmg, this)) { dmg = def.hp - 1; saved = true; }
-      else if (def.mods.saveOnce && !def.pv.savedOnce) { def.pv.savedOnce = true; dmg = def.hp - 1; saved = true; Fx.text(def.x, def.y - 210, '!חוק ההצלה', { size: 26, col: '#7dff9a' }); }
+      else if (def.mods.saveOnce && !def.pv.savedOnce) { def.pv.savedOnce = true; dmg = def.hp - 1; saved = true; Fx.text(def.x, def.y - 210, '!חוק ההצלה', { size: 26, col: '#8fe0a0' }); }
     }
     def.hp = Math.max(0, def.hp - dmg);
     const ko = def.hp <= 0;
@@ -478,8 +478,8 @@ class Battle {
     Fx.flash('#ffffff', 0.75); Fx.shake(16); Fx.punch = 5;
     Snd.play('ko');
     const closing = this.wins[att.slot] + 1 >= this.rtw && !this.training;
-    if (closing && info && info.isSuper) this.say('!פירוק קואליציה', { life: 110, col: '#ff5a5a', size: 84 });
-    else this.say('!נפילה', { life: 100, col: '#ff5a5a', size: 120 });
+    if (closing && info && info.isSuper) this.say('!פירוק קואליציה', { life: 110, col: '#e2454b', size: 84 });
+    else this.say('!נפילה', { life: 100, col: '#e2454b', size: 120 });
     this.ents.forEach((e) => { if (e.owner === def) e.dead = true; });
     this.emit('ko', att, def);
   }
@@ -489,7 +489,7 @@ class Battle {
     const pa = a.hp / a.maxHp, pb = b.hp / b.maxHp;
     this.phase = 'timeup'; this.phaseT = 0;
     this.roundWinner = Math.abs(pa - pb) < 0.001 ? -1 : (pa > pb ? 0 : 1);
-    this.say('!נגמר הזמן', { life: 80, col: '#ffe14a', size: 96 });
+    this.say('!נגמר הזמן', { life: 80, col: '#ecc35a', size: 96 });
     Snd.play('round');
     this.emit('timeUp', this.roundWinner);
   }
@@ -510,7 +510,7 @@ class Battle {
     this.phase = 'roundend'; this.phaseT = 0;
     if (w >= 0 && !this.cfg.attract) {
       const perfect = !this.f[w].tookDamage;
-      this.say(perfect ? '!ניצחון מוחלט' : 'סיבוב ל' + this.f[w].def.short, { life: 100, col: perfect ? '#7dff9a' : '#ffe14a', size: perfect ? 70 : 50 });
+      this.say(perfect ? '!ניצחון מוחלט' : 'סיבוב ל' + this.f[w].def.short, { life: 100, col: perfect ? '#8fe0a0' : '#ecc35a', size: perfect ? 70 : 50 });
       Snd.play('win');
     }
     Fx.confetti(this.f[Math.max(0, w)].x, GROUND - 120, w >= 0 ? 40 : 0, 8);
@@ -521,7 +521,7 @@ class Battle {
       this.matchWinner = mw;
       this.endQuote = [pick(this.f[mw].def.quotes.win), pick(this.f[1 - mw].def.quotes.lose)];
       this.phase = 'matchend'; this.phaseT = 0;
-      this.say('ניצחון ל' + this.f[mw].def.short + '!', { life: 160, col: '#ffe14a', size: 58 });
+      this.say('ניצחון ל' + this.f[mw].def.short + '!', { life: 160, col: '#ecc35a', size: 58 });
       Fx.confetti(this.f[mw].x, GROUND - 160, 90, 10);
       if (!this.cfg.attract) Snd.play('crowd');
       this.f[mw].st = 'win'; this.f[mw].t = 0;
@@ -583,7 +583,7 @@ class Battle {
     // shadows
     for (const f of this.f) {
       const air = clamp((GROUND - f.y) / 260, 0, 1);
-      ctx.fillStyle = `rgba(10,5,30,${0.38 * (1 - air * 0.6)})`;
+      ctx.fillStyle = `rgba(12,12,13,${0.38 * (1 - air * 0.6)})`;
       ctx.beginPath(); ctx.ellipse(f.x, GROUND + 3, 52 * (1 - air * 0.4) * f.scale, 11 * (1 - air * 0.4), 0, 0, TAU); ctx.fill();
     }
     // 3D fighters: render each one's sprite now (afterimages included) so the reflection and the body below can reuse it
@@ -630,9 +630,9 @@ class Battle {
     for (const p of this.pk) {
       if (p.life < 150 && Math.floor(p.life / 6) % 2) continue;
       const bob = Math.sin(p.t * 0.12) * 4, col = p.kind === 'heart' ? '#ff5a7a' : p.kind === 'bolt' ? '#7ce8ff' : '#ff8a3d';
-      ctx.fillStyle = 'rgba(10,5,30,.35)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND + 2, 22, 6, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(12,12,13,.35)'; ctx.beginPath(); ctx.ellipse(p.x, GROUND + 2, 22, 6, 0, 0, TAU); ctx.fill();
       ctx.save(); ctx.translate(p.x, p.y + bob); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 60, col, 0.55); ctx.restore();
-      ctx.beginPath(); ctx.arc(p.x, p.y + bob, 27, 0, TAU); ctx.fillStyle = 'rgba(20,10,50,.65)'; ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.stroke();
+      ctx.beginPath(); ctx.arc(p.x, p.y + bob, 27, 0, TAU); ctx.fillStyle = 'rgba(22,22,23,.65)'; ctx.fill(); ctx.lineWidth = 3.5; ctx.strokeStyle = col; ctx.stroke();
       drawEnt(ctx, p.kind, p.x, p.y + bob, { sc: p.kind === 'fist' ? 0.55 : p.kind === 'heart' ? 0.7 : 0.55, t: p.t });
     }
     Fx.draw(ctx);
@@ -691,7 +691,7 @@ class Battle {
     const col = f.def.color || '#ffd94a';
     const a = Math.min(1, k * 5) * (k > 0.9 ? (1 - k) * 10 : 1);
     ctx.save();
-    ctx.fillStyle = `rgba(8,4,26,${0.68 * a})`; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = `rgba(11,11,12,${0.68 * a})`; ctx.fillRect(0, 0, W, H);
     // radial speed lines
     ctx.translate(W / 2, H / 2);
     ctx.globalAlpha = 0.5 * a;

@@ -71,7 +71,7 @@ const Fx = {
     this.rings.push({ x, y, r0, r1, col, t: 0, max: life, lw });
   },
   text(x, y, str, o = {}) {
-    this.texts.push({ x, y, str, t: 0, max: o.life || 46, vy: o.vy === undefined ? -1.1 : o.vy, size: o.size || 26, col: o.col || '#fff', stroke: o.stroke || '#1b1330', rot: o.rot || 0, pop: o.pop === undefined ? 1 : o.pop, font: o.font || 'disp' });
+    this.texts.push({ x, y, str, t: 0, max: o.life || 46, vy: o.vy === undefined ? -1.1 : o.vy, size: o.size || 26, col: o.col || '#fff', stroke: o.stroke || '#0e0d11', rot: o.rot || 0, pop: o.pop === undefined ? 1 : o.pop, font: o.font || 'disp' });
   },
   comic(x, y, col) {
     this.text(x + rnd(-20, 20), y - 30, pick(COMIC), { size: rnd(26, 34), col: col || '#ffe14a', rot: rnd(-0.3, 0.3), life: 30, vy: -0.6 });

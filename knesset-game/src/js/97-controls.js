@@ -13,18 +13,18 @@ const Controls = {
     const t = CTL[Inp.device()];
     return t && t[key] ? ` <kbd class="kcap">${t[key]}</kbd>` : '';
   },
-  chip(k, extra = '') { return `<span class="pk" style="--k:${PAD_COL[k] || '#4a3a8a'}">${k}${extra}</span>`; },
+  chip(k, extra = '') { return `<span class="pk" style="--k:${PAD_COL[k] || '#565a66'}">${k}${extra}</span>`; },
 
   // the drawing only has Latin letters inside (so text direction cannot mix them up); everything Hebrew is in the legend next to it
   padSVG() {
-    const face = (x, y, k) => `<circle cx="${x}" cy="${y}" r="13" fill="${PAD_COL[k]}" stroke="#150c2a" stroke-width="2.5"/><text x="${x}" y="${y + 5.5}" text-anchor="middle" class="pt1">${k}</text>`;
-    const key = (x, y, w, h, t, hot) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2 - 1}" fill="${hot ? '#ffd23d' : '#3a2f6a'}" stroke="#150c2a" stroke-width="2.5"/><text x="${x + w / 2}" y="${y + h / 2 + 4.6}" text-anchor="middle" class="pt2" fill="${hot ? '#2b1400' : '#fff'}">${t}</text>`;
+    const face = (x, y, k) => `<circle cx="${x}" cy="${y}" r="13" fill="${PAD_COL[k]}" stroke="#0e0d11" stroke-width="2.5"/><text x="${x}" y="${y + 5.5}" text-anchor="middle" class="pt1">${k}</text>`;
+    const key = (x, y, w, h, t, hot) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${h / 2 - 1}" fill="${hot ? '#ffd23d' : '#4a4e5a'}" stroke="#0e0d11" stroke-width="2.5"/><text x="${x + w / 2}" y="${y + h / 2 + 4.6}" text-anchor="middle" class="pt2" fill="${hot ? '#2b1400' : '#fff'}">${t}</text>`;
     return `<svg class="padsvg" viewBox="0 0 560 300" role="img" aria-label="שלט משחק">
       ${key(132, 56, 74, 24, 'LT', 1)}${key(354, 56, 74, 24, 'RT', 1)}${key(116, 84, 100, 20, 'LB', 1)}${key(344, 84, 100, 20, 'RB', 1)}
-      <path d="M150 108 Q118 108 96 154 Q64 228 80 270 Q92 294 118 276 Q142 256 162 228 L398 228 Q418 256 442 276 Q468 294 480 270 Q496 228 464 154 Q442 108 410 108 Z" fill="#2c2260" stroke="#150c2a" stroke-width="4"/>
-      <circle cx="190" cy="154" r="27" fill="#1c1540" stroke="#150c2a" stroke-width="3"/><circle cx="190" cy="154" r="16" fill="#ffd23d" stroke="#150c2a" stroke-width="2.5"/>
-      <path d="M233 180 h14 v14 h14 v14 h-14 v14 h-14 v-14 h-14 v-14 h14 z" fill="#1c1540" stroke="#150c2a" stroke-width="2.5"/>
-      <circle cx="330" cy="200" r="22" fill="#1c1540" stroke="#150c2a" stroke-width="3"/><circle cx="330" cy="200" r="12" fill="#3a2f6a"/>
+      <path d="M150 108 Q118 108 96 154 Q64 228 80 270 Q92 294 118 276 Q142 256 162 228 L398 228 Q418 256 442 276 Q468 294 480 270 Q496 228 464 154 Q442 108 410 108 Z" fill="#2b2e36" stroke="#0e0d11" stroke-width="4"/>
+      <circle cx="190" cy="154" r="27" fill="#191a20" stroke="#0e0d11" stroke-width="3"/><circle cx="190" cy="154" r="16" fill="#ffd23d" stroke="#0e0d11" stroke-width="2.5"/>
+      <path d="M233 180 h14 v14 h14 v14 h-14 v14 h-14 v-14 h-14 v-14 h14 z" fill="#191a20" stroke="#0e0d11" stroke-width="2.5"/>
+      <circle cx="330" cy="200" r="22" fill="#191a20" stroke="#0e0d11" stroke-width="3"/><circle cx="330" cy="200" r="12" fill="#4a4e5a"/>
       ${face(382, 128, 'Y')}${face(356, 154, 'X')}${face(408, 154, 'B')}${face(382, 180, 'A')}
       ${key(250, 144, 34, 16, '', 0)}${key(296, 144, 34, 16, '', 1)}
       <text x="313" y="177" text-anchor="middle" class="pt2" fill="#ffd23d">START</text>

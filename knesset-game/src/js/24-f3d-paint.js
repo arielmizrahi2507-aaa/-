@@ -443,9 +443,9 @@ function paintRobotTorso(c, look) {
   c.fillStyle = g; c.fillRect(0, 0, TEXN, TEXN);
   c.fillStyle = '#ffd23d'; c.fillRect(28, 205, 200, 16);
   c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 3; c.strokeRect(28, 205, 200, 16);
-  c.fillStyle = '#ffffff'; c.strokeStyle = '#1b1330'; c.lineWidth = 4; c.fillRect(104, 40, 48, 40); c.strokeRect(104, 40, 48, 40);   // ballot slip
-  c.font = '900 50px "Secular One", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
-  c.lineWidth = 9; c.strokeStyle = '#1b1330'; c.strokeText('3.25%', 128, 140); c.fillStyle = '#ffffff'; c.fillText('3.25%', 128, 140);
+  c.fillStyle = '#ffffff'; c.strokeStyle = '#0e0d11'; c.lineWidth = 4; c.fillRect(104, 40, 48, 40); c.strokeRect(104, 40, 48, 40);   // ballot slip
+  c.font = '900 50px "Heebo", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+  c.lineWidth = 9; c.strokeStyle = '#0e0d11'; c.strokeText('3.25%', 128, 140); c.fillStyle = '#ffffff'; c.fillText('3.25%', 128, 140);
   c.fillStyle = look.suit; c.fillRect(TEXN - 40, TEXN - 40, 40, 40);
 }
 function paintRobotFace(c, look, eyes, mouth) {
@@ -463,7 +463,7 @@ function paintRobotFace(c, look, eyes, mouth) {
     else { c.beginPath(); c.ellipse(ex, ey, 15, eyes === 'squint' ? 7 : 19, 0, 0, TAU); c.fill(); }
   }
   const open = mouth === 'shout' || mouth === 'open' || mouth === 'o' ? 34 : 14;
-  c.fillStyle = '#1b1330'; c.fillRect(faceX(-9), faceY(-8.5), 18 * FT, open + 6);
+  c.fillStyle = '#0e0d11'; c.fillRect(faceX(-9), faceY(-8.5), 18 * FT, open + 6);
   c.fillStyle = '#ffffff'; c.fillRect(faceX(-8), faceY(-8.5) + 3, 16 * FT, 6);
   c.fillStyle = '#5b6478'; for (const [x, y] of [[-14, 14], [14, 14], [-14, -16], [14, -16]]) { c.beginPath(); c.arc(faceX(x), faceY(y), 5, 0, TAU); c.fill(); }
   c.fillStyle = '#e6ebf5'; c.fillRect(0, 0, TEXN, 6);

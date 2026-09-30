@@ -86,14 +86,14 @@ function overlap(a, b) {
 const HEB = /[֐-׿]/;
 const FONT = {
   ui: '"Rubik","Heebo","Assistant","Segoe UI","Arial Hebrew",Arial,sans-serif',
-  disp: '"Secular One","Rubik","Heebo","Arial Hebrew",Impact,Arial,sans-serif',
+  disp: '"Heebo","Rubik","Assistant","Segoe UI","Arial Hebrew",Impact,Arial,sans-serif',
 };
 
 // Draws (optionally outlined) text. Hebrew strings use an RTL base direction so trailing "!" lands on the left.
 function T(ctx, str, x, y, o = {}) {
   const size = o.size || 20;
   ctx.save();
-  ctx.font = `${o.weight || 700} ${size}px ${FONT[o.font || 'ui']}`;
+  ctx.font = `${o.weight || (o.font === 'disp' ? 900 : 700)} ${size}px ${FONT[o.font || 'ui']}`;
   ctx.textAlign = o.align || 'center';
   ctx.textBaseline = o.base || 'middle';
   ctx.direction = HEB.test(str) ? 'rtl' : 'ltr';
@@ -140,7 +140,7 @@ function star(ctx, cx, cy, spikes, outer, innerR, rot = 0) {
 }
 
 // Thick outlined stroke helper: dark outline underneath, coloured stroke on top.
-function outlinedLine(ctx, pts, color, width, outline = '#1b1330', ow = 3) {
+function outlinedLine(ctx, pts, color, width, outline = '#0e0d11', ow = 3) {
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.strokeStyle = outline;
