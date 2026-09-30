@@ -48,6 +48,7 @@ class Fighter {
     this.trail = []; this.tookDamage = false; this.ko = false; this.pose = null; this.lookDir = 0;
     this.chain = 0; this.spinRot = 0; this.thrownSpin = 0; this.holder = null; this.held = null;
     this.hurtPct = 1;
+    this.burnT = 0;
   }
 
   // ---------- helpers ----------
@@ -154,6 +155,12 @@ class Fighter {
     if (this.inv > 0) this.inv--;
     if (this.lock > 0) this.lock--;
     if (this.flashT > 0) this.flashT--;
+    if (this.burnT > 0) {          // set on fire (Gotliv): loses a little health each frame, never enough to finish the fight
+      this.burnT--;
+      if (B.phase === 'fight' && this.hp > 1) this.hp = Math.max(1, this.hp - 0.05);
+      if (this.burnT % 5 === 0) Fx.glowDots(this.x + rnd(-16, 16), this.y - rnd(30, 150), 1, '#ff7a2a', 2);
+      if (this.burnT % 11 === 0) Fx.sparks(this.x + rnd(-14, 14), this.y - rnd(30, 140), 1, '#ffd23d', 3, 14);
+    }
     if (this.passive.tick) this.passive.tick(this, B);
     if (this.val.shield > 0 && this.tm.shieldT <= 0) this.val.shield = 0;
     this.noPush = false;

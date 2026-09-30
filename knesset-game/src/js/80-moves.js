@@ -108,8 +108,22 @@ LOOKS.crowd1 = { skin: '#f2c6a0', hair: { style: 'crop', color: '#5a3d2b' }, sui
 LOOKS.crowd2 = { skin: '#c99870', hair: { style: 'part', color: '#1f1a1a' }, suit: '#e0584a', shirt: '#e0584a', open: true, h: 0.98, w: 1.0 };
 LOOKS.crowd3 = { skin: '#e6b78f', hair: { style: 'wavy', color: '#c9a26a' }, suit: '#52b46a', shirt: '#52b46a', open: true, h: 0.92, w: 0.92 };
 LOOKS.crowd4 = { skin: '#f6cfa8', hair: { style: 'sides', color: '#8a8f9a' }, suit: '#e6b83a', shirt: '#e6b83a', open: true, h: 0.96, w: 1.02 };
+// reservists in olive
+LOOKS.res1 = { skin: '#f0c7a6', hair: { style: 'crop', color: '#3a2c24' }, suit: '#5a6a3c', shirt: '#4a5830', open: true, h: 0.98, w: 1.0 };
+LOOKS.res2 = { skin: '#d6a070', hair: { style: 'part', color: '#1f1a1a' }, suit: '#66744a', shirt: '#4a5830', open: true, h: 1.0, w: 0.98, stubble: 0.4 };
+LOOKS.res3 = { skin: '#f3c9a3', hair: { style: 'sides', color: '#8a8f9a' }, suit: '#5a6a3c', shirt: '#4a5830', open: true, h: 0.95, w: 1.04, glasses: { shape: 'round', color: '#222' } };
 const MINIONS = ['min1', 'min2', 'min3', 'min4', 'min5'];
 const CROWD = ['crowd1', 'crowd2', 'crowd3', 'crowd4'];
+const RES = ['res1', 'res2', 'res3'];
+
+// A ground shadow that darkens and grows while a falling attack approaches (draw fn for a 'shadow' entity)
+function warnShadow(life, w = 230) {
+  return function (ctx, e) {
+    const k = Math.min(1, e.t / life), r = (w / 2) * (0.4 + k * 0.6);
+    ctx.fillStyle = `rgba(20,8,40,${0.15 + 0.45 * k})`; ctx.beginPath(); ctx.ellipse(0, 0, r, 20 * (0.4 + k * 0.6), 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(255,90,90,${0.3 + 0.6 * k})`; ctx.lineWidth = 3; ctx.stroke();
+  };
+}
 
 // A running minion (used by several supers)
 function minion(B, owner, o) {

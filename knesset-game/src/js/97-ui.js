@@ -2,7 +2,8 @@
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const ICON_SC = { roller: 0.22, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
+const ICON_SC = { roller: 0.22, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6,
+  flame: 0.9, firepillar: 0.2, slide: 0.9, unicorn: 0.34, arrow: 0.5, law: 0.75, lectern: 0.34, orange: 0.9, wave: 0.44, notice: 0.9, plug: 0.26 };
 const iconCache = new Map();
 function iconURL(kind, size = 64) {
   const key = kind + ':' + size;
@@ -27,7 +28,7 @@ function portraitURL(id, size = 128) {
   return url;
 }
 
-const partyChip = (def) => `<span class="party" style="--pc:${def.color}">${def.partyName}</span>`;
+const partyChip = (def) => `<span class="party" style="--pc:${def.color}">${def.partyName}${def.bloc ? ' · ' + def.bloc : ''}</span>`;
 const pips = (n, max = 5) => Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
 const cdText = (m) => (m.cd ? 'טעינה ' + (m.cd / 60).toFixed(1).replace('.0', '') + ' שנ׳' : '');
 
@@ -147,7 +148,7 @@ const UI = {
           <div class="l1">מכות</div>
           <div class="l2">בכנסת</div>
           <div class="l3">KNESSET SMACKDOWN</div>
-          <p class="tag">משחק לחימה סאטירי · 12 חברי כנסת · יכולת מיוחדת לכל אחד</p>
+          <p class="tag">משחק לחימה סאטירי · ${ROSTER.length} לוחמים · ${new Set(ROSTER.map((d) => d.party)).size} מפלגות · יכולת מיוחדת לכל אחד</p>
         </div>
         <nav class="menu">
           <button class="btn primary big nav autofocus" data-act="arcade"><b>מסע לראשות הממשלה</b><small>סדרת קרבות + בוס סודי</small></button>
@@ -374,7 +375,7 @@ const UI = {
     const nm = def.moves;
     return `<div class="dwrap" style="--pc:${def.color}"><div class="dhead">
         <img src="${portraitURL(def.id)}" alt="">
-        <div><h3>${def.name}</h3>${partyChip(def)} <span class="arch">${def.title} · ${def.arch}</span></div>
+        <div><h3>${def.name}</h3>${partyChip(def)} <span class="arch">${def.title} · ${def.arch}</span><p class="role">${def.role}</p></div>
       </div>
       <p class="blurb">${def.blurb}</p>
       ${locked ? `<p class="lockmsg">נעול. כדי לפתוח: ${def.unlock.text}.</p>` : ''}
@@ -385,7 +386,8 @@ const UI = {
         <div class="normals"><h4>המכות הרגילות</h4>
           <ul><li><em>אגרוף</em> ${nm.L.name}</li><li><em>בעיטה</em> ${nm.H.name}</li><li><em>קדימה+בעיטה</em> ${nm.FH.name}</li>
           <li><em>למטה+אגרוף</em> ${nm.DL.name}</li><li><em>למטה+בעיטה</em> ${nm.DH.name}</li><li><em>באוויר</em> ${nm.AL.name} / ${nm.AH.name}</li></ul></div>
-      </div></div>`;
+      </div>
+      <p class="asof">המפלגה והתפקיד נכונים ל-${VERIFIED_ON}. המכות, היכולות והכינויים בדויים, לצחוק בלבד.</p></div>`;
   },
 
   // ---------------------------------------------------------------- Achievements

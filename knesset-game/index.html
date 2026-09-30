@@ -104,7 +104,7 @@ body.canfs .row.fsonly { display: flex; }
 
 /* ------------------------------------------------------------ character select */
 .selbody { flex: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2vmin; padding: 0 3vmin 1vmin; min-height: 0; }
-.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.1vmin; align-content: start; overflow-y: auto; padding: 6px; }
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1vmin; align-content: start; overflow-y: auto; padding: 6px; }
 .card {
   --pc: #888; position: relative; appearance: none; border: 4px solid var(--line); border-radius: 18px; cursor: pointer; color: #fff; padding: .5rem .3rem .45rem;
   background: #2a1a5a; background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 55%, #1a0e40) 0%, #1a0e40 100%); box-shadow: 0 5px 0 var(--line);
@@ -127,6 +127,8 @@ body.canfs .row.fsonly { display: flex; }
 .dhead h3 { margin: 0 0 .2rem; font: 400 1.7em/1.1 var(--f-disp); }
 .arch { color: var(--muted); font-weight: 700; margin-inline-start: .4rem; }
 .party { display: inline-block; background: var(--pc, #666); color: #10061f; font-weight: 800; font-size: .78em; padding: .1em .7em; border-radius: 999px; border: 2px solid var(--line); }
+.role { margin: .25rem 0 0; font-size: .8em; color: #d9d0f2; font-weight: 600; line-height: 1.3; }
+.asof { margin: .7rem 0 .2rem; font-size: .7em; color: var(--muted); line-height: 1.35; }
 .blurb { margin: .3rem 0 .8rem; color: #e6defa; line-height: 1.45; }
 .lockmsg { color: #ff9ab4; font-weight: 700; }
 .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: .3rem; margin-bottom: .8rem; }
@@ -359,7 +361,7 @@ body.portrait #trainbar { top: calc(calc(56.25 * var(--u-vw)) + 24px + 104px); m
   body.ls .pause-card .btn { padding: .38em .8em; }
   body.ls .pause-card .btn.big { padding: .45em 1em; }
   body.ls .selbody { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
-  body.ls .grid { grid-template-columns: repeat(7, 1fr); gap: .8vmin; }
+  body.ls .grid { grid-template-columns: repeat(8, 1fr); gap: .7vmin; }
   body.ls .card { padding: .3rem .1rem; border-width: 3px; border-radius: 12px; }
   body.ls .card span { display: none; }
   body.ls .card b { font-size: .8em; }
@@ -820,7 +822,7 @@ const ENT = {
       const r = 20 + i * 15 + ((e.t * 1.5) % 15);
       ctx.beginPath(); ctx.arc(-30, 0, r, -0.95, 0.95);
       ctx.lineWidth = 9; ctx.strokeStyle = OUT; ctx.stroke();
-      ctx.lineWidth = 5; ctx.strokeStyle = i % 2 ? '#ffd24a' : '#fff3b8'; ctx.stroke();
+      ctx.lineWidth = 5; ctx.strokeStyle = i % 2 ? (e.col || '#ffd24a') : (e.col2 || '#fff3b8'); ctx.stroke();
     }
   },
 
@@ -957,6 +959,155 @@ const ENT = {
     ctx.lineWidth = 4; ctx.strokeStyle = rgba(e.col || '#ffd94a', 0.9); ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.stroke();
     ctx.restore();
   },
+
+  // ---- Gotliv: fire
+  flame(ctx, e) {
+    const t = e.t || 0, f = 1 + Math.sin(t * 0.7) * 0.09;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 50, '#ff7a2a', 0.7); ctx.restore();
+    for (let i = 0; i < 3; i++) {
+      const w = Math.sin(t * 0.6 + i * 2) * 4;
+      ctx.beginPath(); ctx.moveTo(-6 - i * 8, w * 0.6);
+      ctx.quadraticCurveTo(-26 - i * 10, -12 + w, -46 - i * 12, w * 1.3);
+      ctx.quadraticCurveTo(-26 - i * 10, 12 + w, -6 - i * 8, w * 0.6);
+      ctx.fillStyle = `rgba(255,${110 + i * 40},40,${0.6 - i * 0.16})`; ctx.fill();
+    }
+    ctx.beginPath(); ctx.moveTo(26, 0); ctx.quadraticCurveTo(12, -21 * f, -14, -15); ctx.quadraticCurveTo(-32, 0, -14, 15); ctx.quadraticCurveTo(12, 21 * f, 26, 0);
+    ol(ctx, '#ff7a1f', 2.4);
+    ctx.beginPath(); ctx.moveTo(17, 0); ctx.quadraticCurveTo(6, -11, -11, -8); ctx.quadraticCurveTo(-22, 0, -11, 8); ctx.quadraticCurveTo(6, 11, 17, 0); ctx.fillStyle = '#ffd23d'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(3, 0, 8, 4.6, 0, 0, TAU); ctx.fillStyle = '#fff6c8'; ctx.fill();
+  },
+  firepillar(ctx, e) {
+    const h = e.h || 220, t = e.t || 0, grow = Math.min(1, (t + 1) / 5) * (e.life !== undefined && e.life < 8 ? e.life / 8 : 1), hh = h * grow;
+    ctx.save(); ctx.translate(0, h / 2);       // origin = base of the pillar
+    ctx.globalCompositeOperation = 'lighter'; glow(ctx, 90, '#ff6a1f', 0.55 * grow); ctx.globalCompositeOperation = 'source-over';
+    const cols = [['#c81e1e', 44], ['#ff5a1f', 34], ['#ff9a2a', 24], ['#ffe066', 13]];
+    for (const [c, w] of cols) {
+      ctx.beginPath(); ctx.moveTo(-w, 4);
+      for (let i = 0; i <= 6; i++) {
+        const k = i / 6, x = -w + k * 2 * w, jag = (i % 2 ? 1 : 0.62) * (0.8 + 0.2 * Math.sin(t * 0.7 + i * 1.9));
+        const top = -hh * jag * (1 - Math.abs(k - 0.5) * 0.9);
+        ctx.lineTo(x, top * (c === '#ffe066' ? 0.62 : c === '#ff9a2a' ? 0.8 : 1));
+      }
+      ctx.lineTo(w, 4); ctx.closePath(); ctx.fillStyle = c; ctx.globalAlpha = 0.92; ctx.fill(); ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  },
+
+  // ---- Bennett: start-up gags
+  slide(ctx, e) {
+    ctx.rotate(Math.sin((e.t || 0) * 0.25) * 0.18);
+    rr(ctx, -28, -20, 56, 40, 5); ol(ctx, '#ffffff', 2.6);
+    ctx.fillStyle = '#19c6b7'; ctx.fillRect(-28, -20, 56, 8);
+    ctx.strokeStyle = '#2e9d55'; ctx.lineWidth = 3.2; ctx.lineJoin = 'round';
+    ctx.beginPath(); ctx.moveTo(-20, 12); ctx.lineTo(-9, 3); ctx.lineTo(0, 7); ctx.lineTo(18, -6); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(18, -6); ctx.lineTo(12, -6.5); ctx.lineTo(16.5, -1); ctx.closePath(); ctx.fillStyle = '#2e9d55'; ctx.fill();
+    ctx.fillStyle = '#c9d0dc'; ctx.fillRect(-22, -8, 18, 2.4); ctx.fillRect(-22, -3.6, 12, 2.4);
+  },
+  unicorn(ctx, e) {
+    const t = e.t || 0, gal = Math.sin(t * 0.55), gal2 = Math.cos(t * 0.55);
+    const rainbow = ['#ff5a7a', '#ffa53a', '#ffe14a', '#5cd67a', '#4aa8ff', '#a06bff'];
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath(); ctx.moveTo(-38, -8 + i * 2.2);
+      ctx.quadraticCurveTo(-62 - i * 2, -22 + i * 3 + gal * 7, -84 - i * 3, 4 + i * 3.2 + gal2 * 8);
+      ctx.lineWidth = 4.4; ctx.lineCap = 'round'; ctx.strokeStyle = rainbow[i]; ctx.stroke();
+    }
+    const leg = (x, ph, far) => {
+      const a = Math.sin(t * 0.55 + ph) * 0.7;
+      ctx.save(); ctx.translate(x, 14); ctx.rotate(a);
+      rr(ctx, -5, 0, 10, 30, 4); ol(ctx, far ? '#d9cfe8' : '#f7f0ff', 2.2);
+      rr(ctx, -5.6, 26, 11.2, 8, 3); ol(ctx, '#7a5cc8', 2);
+      ctx.restore();
+    };
+    leg(-24, 2.6, true); leg(26, 0.4, true);
+    ctx.beginPath(); ctx.ellipse(-2, 0, 42, 22, 0, 0, TAU); ol(ctx, '#f7f0ff');
+    ctx.fillStyle = 'rgba(160,120,220,.25)'; ctx.beginPath(); ctx.ellipse(-6, 10, 36, 10, 0, 0, TAU); ctx.fill();
+    leg(-36, 0, false); leg(14, 3.1, false);
+    ctx.beginPath(); ctx.moveTo(24, -12); ctx.quadraticCurveTo(44, -32, 52, -46); ctx.lineTo(72, -40); ctx.quadraticCurveTo(80, -30, 68, -21); ctx.quadraticCurveTo(58, -15, 42, 0); ctx.closePath(); ol(ctx, '#f7f0ff');
+    for (let i = 0; i < 6; i++) {
+      ctx.beginPath(); ctx.moveTo(48 - i * 5, -44 + i * 6);
+      ctx.quadraticCurveTo(30 - i * 5, -40 + i * 7 + gal * 3, 20 - i * 4, -18 + i * 5 + gal2 * 3);
+      ctx.lineWidth = 3.4; ctx.strokeStyle = rainbow[i]; ctx.stroke();
+    }
+    ctx.beginPath(); ctx.moveTo(62, -45); ctx.lineTo(76, -74); ctx.lineTo(70, -43); ctx.closePath(); ol(ctx, '#ffd23d', 2);
+    ctx.beginPath(); ctx.moveTo(63, -50); ctx.lineTo(71, -52); ctx.moveTo(66, -57); ctx.lineTo(73, -59); ctx.lineWidth = 1.4; ctx.strokeStyle = '#c99700'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(66, -33, 2.3, 0, TAU); ctx.fillStyle = OUT; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(52, -50); ctx.lineTo(56, -60); ctx.lineTo(60, -49); ctx.closePath(); ol(ctx, '#f7f0ff', 2);
+  },
+
+  // ---- Eisenkot: the map table
+  arrow(ctx, e) {
+    const L = (e.w || 120) / 2, hh = (e.h || 40) / 2, col = e.col || '#e4483d';
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; ctx.setLineDash([9, 8]);
+    ctx.beginPath(); ctx.moveTo(-L - 46, 0); ctx.lineTo(-L, 0); ctx.stroke(); ctx.setLineDash([]);
+    ctx.beginPath(); ctx.moveTo(-L, -hh * 0.42); ctx.lineTo(L * 0.25, -hh * 0.42); ctx.lineTo(L * 0.25, -hh); ctx.lineTo(L, 0); ctx.lineTo(L * 0.25, hh); ctx.lineTo(L * 0.25, hh * 0.42); ctx.lineTo(-L, hh * 0.42); ctx.closePath();
+    ol(ctx, col, 3);
+    ctx.fillStyle = 'rgba(255,255,255,.28)'; ctx.fillRect(-L + 4, -hh * 0.3, L * 1.2, hh * 0.2);
+  },
+
+  // ---- Asher: paperwork and a lectern
+  law(ctx, e) {
+    ctx.rotate(Math.sin((e.t || 0) * 0.18) * 0.12);
+    rr(ctx, -26, -32, 52, 64, 4); ol(ctx, '#fdfaf0', 2.6);
+    ctx.fillStyle = '#c8cfdc'; for (let i = 0; i < 5; i++) ctx.fillRect(-19, -24 + i * 8, i === 4 ? 22 : 38, 2.6);
+    ctx.save(); ctx.translate(8, 14); ctx.rotate(-0.32);
+    ctx.beginPath(); ctx.arc(0, 0, 14, 0, TAU); ctx.lineWidth = 2.6; ctx.strokeStyle = '#d63a3a'; ctx.stroke();
+    ctx.fillStyle = '#d63a3a'; ctx.font = '900 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'rtl'; ctx.fillText('דחוף', 0, 1);
+    ctx.restore();
+  },
+  lectern(ctx, e) {
+    const k = e.t !== undefined ? Math.min(1, (e.t + 1) / 6) : 1;
+    ctx.save(); ctx.translate(0, 60 * (1 - k));
+    ctx.beginPath(); ctx.moveTo(-28, 62); ctx.lineTo(-22, -6); ctx.lineTo(22, -6); ctx.lineTo(28, 62); ctx.closePath(); ol(ctx, '#8a5a30', 2.8);
+    ctx.fillStyle = 'rgba(0,0,0,.18)'; ctx.fillRect(-14, 4, 28, 54);
+    ctx.beginPath(); ctx.moveTo(-36, -8); ctx.lineTo(36, -8); ctx.lineTo(28, -34); ctx.lineTo(-28, -34); ctx.closePath(); ol(ctx, '#a8703a', 2.8);
+    ctx.fillStyle = '#fdfaf0'; ctx.save(); ctx.translate(0, -24); ctx.transform(1, 0, 0, 0.45, 0, 0); ctx.fillRect(-19, -8, 38, 14); ctx.restore();
+    ctx.fillStyle = '#e2b84a'; ctx.fillRect(-24, 46, 48, 5);
+    ctx.restore();
+  },
+
+  // ---- Abu Shehadeh: Jaffa
+  orange(ctx, e) {
+    ctx.rotate((e.t || 0) * 0.16);
+    ctx.beginPath(); ctx.arc(0, 0, 21, 0, TAU);
+    const g = ctx.createRadialGradient(-7, -8, 3, 0, 0, 24); g.addColorStop(0, '#ffc25a'); g.addColorStop(0.6, '#f39a1e'); g.addColorStop(1, '#c76a0a');
+    ol(ctx, g, 2.6);
+    ctx.fillStyle = 'rgba(140,60,0,.35)'; for (const [x, y] of [[-8, 5], [6, 9], [10, -6], [-3, -10], [2, 0]]) { ctx.beginPath(); ctx.arc(x, y, 1.1, 0, TAU); ctx.fill(); }
+    ctx.beginPath(); ctx.ellipse(-2, -21, 8, 3.4, -0.3, 0, TAU); ol(ctx, '#3fae4e', 2);
+    ctx.fillStyle = 'rgba(255,255,255,.4)'; ctx.beginPath(); ctx.ellipse(-8, -8, 5.5, 3, -0.6, 0, TAU); ctx.fill();
+  },
+  wave(ctx, e) {
+    const t = e.t || 0, s = (e.sc2 || 1), sw = Math.sin(t * 0.3) * 3;
+    ctx.scale(s, s);
+    ctx.beginPath(); ctx.moveTo(-44, 44); ctx.quadraticCurveTo(-46, -8 + sw, -18, -30); ctx.quadraticCurveTo(14, -52 - sw, 34, -30);
+    ctx.quadraticCurveTo(52, -14, 40, -2); ctx.quadraticCurveTo(28, -14, 20, -8); ctx.quadraticCurveTo(28, 14, 44, 44); ctx.closePath();
+    const g = ctx.createLinearGradient(0, -50, 0, 44); g.addColorStop(0, '#7fd8ff'); g.addColorStop(0.55, '#2e8fe0'); g.addColorStop(1, '#155aa8');
+    ol(ctx, g, 3);
+    ctx.strokeStyle = 'rgba(255,255,255,.75)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(-20, -24); ctx.quadraticCurveTo(10, -46 - sw, 30, -28); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; for (const [x, y, r] of [[36, -20, 4], [44, -8, 3], [26, -38, 3.4], [-4, -40, 3]]) { ctx.beginPath(); ctx.arc(x + sw * 0.4, y, r, 0, TAU); ctx.fill(); }
+  },
+
+  // ---- Hendel: call-up notice
+  notice(ctx, e) {
+    ctx.rotate(Math.sin((e.t || 0) * 0.2 + (e.n || 0)) * 0.2);
+    rr(ctx, -27, -20, 54, 40, 4); ol(ctx, '#efb15a', 2.6);
+    rr(ctx, -21, -15, 42, 30, 3); ol(ctx, '#fff7e0', 1.8);
+    ctx.fillStyle = '#c4462a'; ctx.font = '900 25px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.direction = 'ltr'; ctx.fillText('8', 8, 2);
+    ctx.fillStyle = '#5b5348'; ctx.font = '900 11px Arial'; ctx.direction = 'rtl'; ctx.fillText('צו', -10, 1);
+  },
+
+  // ---- Maoz: pulling the plug
+  plug(ctx, e) {
+    ctx.translate(0, 40);     // the prongs' tips sit on the bottom edge of the entity's box
+    ctx.strokeStyle = OUT; ctx.lineWidth = 12; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(0, -44); ctx.quadraticCurveTo(30, -120, -10, -170); ctx.stroke();
+    ctx.strokeStyle = '#3a3f4c'; ctx.lineWidth = 7; ctx.stroke();
+    rr(ctx, -34, -46, 68, 46, 10); ol(ctx, '#e8edf6', 3);
+    rr(ctx, -34, -56, 68, 18, 6); ol(ctx, '#cfd6e4', 3);
+    for (const px of [-16, 16]) { rr(ctx, px - 6, 0, 12, 34, 3); ol(ctx, '#c6ccd8', 2.4); }
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fillRect(-28, -42, 10, 30);
+    if ((e.t || 0) % 6 < 3) { ctx.strokeStyle = '#ffe14a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-22, 40); ctx.lineTo(-14, 52); ctx.lineTo(-20, 54); ctx.lineTo(-10, 68); ctx.moveTo(24, 38); ctx.lineTo(16, 50); ctx.lineTo(22, 54); ctx.lineTo(12, 66); ctx.stroke(); }
+  },
 };
 
 // Held props (drawn at the hand, pointing along +x). `a` is an extra rotation.
@@ -995,6 +1146,11 @@ const PROP = {
   pen(ctx) {
     ctx.fillStyle = '#2b5fd9'; ctx.fillRect(0, -2.5, 34, 5); ctx.strokeStyle = OUT; ctx.lineWidth = 2; ctx.strokeRect(0, -2.5, 34, 5);
     ctx.beginPath(); ctx.moveTo(34, -2.5); ctx.lineTo(44, 0); ctx.lineTo(34, 2.5); ctx.closePath(); ol(ctx, '#f2d59a', 2);
+  },
+  map(ctx) {
+    rr(ctx, 2, -8, 46, 16, 8); ol(ctx, '#e8dcae', 2.5);
+    ctx.strokeStyle = '#b8a464'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(10, -3); ctx.lineTo(38, -3); ctx.moveTo(10, 3); ctx.lineTo(32, 3); ctx.stroke();
+    ctx.fillStyle = '#d94a3a'; ctx.fillRect(22, -8, 4, 16);
   },
   megaphone(ctx) {
     ctx.beginPath(); ctx.moveTo(2, -6); ctx.lineTo(26, -20); ctx.lineTo(26, 20); ctx.lineTo(2, 6); ctx.closePath(); ol(ctx, '#f0a020', 2.5);
@@ -1645,6 +1801,23 @@ function drawHead(ctx, f, look, p, C, o = {}) {
     ctx.restore();
   }
 
+  // black brimmed hat
+  if (look.hat) {
+    const hc = look.hat.color || '#121118';
+    ctx.save(); ctx.translate(0, -18.6); ctx.rotate(-0.05);
+    ctx.beginPath(); ctx.ellipse(-0.6, 0.6, 25.5, 5.4, 0, 0, TAU);
+    const bg = ctx.createLinearGradient(0, -5, 0, 6); bg.addColorStop(0, C(lighten(hc, 0.16))); bg.addColorStop(1, C(darken(hc, 0.1)));
+    ctx.fillStyle = bg; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-15.4, 0.6); ctx.bezierCurveTo(-16.6, -12.5, -12.6, -20.2, -3, -20.6); ctx.bezierCurveTo(6.4, -21, 13, -15.6, 14, 0.6); ctx.closePath();
+    const cg = ctx.createLinearGradient(-16, -20, 14, 0); cg.addColorStop(0, C(lighten(hc, 0.22))); cg.addColorStop(0.5, C(hc)); cg.addColorStop(1, C(darken(hc, 0.2)));
+    ctx.fillStyle = cg; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = C(lighten(hc, 0.3)); ctx.globalAlpha = 0.3;
+    ctx.beginPath(); ctx.moveTo(-14.6, -5.6); ctx.quadraticCurveTo(-1, -3.4, 13.6, -6); ctx.lineTo(13.8, -2.6); ctx.quadraticCurveTo(-1, -0.2, -15, -2.4); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(-14, -18); ctx.quadraticCurveTo(-8, -20.6, -2, -20.4); ctx.lineWidth = 1.2; ctx.strokeStyle = C(lighten(hc, 0.5)); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   // glasses
   if (look.glasses) {
     const gl = look.glasses, col = C(gl.color || '#222');
@@ -1976,7 +2149,7 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
 /* ---- 30-looks.js ---- */
 // ===== Character looks: semi-realistic caricatures. Everyone is identified by hair, build, clothes and a few facial traits. =====
 // Optional face fields (all subtle, 0.9 - 1.15 is the useful range): jaw width, nose size, brow thickness, age (lines), stubble (0-1),
-// beard {color}, stache, glasses, kippah, female (lips + lashes), iris colour.
+// beard {color}, stache, glasses, kippah, hat {color} (black brimmed hat), female (lips + lashes), iris colour.
 const LOOKS = {
   bibi: {
     skin: '#f0c7a3', hair: { style: 'swoop', color: '#dfe3ea' }, browColor: '#7f8797', brow: 2.7, age: 0.7, iris: '#5b5648',
@@ -2026,9 +2199,41 @@ const LOOKS = {
     skin: '#f0c5a0', hair: { style: 'wavy', color: '#c49a62' }, browColor: '#7a5a30', earring: '#ffd24a', female: true, age: 0.3, jaw: 0.92, nose: 0.95, iris: '#5a4028',
     suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.97, w: 0.92, open: true, head: 1.0,
   },
-  edelstein: {
-    skin: '#ecc19f', hair: { style: 'sides', color: '#b7bcc7' }, glasses: { shape: 'round', color: '#3a3a44' }, browColor: '#7d828d', age: 0.6, iris: '#4a5560',
-    suit: '#2b3f66', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 0.98, w: 1.0,
+  ohana: {
+    skin: '#e6bb95', hair: { style: 'crop', color: '#332a24' }, stubble: 0.55, browColor: '#3b302a', brow: 2.9, age: 0.3, iris: '#3c2a1e',
+    suit: '#1c2436', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.02, w: 1.02, jaw: 1.04,
+  },
+  gotliv: {
+    skin: '#efc6a2', hair: { style: 'wavy', color: '#3a2820' }, browColor: '#3a2820', female: true, age: 0.35, jaw: 0.94, nose: 1.0, iris: '#4a3220',
+    suit: '#221a33', shirt: '#efe6ff', open: true, pin: '#8a4fe0', earring: '#d8d8e6', h: 0.97, w: 0.93, head: 1.0,
+  },
+  bennett: {
+    skin: '#efc8a3', hair: { style: 'crop', color: '#3b2e26' }, kippah: { color: '#2b3a6b', knit: '#e9eef8' }, stubble: 0.25, browColor: '#3b2e26', brow: 2.7, age: 0.35, iris: '#4a5a4a',
+    suit: '#2a3245', shirt: '#dbe6f7', open: true, pin: '#19c6b7', h: 1.0, w: 0.99, jaw: 1.0,
+  },
+  eisenkot: {
+    skin: '#e7bd97', hair: { style: 'crop', color: '#babfc9' }, browColor: '#5f6473', brow: 3.6, age: 0.65, iris: '#54606a',
+    suit: '#1d2a3c', shirt: '#e9eef7', open: true, pin: '#18b0e0', h: 1.04, w: 1.06, jaw: 1.1, nose: 1.05,
+  },
+  asher: {
+    skin: '#e5bd98', hair: { style: 'none', color: '#5a5350' }, beard: { color: '#6d6660' }, hat: { color: '#121118' }, browColor: '#4c4642', brow: 3.0, age: 0.6, iris: '#3b2a1e',
+    suit: '#14141b', shirt: '#ffffff', h: 0.98, w: 1.06, jaw: 1.05,
+  },
+  maoz: {
+    skin: '#e0b48c', hair: { style: 'none', color: '#a9adb5' }, beard: { color: '#a9adb5' }, kippah: { color: '#15141d' }, browColor: '#7a7f8a', brow: 3.1, age: 0.7, iris: '#3f3428',
+    suit: '#2a2732', shirt: '#f2f2f2', h: 0.99, w: 1.03, jaw: 1.06,
+  },
+  abushehadeh: {
+    skin: '#c99872', hair: { style: 'crop', color: '#211a17' }, stubble: 0.7, browColor: '#211a17', brow: 3.1, age: 0.3, iris: '#2e2119',
+    suit: '#22303a', shirt: '#eaf3f2', open: true, pin: '#1f8f63', h: 1.01, w: 1.0, jaw: 1.04,
+  },
+  hendel: {
+    skin: '#efc5a1', hair: { style: 'part', color: '#5a4232' }, stubble: 0.4, browColor: '#4c382a', brow: 2.8, age: 0.3, iris: '#4a5a52',
+    suit: '#4c5a34', shirt: '#f1efe6', open: true, pin: '#b59f5a', h: 1.0, w: 0.98, jaw: 1.0,
+  },
+  winter: {
+    skin: '#e6b990', hair: { style: 'crop', color: '#514c48' }, kippah: { color: '#222b3d', knit: '#c9a959' }, stubble: 0.22, browColor: '#3d3835', brow: 3.6, age: 0.4, iris: '#3f4a52',
+    suit: '#2a3a2c', shirt: '#f2f2f2', open: true, pin: '#e0a82e', h: 1.06, w: 1.1, jaw: 1.14, nose: 1.02,
   },
 };
 
@@ -3245,8 +3450,22 @@ LOOKS.crowd1 = { skin: '#f2c6a0', hair: { style: 'crop', color: '#5a3d2b' }, sui
 LOOKS.crowd2 = { skin: '#c99870', hair: { style: 'part', color: '#1f1a1a' }, suit: '#e0584a', shirt: '#e0584a', open: true, h: 0.98, w: 1.0 };
 LOOKS.crowd3 = { skin: '#e6b78f', hair: { style: 'wavy', color: '#c9a26a' }, suit: '#52b46a', shirt: '#52b46a', open: true, h: 0.92, w: 0.92 };
 LOOKS.crowd4 = { skin: '#f6cfa8', hair: { style: 'sides', color: '#8a8f9a' }, suit: '#e6b83a', shirt: '#e6b83a', open: true, h: 0.96, w: 1.02 };
+// reservists in olive
+LOOKS.res1 = { skin: '#f0c7a6', hair: { style: 'crop', color: '#3a2c24' }, suit: '#5a6a3c', shirt: '#4a5830', open: true, h: 0.98, w: 1.0 };
+LOOKS.res2 = { skin: '#d6a070', hair: { style: 'part', color: '#1f1a1a' }, suit: '#66744a', shirt: '#4a5830', open: true, h: 1.0, w: 0.98, stubble: 0.4 };
+LOOKS.res3 = { skin: '#f3c9a3', hair: { style: 'sides', color: '#8a8f9a' }, suit: '#5a6a3c', shirt: '#4a5830', open: true, h: 0.95, w: 1.04, glasses: { shape: 'round', color: '#222' } };
 const MINIONS = ['min1', 'min2', 'min3', 'min4', 'min5'];
 const CROWD = ['crowd1', 'crowd2', 'crowd3', 'crowd4'];
+const RES = ['res1', 'res2', 'res3'];
+
+// A ground shadow that darkens and grows while a falling attack approaches (draw fn for a 'shadow' entity)
+function warnShadow(life, w = 230) {
+  return function (ctx, e) {
+    const k = Math.min(1, e.t / life), r = (w / 2) * (0.4 + k * 0.6);
+    ctx.fillStyle = `rgba(20,8,40,${0.15 + 0.45 * k})`; ctx.beginPath(); ctx.ellipse(0, 0, r, 20 * (0.4 + k * 0.6), 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = `rgba(255,90,90,${0.3 + 0.6 * k})`; ctx.lineWidth = 3; ctx.stroke();
+  };
+}
 
 // A running minion (used by several supers)
 function minion(B, owner, o) {
@@ -3265,27 +3484,35 @@ function minion(B, owner, o) {
 
 /* ---- 85-roster.js ---- */
 // ===== Roster =====
-// Cartoon caricatures of Knesset members for a satire / parody game. Moves, quotes and abilities are invented.
-// Party affiliations reflect the public record at the time of writing and are trivial to update here.
+// Cartoon caricatures of Knesset members and party leaders for a satire / parody game. Moves, quotes, abilities and
+// nicknames are invented for fun. The only factual claims are the party and the `role` line; both were checked against
+// news reports on VERIFIED_ON (see ../DATA.md for the sources) and are trivial to update here.
+const VERIFIED_ON = '30.9.2026';
 
 const PARTIES = {
-  likud:    { name: 'הליכוד', color: '#2155e0' },
-  otzma:    { name: 'עוצמה יהודית', color: '#8a4fe0' },
-  rz:       { name: 'הציונות הדתית', color: '#f28a1e' },
-  shas:     { name: 'ש״ס', color: '#f4c81d' },
-  yb:       { name: 'ישראל ביתנו', color: '#b3562a' },
-  ya:       { name: 'יש עתיד', color: '#19c6b7' },
-  bw:       { name: 'כחול לבן', color: '#6ec6ff' },
-  dem:      { name: 'הדמוקרטים', color: '#38b56a' },
-  hadash:   { name: 'חד״ש', color: '#e23b52' },
-  raam:     { name: 'רע״מ', color: '#a5d63c' },
-  taal:     { name: 'תע״ל', color: '#e05fb4' },
-  neutral:  { name: 'עצמאי', color: '#c9ced8' },
+  likud:      { name: 'הליכוד', color: '#2155e0' },
+  otzma:      { name: 'עוצמה יהודית', color: '#8a4fe0' },
+  rz:         { name: 'הציונות הדתית', color: '#f28a1e' },
+  noam:       { name: 'נעם לישראל', color: '#c76a1f' },
+  shas:       { name: 'ש״ס', color: '#f4c81d' },
+  utj:        { name: 'יהדות התורה', color: '#7c86c8' },
+  yb:         { name: 'ישראל ביתנו', color: '#b3562a' },
+  byachad:    { name: 'ביחד', color: '#19c6b7' },            // Bennett + Lapid (Yesh Atid) joint list
+  yashar:     { name: 'ישר!', color: '#18b0e0' },
+  bw:         { name: 'כחול לבן', color: '#6ec6ff' },
+  dem:        { name: 'הדמוקרטים', color: '#38b56a' },
+  hadash:     { name: 'חד״ש', color: '#e23b52', bloc: 'הרשימה המשותפת' },
+  taal:       { name: 'תע״ל', color: '#e05fb4', bloc: 'הרשימה המשותפת' },
+  balad:      { name: 'בל״ד', color: '#1f8f63', bloc: 'הרשימה המשותפת' },
+  raam:       { name: 'רע״מ', color: '#a5d63c' },
+  reservists: { name: 'המילואימניקים', color: '#b59f5a' },
+  amcha:      { name: 'עמך ישראל', color: '#e0a82e' },
+  neutral:    { name: 'עצמאי', color: '#c9ced8' },
 };
 
 function fighterDef(d) {
   const p = PARTIES[d.party];
-  d.color = p.color; d.partyName = p.name; d.look = LOOKS[d.id];
+  d.color = p.color; d.partyName = p.name; d.bloc = p.bloc || ''; d.look = LOOKS[d.id];
   d.moves = Object.assign(normals(d.normals), { sp1: d.sp1, sp2: d.sp2, sup: d.sup });
   d.stats = Object.assign({ hp: 118, spd: 1, pow: 1, def: 1, jump: 1, meter: 1 }, d.stats);
   d.passive = d.passive || {};
@@ -3303,7 +3530,7 @@ const hudPips = (ctx, f, x, y, dir, s, n, max, col, label) => {
 const ROSTER = [
   // ============================================================================ נתניהו
   fighterDef({
-    id: 'bibi', name: 'בנימין נתניהו', short: 'נתניהו', party: 'likud', title: 'הקוסם', arch: 'שרדן',
+    id: 'bibi', name: 'בנימין נתניהו', short: 'נתניהו', party: 'likud', title: 'הקוסם', arch: 'שרדן', role: 'ראש הממשלה · יו״ר הליכוד',
     blurb: 'כל קרב אצלו הוא הצגה של קוסם. כשכבר נראה שנגמר, מגיע קלף מהשרוול.',
     stats: { hp: 112 }, rating: { pow: 3, spd: 3, def: 3, rng: 4, dif: 2 },
     ai: { style: 'zone', space: 320 },
@@ -3366,7 +3593,7 @@ const ROSTER = [
 
   // ============================================================================ בן גביר
   fighterDef({
-    id: 'bengvir', name: 'איתמר בן גביר', short: 'בן גביר', party: 'otzma', title: 'האדרנלין', arch: 'מסתער',
+    id: 'bengvir', name: 'איתמר בן גביר', short: 'בן גביר', party: 'otzma', title: 'האדרנלין', arch: 'מסתער', role: 'השר לביטחון לאומי · יו״ר עוצמה יהודית',
     blurb: 'לא מחכה לתור. נכנס למכה, ועם כל פגיעה נהיה מהיר וחזק יותר.',
     stats: { hp: 114, spd: 1.1, pow: 1.04 }, rating: { pow: 4, spd: 4, def: 2, rng: 2, dif: 3 },
     ai: { style: 'rush', space: 110 },
@@ -3426,7 +3653,7 @@ const ROSTER = [
 
   // ============================================================================ סמוטריץ'
   fighterDef({
-    id: 'smotrich', name: 'בצלאל סמוטריץ׳', short: 'סמוטריץ׳', party: 'rz', title: 'שר האוצר', arch: 'חשב',
+    id: 'smotrich', name: 'בצלאל סמוטריץ׳', short: 'סמוטריץ׳', party: 'rz', title: 'שר האוצר', arch: 'חשב', role: 'שר האוצר · יו״ר הציונות הדתית',
     blurb: 'לא רק מנצח בנקודות: גוזל מהיריב את ההייפ ומשלם בו את החשבון.',
     stats: { hp: 110, spd: 0.96 }, rating: { pow: 3, spd: 3, def: 2, rng: 4, dif: 3 },
     ai: { style: 'zone', space: 300 },
@@ -3475,7 +3702,7 @@ const ROSTER = [
 
   // ============================================================================ דרעי
   fighterDef({
-    id: 'deri', name: 'אריה דרעי', short: 'דרעי', party: 'shas', title: 'קלף המיקוח', arch: 'עוגן',
+    id: 'deri', name: 'אריה דרעי', short: 'דרעי', party: 'shas', title: 'קלף המיקוח', arch: 'עוגן', role: 'יו״ר ש״ס',
     blurb: 'מתאמן על סבלנות. סוגר עסקה בכל סיבוב ויוצא עם רווח.',
     stats: { hp: 118, spd: 0.9, pow: 1, def: 0.97 }, rating: { pow: 3, spd: 2, def: 5, rng: 3, dif: 2 },
     ai: { style: 'tank', space: 150 },
@@ -3520,7 +3747,7 @@ const ROSTER = [
 
   // ============================================================================ ליברמן
   fighterDef({
-    id: 'liberman', name: 'אביגדור ליברמן', short: 'ליברמן', party: 'yb', title: 'אין פשרות', arch: 'טנק',
+    id: 'liberman', name: 'אביגדור ליברמן', short: 'ליברמן', party: 'yb', title: 'אין פשרות', arch: 'טנק', role: 'יו״ר ישראל ביתנו',
     blurb: 'מכות כבדות שלא מוותרות. מתי שכבר התחיל, אף אחד לא עוצר אותו.',
     stats: { hp: 116, spd: 0.92, pow: 1.04 }, rating: { pow: 4, spd: 2, def: 4, rng: 2, dif: 2 },
     ai: { style: 'tank', space: 130 },
@@ -3562,7 +3789,7 @@ const ROSTER = [
 
   // ============================================================================ לפיד
   fighterDef({
-    id: 'lapid', name: 'יאיר לפיד', short: 'לפיד', party: 'ya', title: 'הרייטינג', arch: 'תקשורתי',
+    id: 'lapid', name: 'יאיר לפיד', short: 'לפיד', party: 'byachad', title: 'הרייטינג', arch: 'תקשורתי', role: 'ראש האופוזיציה · יו״ר יש עתיד · מס׳ 2 ברשימת ביחד',
     blurb: 'קליעים ויראליים והייפ שמתמלא מהר. כל פגיעה היא עוד כותרת.',
     stats: { hp: 104, spd: 1.06, pow: 0.96, meter: 1.3 }, rating: { pow: 2, spd: 4, def: 2, rng: 5, dif: 3 },
     ai: { style: 'zone', space: 360 },
@@ -3625,7 +3852,7 @@ const ROSTER = [
 
   // ============================================================================ גנץ
   fighterDef({
-    id: 'gantz', name: 'בני גנץ', short: 'גנץ', party: 'bw', title: 'משמעת', arch: 'מפקד',
+    id: 'gantz', name: 'בני גנץ', short: 'גנץ', party: 'bw', title: 'משמעת', arch: 'מפקד', role: 'יו״ר כחול לבן',
     blurb: 'מגן קודם, מכה אחר כך. בלוק מושלם אצלו מסתיים בתגובה מיידית.',
     stats: { hp: 136, spd: 1, pow: 1.08, def: 0.96 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 200 },
@@ -3689,7 +3916,7 @@ const ROSTER = [
 
   // ============================================================================ גולן
   fighterDef({
-    id: 'golan', name: 'יאיר גולן', short: 'גולן', party: 'dem', title: 'רוח המחאה', arch: 'מתאושש',
+    id: 'golan', name: 'יאיר גולן', short: 'גולן', party: 'dem', title: 'רוח המחאה', arch: 'מתאושש', role: 'יו״ר הדמוקרטים',
     blurb: 'ככל שהוא נדחק לפינה, הוא נעשה מסוכן יותר. הרחוב תמיד איתו.',
     stats: { hp: 125, spd: 0.95, pow: 1.04 }, rating: { pow: 4, spd: 3, def: 3, rng: 3, dif: 2 },
     ai: { style: 'balanced', space: 170 },
@@ -3741,7 +3968,7 @@ const ROSTER = [
 
   // ============================================================================ עודה
   fighterDef({
-    id: 'odeh', name: 'איימן עודה', short: 'עודה', party: 'hadash', title: 'גשר', arch: 'זריז',
+    id: 'odeh', name: 'איימן עודה', short: 'עודה', party: 'hadash', title: 'גשר', arch: 'זריז', role: 'חבר כנסת · יו״ר חד״ש היוצא (לא מתמודד ב-2026)',
     blurb: 'קופץ פעמיים, חוצה פערים וממשיך לדבר. קשה לתפוס אותו במקום אחד.',
     stats: { hp: 124, spd: 1.1, pow: 1.07, jump: 1.05 }, rating: { pow: 2, spd: 5, def: 2, rng: 3, dif: 4 },
     ai: { style: 'rush', space: 150 },
@@ -3797,7 +4024,7 @@ const ROSTER = [
 
   // ============================================================================ עבאס
   fighterDef({
-    id: 'abbas', name: 'מנסור עבאס', short: 'עבאס', party: 'raam', title: 'לשון המאזניים', arch: 'מכריע',
+    id: 'abbas', name: 'מנסור עבאס', short: 'עבאס', party: 'raam', title: 'לשון המאזניים', arch: 'מכריע', role: 'יו״ר רע״מ · ועדת הבחירות פסלה את הרשימה, ממתין לבג״ץ',
     blurb: 'כשהקרב צמוד, הוא זה שמטה את הכף. אוהב לחכות עד הרגע הנכון.',
     stats: { hp: 124, spd: 1, pow: 1.05 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 200 },
@@ -3858,7 +4085,7 @@ const ROSTER = [
 
   // ============================================================================ טיבי
   fighterDef({
-    id: 'tibi', name: 'אחמד טיבי', short: 'טיבי', party: 'taal', title: 'שנינות', arch: 'חד לשון',
+    id: 'tibi', name: 'אחמד טיבי', short: 'טיבי', party: 'taal', title: 'שנינות', arch: 'חד לשון', role: 'יו״ר תע״ל · מס׳ 2 ברשימה המשותפת · הרשימה נפסלה בוועדת הבחירות, ממתין לבג״ץ',
     blurb: 'מחזיר כל קליע לשולח. הפאנץ׳ליין תמיד מגיע בזמן.',
     stats: { hp: 116, spd: 1.05, pow: 1.02 }, rating: { pow: 3, spd: 4, def: 2, rng: 4, dif: 4 },
     ai: { style: 'zone', space: 260 },
@@ -3912,7 +4139,7 @@ const ROSTER = [
 
   // ============================================================================ רגב
   fighterDef({
-    id: 'regev', name: 'מירי רגב', short: 'רגב', party: 'likud', title: 'על הפסים', arch: 'קטר',
+    id: 'regev', name: 'מירי רגב', short: 'רגב', party: 'likud', title: 'על הפסים', arch: 'קטר', role: 'שרת התחבורה · הליכוד',
     blurb: 'ככל שהיא רצה קדימה היא מגיעה למהירות שאי אפשר לעצור. פגיעה מחזירה אותה לתחנה.',
     stats: { hp: 132, spd: 1.06, pow: 1.06 }, rating: { pow: 4, spd: 4, def: 2, rng: 3, dif: 3 },
     ai: { style: 'rush', space: 140 },
@@ -3987,14 +4214,15 @@ const ROSTER_BY_ID = {};
 ROSTER.forEach((d) => { ROSTER_BY_ID[d.id] = d; });
 
 /* ---- 86-roster2.js ---- */
-// ===== Unlockables: the Speaker + the secret boss (the electoral threshold, a walking ballot box) =====
-LOOKS.threshold = { robot: true, skin: '#eef2fb', hair: { style: 'none', color: '#888' }, suit: '#2a5cd0', pants: '#4b5468', shirt: '#dfe6f5', shoes: '#2b2f3d', h: 1.0, w: 1.3 };
+// ===== Roster, part 2: the Speaker, Gotliv, Bennett, Eisenkot and Asher =====
+// Same rules as 85-roster.js: invented moves and nicknames, factual party and role lines only.
 
-const EXTRA = [
+ROSTER.push(
+  // ============================================================================ אוחנה
   fighterDef({
-    id: 'edelstein', name: 'יולי אדלשטיין', short: 'אדלשטיין', party: 'likud', title: 'יושב הראש', arch: 'שופט', unlock: { wins: 10, text: 'נצחו 10 קרבות' },
+    id: 'ohana', name: 'אמיר אוחנה', short: 'אוחנה', party: 'likud', title: 'יושב הראש', arch: 'שופט', role: 'יושב ראש הכנסת · הליכוד',
     blurb: 'שולט באולם. כל פגיעה חמישית מסמנת "לסדר!" ומשתיקה את היכולות של היריב.',
-    stats: { hp: 134, spd: 0.98, pow: 1.1 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
+    stats: { hp: 132, spd: 0.98, pow: 1.08 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 220 },
     passive: {
       id: 'order', name: 'קורא לסדר', desc: 'כל פגיעה חמישית משתיקה את יכולות היריב לשלוש שניות.',
@@ -4055,8 +4283,465 @@ const EXTRA = [
     ending: 'הפטיש יורד, הישיבה ננעלת, ואפילו הרמקולים מבקשים רשות דיבור.',
   }),
 
+  // ============================================================================ גוטליב
   fighterDef({
-    id: 'threshold', boss: true, name: 'אחוז החסימה', short: 'אחוז החסימה', party: 'neutral', title: '3.25%', arch: 'בוס', scale: 1.22, unlock: { arcade: true, text: 'סיימו מסע שלם' },
+    id: 'gotliv', name: 'טלי גוטליב', short: 'גוטליב', party: 'otzma', title: 'הלהבה', arch: 'לוהטת', role: 'חברת כנסת · מס׳ 2 ברשימת עוצמה יהודית (עברה מהליכוד)',
+    blurb: 'נאום בוער ולשון שמדליקה את המליאה. כל יכולת מיוחדת שפוגעת מציתה את היריב.',
+    stats: { hp: 118, spd: 1.06, pow: 1.03 }, rating: { pow: 3, spd: 4, def: 2, rng: 3, dif: 3 },
+    ai: { style: 'rush', space: 180 },
+    passive: {
+      id: 'blaze', name: 'להבה', desc: 'יכולת מיוחדת שפוגעת מציתה את היריב לארבע שניות: הוא מאבד מנדטים בכל שנייה (לא מספיק כדי להפיל).',
+      onDealt(f, def, info) {
+        const key = info.srcKey || f.mk;
+        if (key === 'sp1' || key === 'sp2' || key === 'sup') {
+          if (def.burnT <= 0) Fx.text(def.x, def.y - 215, '!בוער', { size: 22, col: '#ff8a3d', life: 40 });
+          def.burnT = 240; Fx.glowDots(def.x, def.y - 110, 8, '#ff7a2a', 4);
+        }
+      },
+    },
+    normals: {
+      L: ['סטירה מילולית', 'jab', { startup: 4, dmg: 3.9 }],
+      H: ['בעיטת ביקורת', 'kick', { dmg: 9.2 }],
+      FH: ['אצבע מאשימה', 'point', { dmg: 10, startup: 16, hb: [24, -196, 96, 130] }],
+      DL: ['הערה נמוכה', 'lowkick'],
+      DH: ['נאום פתיחה', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'ציוץ בוער', desc: 'כדור להבות מהיר. מדליק את מי שנפגע.', icon: 'flame', frames: 30, release: 11, cd: 170, sfx: 'zap',
+      ai: { min: 160, max: 760, kind: 'zone' },
+      shots: [{ kind: 'flame', ox: 44, oy: -128, vx: 10.5, w: 58, h: 42, dmg: 7.4, hitstun: 18, blockstun: 11, kx: 4, life: 80, chip: 0.1,
+        onTick(e) { if (e.t % 3 === 0) Fx.glowDots(e.x - e.dir * 22, e.y, 1, '#ff7a2a', 2); } }],
+    }),
+    sp2: spBuff({
+      name: 'הרמת קול', desc: 'צעקה שמציתה את המליאה: שש שניות של +24% נזק ומהירות גבוהה יותר.', icon: 'horn', frames: 32, release: 12, cd: 460, glow: '#ff7a2a', label: '!הרמת קול',
+      apply(f) { f.tm.dmgUp = 360; f.val.dmgUpMul = 1.24; f.tm.haste = 360; },
+    }),
+    sup: SP({
+      name: 'נאום הבערה', desc: 'גל עמודי אש דוהר על הרצפה קדימה, ולבסוף עמוד ענק על היריב. מדליק.', icon: 'flame', frames: 122, anim: 'summon', glow: '#ff7a2a', invAfter: 40,
+      ai: { min: 0, max: 800, kind: 'zone' },
+      tick(f, t, B) {
+        const o = f.opp;
+        if (t < 66) f.inv = Math.max(f.inv, 2);
+        if (t === 8) { Snd.play('boom'); Fx.text(f.x, f.y - 240, '!נאום בוער', { size: 28, col: '#ffb14a', life: 60 }); Fx.flash('#ff9a4a', 0.4); }
+        for (let i = 0; i < 7; i++) {
+          if (t !== 14 + i * 5) continue;
+          const x = clamp(f.x + f.face * (100 + i * 105), WALL_L, WALL_R);
+          B.ent({ kind: 'firepillar', owner: f, dir: f.face, x, y: GROUND - 110, w: 84, h: 220, dmg: 5.5, hitstun: 22, blockstun: 12, kx: 2, life: 26, isSuper: true, chip: 0.25, clash: false, z: 1, hitstop: 4, noFlip: true });
+          Fx.dust(x, GROUND, 0, 3); if (i % 2 === 0) Snd.play('zap');
+        }
+        if (t === 46) {
+          f.mi.fx = clamp(o.x, WALL_L, WALL_R);
+          Fx.ring(f.mi.fx, GROUND - 4, 10, 100, 'rgba(255,120,40,.95)', 22, 7); Fx.text(f.mi.fx, GROUND - 190, '!זזו', { size: 24, col: '#ff8a3d', life: 30 });
+        }
+        if (t === 66) {
+          B.ent({ kind: 'firepillar', owner: f, dir: f.face, x: f.mi.fx, y: GROUND - 200, w: 120, h: 400, dmg: 14, hitstun: 44, blockstun: 18, kx: 6, ky: -10, knockdown: true, life: 30, isSuper: true, chip: 0.3, clash: false, z: 1, hitstop: 10, noFlip: true });
+          Snd.play('boom'); Fx.shake(9);
+        }
+      },
+    }),
+    quotes: { intro: ['!עכשיו זה יישרף', '!הקול שלי חוצה קירות'], win: ['!נשרף להם הפיוז'], lose: ['!אחזור בקול רם יותר'] },
+    ending: 'הנאום נגמר, המליאה עדיין מעשנת, והמטפים בפינה כבר ביקשו חופשה.',
+  }),
+
+  // ============================================================================ בנט
+  fighterDef({
+    id: 'bennett', name: 'נפתלי בנט', short: 'בנט', party: 'byachad', title: 'האקזיט', arch: 'יזם', role: 'יו״ר ביחד · ראש ממשלה לשעבר',
+    blurb: 'מפתח מהר וטוען יכולות מהר. סטארט־אפ אחד אחרי השני, ורק האקזיט לא מתמהמה.',
+    stats: { hp: 114, spd: 1.05, pow: 0.98 }, rating: { pow: 3, spd: 4, def: 2, rng: 4, dif: 3 },
+    ai: { style: 'zone', space: 300 },
+    passive: { id: 'sprint', name: 'קצב פיתוח', desc: 'היכולות המיוחדות שלו נטענות 35% מהר יותר.', cdRate() { return 1.35; } },
+    normals: {
+      L: ['ג׳אב קומנדו', 'jab', { startup: 4, dmg: 3.9 }],
+      H: ['בעיטת סיירת', 'highkick', { dmg: 8.8, startup: 10 }],
+      FH: ['מכת מצגת', 'swing', { prop: 'folder', dmg: 9.6, startup: 17, hb: [30, -200, 96, 140] }],
+      DL: ['זחילה קרבית', 'lowkick'],
+      DH: ['זינוק לאקזיט', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'מצגת משקיעים', desc: 'שתי שקופיות מהירות ברצף: אחת גבוהה ואחת בגובה החזה.', icon: 'slide', frames: 36, cd: 150,
+      ai: { min: 170, max: 780, kind: 'zone' },
+      shots: [
+        { kind: 'slide', ox: 40, oy: -150, vx: 12, w: 52, h: 38, dmg: 5.4, hitstun: 17, blockstun: 10, kx: 3, life: 70, at: 11 },
+        { kind: 'slide', ox: 40, oy: -108, vx: 12, w: 52, h: 38, dmg: 5.4, hitstun: 17, blockstun: 10, kx: 3, life: 70, n: 1, at: 21 },
+      ],
+    }),
+    sp2: spBuff({
+      name: 'סבב גיוס', desc: 'מגייס הון: ממלא 35 הייפ ומרפא מעט.', icon: 'bill', frames: 34, release: 12, cd: 520, glow: '#19c6b7', label: '!סבב גיוס',
+      apply(f) { f.gain(35); f.heal(9); },
+    }),
+    sup: SP({
+      name: 'עדר יוניקורנים', desc: 'חמישה יוניקורנים דוהרים דרך האולם בזה אחר זה. האחרון מעיף.', icon: 'unicorn', frames: 116, anim: 'summon', glow: '#a06bff', invAfter: 40,
+      ai: { min: 0, max: 800, kind: 'zone' },
+      tick(f, t, B) {
+        if (t < 66) f.inv = Math.max(f.inv, 2);
+        if (t === 6) Fx.text(f.x, f.y - 235, '!יוניקורן', { size: 28, col: '#e6d4ff', life: 60 });
+        [12, 22, 32, 42, 54].forEach((at, i) => {
+          if (t !== at) return;
+          const last = i === 4;
+          B.ent({ kind: 'unicorn', owner: f, dir: f.face, x: f.x - f.face * 560, y: GROUND - 58 - (i % 2) * 8, vx: f.face * (15 + i), w: 150, h: 112, sc: last ? 1.15 : 0.88, dmg: last ? 12 : 7, hitstun: 26, blockstun: 14, kx: 5, ky: last ? -9 : 0, knockdown: last, life: 200, pierce: true, interval: 999, isSuper: true, chip: 0.25, clash: false, z: 1, hitstop: 6,
+            onTick(e) { if (e.t % 4 === 0) Fx.stars(e.x - e.dir * 60, e.y - 6, 1, ['#ff5a7a', '#ffe14a', '#5cd67a', '#4aa8ff'][(e.t >> 2) % 4], 2); } });
+          if (i === 0) Snd.play('dash');
+        });
+      },
+    }),
+    quotes: { intro: ['!בואו נעשה אקזיט', '!יש לי תוכנית לתשעים יום'], win: ['!האקזיט הושלם'], lose: ['!נגייס עוד סבב'] },
+    ending: 'החברה נמכרה, הכסף הועבר, והיוניקורנים כבר מבקשים את הסבב הבא.',
+  }),
+
+  // ============================================================================ איזנקוט
+  fighterDef({
+    id: 'eisenkot', name: 'גדי איזנקוט', short: 'איזנקוט', party: 'yashar', title: 'הקו הישר', arch: 'מתכנן', role: 'יו״ר ישר! · הרמטכ״ל לשעבר',
+    blurb: 'סבלני, מדויק ולא ממהר. כשהוא נותן לקרב לנשום, המנדטים חוזרים אליו.',
+    stats: { hp: 126, spd: 0.98, pow: 1.03, def: 0.98 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
+    ai: { style: 'balanced', space: 220 },
+    passive: {
+      id: 'calm', name: 'קור רוח', desc: 'אחרי שתי שניות וחצי בלי לספוג מכה הוא מחלים לאט, עד שיחזור להיפגע.',
+      tick(f) {
+        f.pv.calm = (f.pv.calm || 0) + 1;
+        if (f.pv.calm > 150 && f.hp > 0 && f.hp < f.maxHp && f.B.phase === 'fight') f.hp = Math.min(f.maxHp, f.hp + 0.05);
+      },
+      onTaken(f) { f.pv.calm = 0; },
+      aura(f) { return (f.pv.calm || 0) > 150 && f.hp > 0 && f.hp < f.maxHp ? '#7dff9a' : null; },
+    },
+    normals: {
+      L: ['דחיפת מפקד', 'jab'],
+      H: ['בעיטת מטה', 'kick', { dmg: 9.4 }],
+      FH: ['מכת תוכנית', 'swing', { prop: 'map', dmg: 9.6, startup: 17, hb: [30, -200, 96, 140] }],
+      DL: ['סחיפה עוקפת', 'lowkick'],
+      DH: ['זינוק קדימה', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'חץ על המפה', desc: 'חץ תנועה נמוך שסוחף את הרצפה. דורש חסימה מכופפת.', icon: 'arrow', frames: 34, release: 13, cd: 190,
+      ai: { min: 160, max: 700, kind: 'zone' },
+      shots: [{ kind: 'arrow', ox: 44, oy: -34, vx: 8.6, w: 110, h: 44, dmg: 8.5, hitstun: 22, blockstun: 13, kx: 8, life: 96, height: 'low', dur: 2, power: 1 }],
+    }),
+    sp2: spBuff({
+      name: 'תדריך מפקדים', desc: 'חמש שניות של -30% נזק שנספג, ומרפא מעט.', icon: 'shieldIcon', frames: 32, release: 12, cd: 440, glow: '#18b0e0', label: '!תדריך',
+      apply(f) { f.tm.defUp = 300; f.val.defUpMul = 0.7; f.heal(8); },
+    }),
+    sup: SP({
+      name: 'תמרון מלקחיים', desc: 'שני חיצים ענקיים נסגרים על היריב מהצדדים. אי אפשר לחסום, רק לברוח.', icon: 'arrow', frames: 104, anim: 'point', glow: '#18b0e0', invAfter: 30,
+      ai: { min: 0, max: 700, kind: 'zone' },
+      tick(f, t, B) {
+        const o = f.opp;
+        if (t < 60) f.inv = Math.max(f.inv, 2);
+        if (t === 8) f.mi.cx = clamp(o.x, WALL_L + 150, WALL_R - 150);
+        if (t === 10) {
+          Snd.play('cast');
+          const cx = f.mi.cx;
+          [-1, 1].forEach((sd) => B.ent({ kind: 'arrow', owner: f, dir: -sd, x: cx + sd * 640, y: GROUND - 96, vx: -sd * 27, w: 250, h: 92, col: sd < 0 ? '#e4483d' : '#3d7be4', noHit: true, dmg: 0, life: 40, z: 1, isProj: false, clash: false,
+            onTick(e) { if (Math.abs(e.x - cx) <= 130) { e.vx = 0; e.x = cx + sd * 130; } } }));
+        }
+        if (t === 32) {
+          const cx = f.mi.cx;
+          Fx.shake(15); Fx.flash('#bfeaff', 0.5); Snd.play('superHit'); Fx.dust(cx, GROUND, 0, 12);
+          if (Math.abs(o.x - cx) < 150 && o.hurtable()) B.hit(f, o, superInfo({ dmg: 33, hitstun: 50, kx: 3, ky: -9, knockdown: true, unblockable: true, hitstop: 14, chip: 0.3 }), { x: cx, y: o.y - 90, vx: 0 }, null);
+          else Fx.text(cx, GROUND - 200, '!התמרון פוספס', { size: 24, col: '#bfeaff', life: 50 });
+        }
+      },
+    }),
+    quotes: { intro: ['!קודם תוכנית', '!נלך בקו ישר'], win: ['!המבצע הושלם'], lose: ['!נערך תחקיר'] },
+    ending: 'התוכנית יצאה לפועל בדיוק לפי התדריך, כולל ההפתעות שתוכננו מראש.',
+  }),
+
+  // ============================================================================ אשר
+  fighterDef({
+    id: 'asher', name: 'יעקב אשר', short: 'אשר', party: 'utj', title: 'המתמיד', arch: 'סבלן', role: 'יו״ר יהדות התורה',
+    blurb: 'שקדן וסבלני. בזמן שהוא מתגונן הריכוז שלו מצטבר, ובמכה הבאה הוא משחרר הכול.',
+    stats: { hp: 128, spd: 0.96, pow: 1.06, def: 0.97 }, rating: { pow: 3, spd: 2, def: 4, rng: 3, dif: 3 },
+    ai: { style: 'tank', space: 150 },
+    passive: {
+      id: 'diligence', name: 'שקידה', desc: 'כל חצי שנייה של חסימה או התכופפות מוסיפה ריכוז (עד 5). המכה הבאה שפוגעת חזקה ב-11% לכל רמה.',
+      tick(f) { if (f.st === 'block' || f.st === 'blockstun' || f.st === 'crouch') f.pv.c = Math.min(5, (f.pv.c || 0) + 1 / 30); },
+      dmgOut(f) { return 1 + 0.11 * Math.floor(f.pv.c || 0); },
+      onDealt(f) { f.pv.c = 0; },
+      aura(f) { return (f.pv.c || 0) >= 3 ? '#c9d2ff' : null; },
+      hud(ctx, f, x, y, dir, s) { hudPips(ctx, f, x, y, dir, s, Math.floor(f.pv.c || 0), 5, '#c9d2ff', 'ריכוז'); },
+    },
+    normals: {
+      L: ['טפיחה על השכם', 'jab'],
+      H: ['בעיטת הפסקה', 'kick'],
+      FH: ['מכת מצביע', 'chop', { dmg: 10 }],
+      DL: ['הערה בשקט', 'lowkick'],
+      DH: ['התרוממות', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'הצעת חוק', desc: 'הצעה כבדה ואיטית שנשארת באוויר ופוגעת חזק. עמידה בפני קליעים קטנים.', icon: 'law', frames: 36, release: 14, cd: 200,
+      ai: { min: 180, max: 720, kind: 'zone' },
+      shots: [{ kind: 'law', ox: 40, oy: -125, vx: 6.6, w: 54, h: 66, dmg: 10.5, hitstun: 24, blockstun: 14, kx: 6, life: 130, dur: 2, power: 1, chip: 0.15 }],
+    }),
+    sp2: SP({
+      name: 'שטנדר', desc: 'עמדת קריאה נטועה שחוסמת עד שלושה קליעים במשך חמש שניות.', icon: 'lectern', frames: 34, release: 12, cd: 360, anim: 'summon', glow: '#c9d2ff', ai: { min: 200, max: 760, kind: 'trap' },
+      tick(f, t, B) {
+        if (t !== 12) return;
+        B.ents.forEach((e) => { if (e.tag === 'lectern' && e.owner === f) e.dead = true; });
+        const x = clamp(f.x + f.face * 120, WALL_L + 30, WALL_R - 30);
+        B.ent({ kind: 'lectern', tag: 'lectern', owner: f, dir: f.face, x, y: GROUND - 62, w: 60, h: 124, noHit: true, dmg: 0.01, life: 300, dur: 3, power: 9, isProj: true, clash: true, z: 0, noFlip: true });
+        Snd.play('land'); Fx.dust(x, GROUND, 0, 6); Fx.shake(3);
+      },
+    }),
+    sup: SP({
+      name: 'אולטימטום', desc: 'ספירה לאחור: 3, 2, 1. מי שעומד על הרצפה בסוף הספירה סופג מכה שאי אפשר לחסום. אפשר לקפוץ.', icon: 'law', frames: 110, anim: 'point', glow: '#c9d2ff', invAfter: 30,
+      ai: { min: 0, max: 900, kind: 'zone' },
+      tick(f, t, B) {
+        const o = f.opp;
+        if (t < 74) f.inv = Math.max(f.inv, 2);
+        const say = (n, col) => { Snd.play('tick'); Fx.text(o.x, o.y - 235, String(n), { size: 66, col, life: 22 }); Fx.ring(o.x, GROUND - 4, 12, 90, rgba(col, 0.9), 16, 5); };
+        if (t === 8) say(3, '#c9d2ff');
+        if (t === 26) say(2, '#ffe14a');
+        if (t === 44) say(1, '#ff6a5a');
+        if (t === 62) {
+          Snd.play('boom'); Fx.shake(14); Fx.flash('#ffffff', 0.4);
+          Fx.text(o.x, o.y - 150, '!דחוף', { size: 54, col: '#ff5a5a', life: 46, rot: -0.12 });
+          if (o.grounded && o.hurtable()) B.hit(f, o, superInfo({ dmg: 32, hitstun: 50, kx: 6, ky: -9, knockdown: true, unblockable: true, hitstop: 14 }), { x: o.x, y: o.y - 100, vx: 0 }, null);
+          else Fx.text(o.x, o.y - 200, '!פספסת', { size: 26, col: '#c9d2ff', life: 50 });
+        }
+      },
+    }),
+    quotes: { intro: ['!בסבלנות', '!אין מה למהר'], win: ['!הכול בא בעיתו'], lose: ['!נחזור לשולחן'] },
+    ending: 'הריכוז שוחרר במכה אחת, הספסלים חיכו בסבלנות, ולראשונה אף אחד לא איחר לסגירה.',
+  }),
+);
+
+/* ---- 87-roster3.js ---- */
+// ===== Roster, part 3: Maoz, Abu Shehadeh, Hendel and Winter =====
+// Same rules as 85-roster.js: invented moves and nicknames, factual party and role lines only.
+
+ROSTER.push(
+  // ============================================================================ מעוז
+  fighterDef({
+    id: 'maoz', name: 'אבי מעוז', short: 'מעוז', party: 'noam', title: 'הסירוב', arch: 'עקשן', role: 'יו״ר נעם לישראל',
+    blurb: 'לא זז מהעמדה. כל חסימה מחזירה לו כוח, ומקרוב הוא לוחץ יד שאי אפשר להשתחרר ממנה.',
+    stats: { hp: 138, spd: 0.97, pow: 1.1, def: 0.94 }, rating: { pow: 4, spd: 2, def: 4, rng: 2, dif: 3 },
+    ai: { style: 'rush', space: 110 },
+    passive: {
+      id: 'refusal', name: 'עמידה בסירוב', desc: 'כל חסימה מרפאה 2 מנדטים ומטעינה 4 הייפ. בלוק מושלם מרפא 5.',
+      onBlock(def, att, info, perfect) { def.heal(perfect ? 5 : 2, false); def.gain(perfect ? 12 : 4); },
+    },
+    normals: {
+      L: ['ג׳אב עיקש', 'jab', { dmg: 4.2 }],
+      H: ['בעיטת סירוב', 'kick', { dmg: 9.8 }],
+      FH: ['מכת הכרעה', 'slam', { dmg: 10.6 }],
+      DL: ['חסימת מעבר', 'lowkick'],
+      DH: ['הצהרת עקרונות', 'uppercut'],
+    },
+    sp1: SP({
+      name: 'לחיצת יד נעימה', desc: 'זינוק קצר ותפיסה שאי אפשר לחסום: לחיצה ואז השלכה. מי שמחוץ לטווח מקבל רק אוויר.', icon: 'hand', frames: 42, release: 8, cd: 230, anim: 'shove',
+      ai: { min: 0, max: 250, kind: 'close' },
+      tick(f, t, B) {
+        if (t < 8) { f.vx = f.face * 8.5; f.trailOn = t > 1; }
+        if (t !== 8) return;
+        f.vx *= 0.2;
+        const o = f.opp, dx = (o.x - f.x) * f.face;
+        if (dx > -20 && dx < 150 && o.grounded && o.hurtable() && o.solid()) {
+          Snd.play('swingH'); Fx.text(o.x, o.y - 215, '!נעים מאוד', { size: 26, col: '#ffd7a0', life: 44 });
+          B.hit(f, o, { dmg: 15, hitstun: 34, blockstun: 0, kx: 8, ky: -7, knockdown: true, unblockable: true, hitstop: 10, height: 'mid', chip: 0, isThrow: true }, { x: f.x + f.face * 60, y: f.y - 100, vx: 0 }, null);
+        } else Fx.text(f.x + f.face * 70, f.y - 190, '!ידיים ריקות', { size: 20, col: '#d8c8b8', life: 34 });
+      },
+    }),
+    sp2: SP({
+      name: 'שיחה נעימה', desc: 'גל רגיעה שמאט את היריב לשלוש שניות ומרפא מעט.', icon: 'heart', frames: 36, release: 12, cd: 300, anim: 'cast', ai: { min: 80, max: 340, kind: 'zone' },
+      tick(f, t, B) {
+        if (t !== 12) return;
+        const o = f.opp; Snd.play('heal');
+        Fx.ring(f.x, f.y - 90, 10, 320, 'rgba(255,215,160,.9)', 22, 8); Fx.ring(f.x, f.y - 90, 4, 240, 'rgba(255,255,255,.8)', 18, 4);
+        f.heal(5, true);
+        if (Math.abs(o.x - f.x) < 340) B.hit(f, o, { dmg: 2, hitstun: 12, blockstun: 6, kx: 0, slow: 200, hitstop: 4, chip: 0, height: 'mid', isProj: true }, { x: f.x + f.face * 40, y: f.y - 100, vx: 0 }, null);
+      },
+    }),
+    sup: SP({
+      name: 'ניתוק התקע', desc: 'תקע ענק נוחת על היריב ומכבה הכול. הנחיתה מסומנת בצל, אז אפשר לברוח.', icon: 'plug', frames: 108, anim: 'summon', glow: '#ffe14a', invAfter: 30,
+      ai: { min: 0, max: 600, kind: 'zone' },
+      tick(f, t, B) {
+        const o = f.opp;
+        if (t < 66) f.inv = Math.max(f.inv, 2);
+        if (t === 4) {
+          f.mi.tx = o.x + o.vx * 8;
+          B.ent({ kind: 'shadow', owner: f, dir: f.face, x: clamp(f.mi.tx, WALL_L, WALL_R), y: GROUND - 3, w: 200, h: 20, noHit: true, dmg: 0, life: 44, z: -1, isProj: false, clash: false, draw: warnShadow(44, 200) });
+        }
+        if (t === 46) {
+          B.ent({ kind: 'plug', owner: f, dir: f.face, x: clamp(f.mi.tx, WALL_L, WALL_R), y: -260, vy: 28, w: 80, h: 150, dmg: 33, hitstun: 52, blockstun: 22, kx: 5, ky: -8, knockdown: true, life: 90, isSuper: true, chip: 0.3, clash: false, z: 1, ground: true, hitstop: 12, noFlip: true,
+            onLand(e) { Fx.shake(16); Fx.flash('#fff4a0', 0.6); Fx.ring(e.x, GROUND - 4, 20, 190, 'rgba(255,225,74,.9)', 20, 7); Snd.play('zap'); Snd.play('boom'); e.life = 10; e.pierce = true; } });
+        }
+      },
+    }),
+    quotes: { intro: ['!זה לא עומד על הפרק', '!אני לא זז מהעקרונות'], win: ['!נשארתי בעמדה'], lose: ['!אני מתפטר מהסיבוב'] },
+    ending: 'נשאר בעמדה עד הסוף, לחץ יד לכולם, ורק התקע נשאר מונח על הרצפה.',
+  }),
+
+  // ============================================================================ אבו שחאדה
+  fighterDef({
+    id: 'abushehadeh', name: 'סאמי אבו שחאדה', short: 'אבו שחאדה', party: 'balad', title: 'הגאות', arch: 'זורם', role: 'יו״ר בל״ד · מס׳ 3 ברשימה המשותפת · נפסל בוועדת הבחירות, ממתין לבג״ץ',
+    blurb: 'לפעמים גאות ולפעמים שפל. בגאות הוא מהיר יותר, בשפל הוא מכה חזק יותר, ותמיד יש תפוז בכיס.',
+    stats: { hp: 122, spd: 1.04, pow: 1.0, jump: 1.05 }, rating: { pow: 3, spd: 4, def: 2, rng: 3, dif: 4 },
+    ai: { style: 'balanced', space: 200 },
+    passive: {
+      id: 'tide', name: 'גאות ושפל', desc: 'מתחלף כל חמש שניות: בגאות הוא מהיר ב-12%, בשפל הוא מכה חזק ב-15%.',
+      spd(f) { return Math.floor(f.clock / 300) % 2 === 0 ? 1.12 : 1; },
+      dmgOut(f) { return Math.floor(f.clock / 300) % 2 === 1 ? 1.15 : 1; },
+      aura(f) { return f.hp > 0 && f.st !== 'ko' ? (Math.floor(f.clock / 300) % 2 === 0 ? '#4aa8ff' : '#ffb14a') : null; },
+      hud(ctx, f, x, y, dir, s) {
+        const hi = Math.floor(f.clock / 300) % 2 === 0;
+        T(ctx, hi ? 'גאות · מהיר' : 'שפל · חזק', x + (s === 0 ? 0 : -2), y + 4, { size: 12, fill: hi ? '#7fc4ff' : '#ffc27a', stroke: OUT, lw: 3, align: s === 0 ? 'left' : 'right', weight: 800 });
+      },
+    },
+    normals: {
+      L: ['ג׳אב חוף', 'jab', { startup: 4, dmg: 3.9 }],
+      H: ['בעיטת גל', 'highkick', { dmg: 8.8, startup: 10 }],
+      FH: ['מכת משוט', 'chop', { dmg: 10 }],
+      DL: ['סחיפת גאות', 'lowkick'],
+      DH: ['שפל עולה', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'תפוז יפו', desc: 'תפוז מקפץ שמאט את מי שנפגע לשתי שניות.', icon: 'orange', frames: 32, release: 12, cd: 190,
+      ai: { min: 150, max: 640, kind: 'zone' },
+      shots: [{ kind: 'orange', ox: 40, oy: -140, vx: 6.6, vy: -6.2, g: 0.34, bounce: 0.72, w: 42, h: 42, dmg: 7, hitstun: 20, blockstun: 12, kx: 4, slow: 120, life: 150 }],
+    }),
+    sp2: spCast({
+      name: 'גל', desc: 'גל נמוך שחוצה את הרצפה. דורש חסימה מכופפת.', icon: 'wave', frames: 34, release: 13, cd: 250,
+      ai: { min: 130, max: 560, kind: 'zone' },
+      shots: [{ kind: 'wave', ox: 30, oy: -40, vx: 7.4, w: 90, h: 80, sc: 0.9, dmg: 9.5, hitstun: 24, blockstun: 14, kx: 9, life: 80, height: 'low', dur: 2 }],
+    }),
+    sup: SP({
+      name: 'גאות עצומה', desc: 'גל ענק שוטף את כל האולם מקצה לקצה וגורף את מי שעל הרצפה.', icon: 'wave', frames: 104, anim: 'summon', glow: '#4aa8ff', invAfter: 34,
+      ai: { min: 0, max: 800, kind: 'zone' },
+      tick(f, t, B) {
+        if (t < 56) f.inv = Math.max(f.inv, 2);
+        if (t === 14) {
+          Snd.play('crowd'); Fx.flash('#bfe6ff', 0.4);
+          B.ent({ kind: 'wave', owner: f, dir: f.face, x: f.x - f.face * 360, y: GROUND - 150, vx: f.face * 12, w: 250, h: 300, sc: 3.1, dmg: 30, hitstun: 50, blockstun: 22, kx: 10, ky: -9, knockdown: true, life: 200, pierce: true, interval: 999, isSuper: true, chip: 0.3, clash: false, z: 1, hitstop: 12,
+            onTick(e) { if (e.t % 3 === 0) { Fx.shake(4); Fx.sparks(e.x + e.dir * 60, GROUND - rnd(20, 240), 1, '#bfe6ff', 6); } } });
+        }
+      },
+    }),
+    quotes: { intro: ['!רוח הים איתי', '!זורמים'], win: ['!הגל שטף הכול'], lose: ['!אחרי כל שפל יש גאות'] },
+    ending: 'הגל נסוג, נשארו פירורי קצף, וריח של תפוזים על החוף.',
+  }),
+
+  // ============================================================================ הנדל
+  fighterDef({
+    id: 'hendel', name: 'יועז הנדל', short: 'הנדל', party: 'reservists', title: 'צו 8', arch: 'מגייס', role: 'יו״ר המילואימניקים · שר התקשורת לשעבר',
+    blurb: 'תמיד מוכן מראש. מתחיל כל סיבוב עם הייפ, מציב חיילים בעמדה ושולח צווים שמאטים את היריב.',
+    stats: { hp: 114, spd: 1.02, pow: 1.0, meter: 1.05 }, rating: { pow: 3, spd: 3, def: 3, rng: 4, dif: 3 },
+    ai: { style: 'zone', space: 280 },
+    passive: {
+      id: 'prepared', name: 'מוכן מראש', desc: 'מתחיל כל סיבוב עם 30 הייפ.',
+      roundStart(f) { f.meter = Math.max(f.meter, 30); },
+    },
+    normals: {
+      L: ['סטירת עדכון', 'jab'],
+      H: ['בעיטת מגף', 'kick', { dmg: 9.4 }],
+      FH: ['מכת קלסר', 'swing', { prop: 'folder', dmg: 9.6, startup: 17, hb: [30, -200, 96, 140] }],
+      DL: ['סחיפת שטח', 'lowkick'],
+      DH: ['הצדעה עולה', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'צו 8', desc: 'צו גיוס שנוטה אחרי היריב ומאט אותו לשלוש שניות.', icon: 'notice', frames: 32, release: 12, cd: 210,
+      ai: { min: 170, max: 720, kind: 'zone' },
+      shots: [{ kind: 'notice', ox: 42, oy: -130, vx: 7.4, w: 50, h: 40, dmg: 4.6, hitstun: 16, blockstun: 10, kx: 2, slow: 200, home: 0.06, homeMax: 3, life: 120 }],
+    }),
+    sp2: SP({
+      name: 'כיתת מילואים', desc: 'שני חיילי מילואים נוצבים בעמדה לשש שניות ומכים כל מי שמתקרב.', icon: 'crowd', frames: 46, release: 14, cd: 480, anim: 'summon', glow: '#b59f5a', ai: { min: 100, max: 520, kind: 'trap' },
+      tick(f, t, B) {
+        if (t !== 14) return;
+        B.ents.forEach((e) => { if (e.tag === 'guard' && e.owner === f) e.dead = true; });
+        [110, 215].forEach((d, i) => {
+          const m = minion(B, f, { lookId: RES[i % 2], vx: 0.01, sc: 0.78, dmg: 6, x: clamp(f.x + f.face * d, WALL_L, WALL_R), hitstun: 22, kx: 6, life: 380, tag: 'guard', pierce: true, interval: 40, maxHits: 99 });
+          m.pose = (p) => { p.footF = [26, 0]; p.footB = [-22, 0]; p.handF = [46, -138]; p.handB = [20, -128]; p.hy = -71; p.lean = 0.05; p.eyes = 'angry'; };
+          Fx.dust(m.x, GROUND, 0, 4);
+        });
+        Snd.play('cast');
+      },
+    }),
+    sup: SP({
+      name: 'סגירת מעגל', desc: 'שני טורים של חיילי מילואים רצים אל היריב משני הצדדים. מי שמתגונן מקדימה נפגע מאחור.', icon: 'crowd', frames: 110, anim: 'summon', glow: '#b59f5a', invAfter: 36,
+      ai: { min: 0, max: 800, kind: 'zone' },
+      tick(f, t, B) {
+        const o = f.opp;
+        if (t < 60) f.inv = Math.max(f.inv, 2);
+        if (t === 6) Fx.text(f.x, f.y - 235, '!צו 8 כללי', { size: 28, col: '#e6d8a0', life: 60 });
+        [12, 20, 28].forEach((at, i) => {
+          if (t !== at) return;
+          const last = i === 2;
+          [-1, 1].forEach((sd) => {
+            const m = minion(B, f, Object.assign({ lookId: RES[(i + (sd > 0 ? 1 : 0)) % 3], vx: 13, sc: last ? 0.9 : 0.74, dmg: last ? 9 : 5.5, x: clamp(o.x + sd * (470 + i * 60), 20, STAGE_W - 20), hitstun: 24, isSuper: true, chip: 0.25 }, last ? { knockdown: true, ky: -8, kx: 8, hitstun: 40 } : {}));
+            m.dir = -sd; m.vx = -sd * 13;
+          });
+          if (i === 0) Snd.play('dash');
+        });
+      },
+    }),
+    quotes: { intro: ['!כולם מגויסים', '!אני חוזר למילואים'], win: ['!המשימה בוצעה'], lose: ['!אשוחרר בסבב הבא'] },
+    ending: 'הצו נשלח, הטור התייצב, ולראשונה מישהו הגיע לפני הזמן.',
+  }),
+
+  // ============================================================================ וינטר
+  fighterDef({
+    id: 'winter', name: 'עופר וינטר', short: 'וינטר', party: 'amcha', title: 'רוח לחימה', arch: 'לוחם', role: 'יו״ר עמך ישראל · מפקד חטיבת גבעתי לשעבר',
+    blurb: 'לוחם קשוח שמוביל מהחזית. כל יכולת מיוחדת שפוגעת מחזקת אותו, ומי שתוקף אותו בעמדה חוטף מכה חוזרת.',
+    stats: { hp: 130, spd: 1.0, pow: 1.05, def: 0.98 }, rating: { pow: 4, spd: 3, def: 3, rng: 3, dif: 3 },
+    ai: { style: 'balanced', space: 170 },
+    passive: {
+      id: 'lead', name: 'מוביל מהחזית', desc: 'כל יכולת מיוחדת שפוגעת מוסיפה +8% נזק לחמש שניות (עד שלוש פעמים).',
+      onDealt(f, def, info) {
+        const key = info.srcKey || f.mk;
+        if (key === 'sp1' || key === 'sp2' || key === 'sup') { f.pv.lead = Math.min(3, (f.pv.lead || 0) + 1); f.pv.leadT = 300; }
+      },
+      tick(f) { if (f.pv.leadT > 0 && --f.pv.leadT === 0) f.pv.lead = 0; },
+      dmgOut(f) { return 1 + 0.08 * (f.pv.lead || 0); },
+      aura(f) { return (f.pv.lead || 0) >= 2 ? '#e0a82e' : null; },
+      hud(ctx, f, x, y, dir, s) { hudPips(ctx, f, x, y, dir, s, f.pv.lead || 0, 3, '#e0a82e', 'פיקוד'); },
+    },
+    normals: {
+      L: ['אגרוף שדה', 'jab'],
+      H: ['בעיטת מגף', 'kick', { dmg: 9.6 }],
+      FH: ['מכת פיקוד', 'slam', { dmg: 10.4 }],
+      DL: ['סחיפת שטח', 'lowkick'],
+      DH: ['זינוק חטיבתי', 'uppercut'],
+    },
+    sp1: spCast({
+      name: 'פקודה', desc: 'שאגת פיקוד שדוחפת את היריב חזק אחורה.', icon: 'horn', frames: 32, release: 12, cd: 190,
+      ai: { min: 100, max: 620, kind: 'zone' },
+      shots: [{ kind: 'horn', col: '#e0a82e', col2: '#fff0c0', ox: 36, oy: -112, vx: 9, w: 68, h: 132, dmg: 8, hitstun: 20, blockstun: 14, kx: 12, life: 76, dur: 2 }],
+    }),
+    sp2: SP({
+      name: 'עמדת המתנה', desc: 'עומד בשריון. אם מכים אותו בזמן העמידה, הוא מחזיר מכה חזקה ומפילה.', icon: 'shieldIcon', frames: 46, release: 6, cd: 330, anim: 'buff', glow: '#e0a82e', armor: 1, armorUntil: 32,
+      ai: { min: 0, max: 210, kind: 'close' },
+      tick(f, t, B) {
+        if (!f.mi.countered && f.mi.armor < 1) {
+          f.mi.countered = true; f.mt = Math.max(f.mt, 33);
+          Snd.play('boom'); Fx.text(f.x + f.face * 60, f.y - 210, '!תגובה', { size: 28, col: '#ffd66a', life: 40 });
+          f.strike([0, -168, 135, 168], { dmg: 13, hitstun: 30, blockstun: 16, kx: 9, ky: -7, knockdown: true, hitstop: 10, height: 'mid', chip: 0.1, unblockable: true }, 'counter');
+        }
+      },
+    }),
+    sup: SP({
+      name: 'פקודת קרב', desc: 'גל הלם דוחף את היריב, ואז שמונה שניות של +30% נזק, מהירות גבוהה יותר ו-15% פחות נזק שנספג.', icon: 'star', frames: 66, anim: 'buff', glow: '#e0a82e', invAfter: 20,
+      ai: { min: 0, max: 380, kind: 'close' },
+      tick(f, t, B) {
+        const o = f.opp;
+        if (t < 44) f.inv = Math.max(f.inv, 2);
+        if (t === 12) {
+          Snd.play('boom'); Fx.flash('#ffe6a0', 0.5); Fx.shake(9);
+          Fx.ring(f.x, f.y - 90, 12, 300, 'rgba(255,214,106,.95)', 22, 10); Fx.ring(f.x, f.y - 90, 4, 210, 'rgba(255,255,255,.9)', 18, 5);
+          Fx.text(f.x, f.y - 235, '!אחריי', { size: 32, col: '#ffd66a', life: 60 });
+          f.tm.dmgUp = 480; f.val.dmgUpMul = 1.3; f.tm.haste = 480; f.tm.defUp = 480; f.val.defUpMul = 0.85; f.heal(12);
+          if (Math.abs(o.x - f.x) < 320 && o.hurtable()) B.hit(f, o, superInfo({ dmg: 14, hitstun: 36, kx: 10, ky: -8, knockdown: true, hitstop: 12 }), { x: f.x, y: f.y - 100, vx: 0 }, null);
+        }
+      },
+    }),
+    quotes: { intro: ['!אחריי', '!אני מוביל, אתם אחריי'], win: ['!המשימה מעל הכול'], lose: ['!נתקדם בכוחות מתוגברים'] },
+    ending: 'הוא הוביל מהחזית, כולם הלכו אחריו, ורק הרמקול בעמדה האחורית לא הבין את הפקודה.',
+  }),
+);
+
+/* ---- 88-boss.js ---- */
+// ===== The secret boss (the electoral threshold, a walking ballot box) + roster registry =====
+LOOKS.threshold = { robot: true, skin: '#eef2fb', hair: { style: 'none', color: '#888' }, suit: '#2a5cd0', pants: '#4b5468', shirt: '#dfe6f5', shoes: '#2b2f3d', h: 1.0, w: 1.3 };
+
+const EXTRA = [
+  fighterDef({
+    id: 'threshold', boss: true, name: 'אחוז החסימה', short: 'אחוז החסימה', party: 'neutral', title: '3.25%', arch: 'בוס', role: 'הסף שכל רשימה צריכה לעבור (3.25%)', scale: 1.22, unlock: { arcade: true, text: 'סיימו מסע שלם' },
     blurb: 'קלפי מהלכת. מתעלמת ממכות קטנות: מתחת לסף, כלומר בלי השפעה.',
     stats: { hp: 160, spd: 0.86, pow: 1.05, meter: 0.7 }, rating: { pow: 5, spd: 2, def: 5, rng: 3, dif: 3 },
     ai: { style: 'tank', space: 170 },
@@ -4101,6 +4786,8 @@ const EXTRA = [
     ending: 'כל הקולות נספרו, וסוף סוף מישהו עבר את הסף.',
   }),
 ];
+
+ROSTER.forEach((d) => { ROSTER_BY_ID[d.id] = d; });
 EXTRA.forEach((d) => { ROSTER_BY_ID[d.id] = d; });
 
 /* ---- 90-fighter.js ---- */
@@ -4154,6 +4841,7 @@ class Fighter {
     this.trail = []; this.tookDamage = false; this.ko = false; this.pose = null; this.lookDir = 0;
     this.chain = 0; this.spinRot = 0; this.thrownSpin = 0; this.holder = null; this.held = null;
     this.hurtPct = 1;
+    this.burnT = 0;
   }
 
   // ---------- helpers ----------
@@ -4260,6 +4948,12 @@ class Fighter {
     if (this.inv > 0) this.inv--;
     if (this.lock > 0) this.lock--;
     if (this.flashT > 0) this.flashT--;
+    if (this.burnT > 0) {          // set on fire (Gotliv): loses a little health each frame, never enough to finish the fight
+      this.burnT--;
+      if (B.phase === 'fight' && this.hp > 1) this.hp = Math.max(1, this.hp - 0.05);
+      if (this.burnT % 5 === 0) Fx.glowDots(this.x + rnd(-16, 16), this.y - rnd(30, 150), 1, '#ff7a2a', 2);
+      if (this.burnT % 11 === 0) Fx.sparks(this.x + rnd(-14, 14), this.y - rnd(30, 140), 1, '#ffd23d', 3, 14);
+    }
     if (this.passive.tick) this.passive.tick(this, B);
     if (this.val.shield > 0 && this.tm.shieldT <= 0) this.val.shield = 0;
     this.noPush = false;
@@ -5213,6 +5907,7 @@ class Battle {
       const au = f.passive.aura ? f.passive.aura(f) : null;
       if (au) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 120, au, 0.35 + 0.1 * Math.sin(this.frame * 0.2)); ctx.restore(); }
       const flash = f.flashT > 0 ? 0.65 : 0;
+      if (f.burnT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 88, '#ff6a1f', 0.28 + 0.1 * Math.sin(this.frame * 0.5)); ctx.restore(); }
       drawFighter(ctx, f, { flash });
       if (f.hasArmor && f.hasArmor() && f.mi && f.mi.armor > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 110, '#ffd94a', 0.25); ctx.restore();
@@ -5775,7 +6470,7 @@ function makeCtrl(level, seed) {
 // ===== Persistence, statistics, achievements =====
 const ACHIEVEMENTS = [
   { id: 'first_win', name: 'ניצחון ראשון', desc: 'נצחו קרב אחד.', test: (d) => d.wins >= 1 },
-  { id: 'wins10', name: 'חבר כנסת ותיק', desc: 'נצחו 10 קרבות (פותח את יושב הראש).', test: (d) => d.wins >= 10 },
+  { id: 'wins10', name: 'חבר כנסת ותיק', desc: 'נצחו 10 קרבות.', test: (d) => d.wins >= 10 },
   { id: 'combo10', name: 'קומבו של 10', desc: 'חבטו עשר פעמים ברצף.', test: (d) => d.bestCombo >= 10 },
   { id: 'flawless', name: 'ניצחון מוחלט', desc: 'נצחו סיבוב בלי לספוג פגיעה.', test: (d) => d.flawless >= 1 },
   { id: 'perfect5', name: 'בלוק מושלם ×5', desc: 'בצעו חמישה בלוקים מושלמים.', test: (d) => d.perfects >= 5 },
@@ -5785,7 +6480,7 @@ const ACHIEVEMENTS = [
   { id: 'boss', name: 'מעל האחוז', desc: 'הביסו את אחוז החסימה.', test: (d) => d.bossBeaten >= 1 },
   { id: 'wave10', name: 'מרתון חקיקה: גל 10', desc: 'הגיעו לגל 10 במרתון.', test: (d) => d.survivalBest >= 10 },
   { id: 'comeback', name: 'המהפך', desc: 'נצחו קרב כשנשארו לכם פחות מ-10% חיים.', test: (d) => d.comebacks >= 1 },
-  { id: 'allchars', name: 'כל הבית', desc: 'נצחו עם כל 12 חברי הכנסת.', test: (d) => ROSTER.every((r) => (d.winsBy[r.id] || 0) >= 1) },
+  { id: 'allchars', name: 'כל הבית', desc: 'נצחו עם כל הלוחמים בסגל.', test: (d) => ROSTER.every((r) => (d.winsBy[r.id] || 0) >= 1) },
   { id: 'throws10', name: 'זריקה לחדר', desc: 'בצעו 10 זריקות.', test: (d) => d.throws >= 10 },
   { id: 'burekas', name: '!בורקס', desc: 'ראו את הבורקס הסודי מציץ בפינה.', test: (d) => d.burekas >= 1 },
   { id: 'daily3', name: 'רצף יומי', desc: 'סיימו אתגר יומי 3 ימים ברצף.', test: (d) => d.daily.best >= 3 },
@@ -5872,7 +6567,8 @@ const BILLS = [
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 
-const ICON_SC = { roller: 0.22, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6 };
+const ICON_SC = { roller: 0.22, tram: 0.16, train: 0.18, table: 0.2, beam: 0.3, spot: 0.2, redline: 0.22, scales: 0.32, crate: 0.5, bubble: 0.4, nova: 0.4, siren: 0.4, horn: 0.4, sign: 0.36, shield: 0.2, shieldIcon: 0.75, gavel: 0.7, mic: 0.6, dove: 0.6, letter: 0.55, ironball: 0.6, ballot: 0.6, quip: 0.6, flash: 0.32, bill: 0.6, wind: 0.6, hand: 0.6, crowd: 0.6, swap: 0.6, fist: 0.7, bolt: 0.7, coin: 0.9, scissors: 0.7, like: 0.8, heart: 0.8, star: 0.8, burekas: 0.6,
+  flame: 0.9, firepillar: 0.2, slide: 0.9, unicorn: 0.34, arrow: 0.5, law: 0.75, lectern: 0.34, orange: 0.9, wave: 0.44, notice: 0.9, plug: 0.26 };
 const iconCache = new Map();
 function iconURL(kind, size = 64) {
   const key = kind + ':' + size;
@@ -5897,7 +6593,7 @@ function portraitURL(id, size = 128) {
   return url;
 }
 
-const partyChip = (def) => `<span class="party" style="--pc:${def.color}">${def.partyName}</span>`;
+const partyChip = (def) => `<span class="party" style="--pc:${def.color}">${def.partyName}${def.bloc ? ' · ' + def.bloc : ''}</span>`;
 const pips = (n, max = 5) => Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
 const cdText = (m) => (m.cd ? 'טעינה ' + (m.cd / 60).toFixed(1).replace('.0', '') + ' שנ׳' : '');
 
@@ -6017,7 +6713,7 @@ const UI = {
           <div class="l1">מכות</div>
           <div class="l2">בכנסת</div>
           <div class="l3">KNESSET SMACKDOWN</div>
-          <p class="tag">משחק לחימה סאטירי · 12 חברי כנסת · יכולת מיוחדת לכל אחד</p>
+          <p class="tag">משחק לחימה סאטירי · ${ROSTER.length} לוחמים · ${new Set(ROSTER.map((d) => d.party)).size} מפלגות · יכולת מיוחדת לכל אחד</p>
         </div>
         <nav class="menu">
           <button class="btn primary big nav autofocus" data-act="arcade"><b>מסע לראשות הממשלה</b><small>סדרת קרבות + בוס סודי</small></button>
@@ -6244,7 +6940,7 @@ const UI = {
     const nm = def.moves;
     return `<div class="dwrap" style="--pc:${def.color}"><div class="dhead">
         <img src="${portraitURL(def.id)}" alt="">
-        <div><h3>${def.name}</h3>${partyChip(def)} <span class="arch">${def.title} · ${def.arch}</span></div>
+        <div><h3>${def.name}</h3>${partyChip(def)} <span class="arch">${def.title} · ${def.arch}</span><p class="role">${def.role}</p></div>
       </div>
       <p class="blurb">${def.blurb}</p>
       ${locked ? `<p class="lockmsg">נעול. כדי לפתוח: ${def.unlock.text}.</p>` : ''}
@@ -6255,7 +6951,8 @@ const UI = {
         <div class="normals"><h4>המכות הרגילות</h4>
           <ul><li><em>אגרוף</em> ${nm.L.name}</li><li><em>בעיטה</em> ${nm.H.name}</li><li><em>קדימה+בעיטה</em> ${nm.FH.name}</li>
           <li><em>למטה+אגרוף</em> ${nm.DL.name}</li><li><em>למטה+בעיטה</em> ${nm.DH.name}</li><li><em>באוויר</em> ${nm.AL.name} / ${nm.AH.name}</li></ul></div>
-      </div></div>`;
+      </div>
+      <p class="asof">המפלגה והתפקיד נכונים ל-${VERIFIED_ON}. המכות, היכולות והכינויים בדויים, לצחוק בלבד.</p></div>`;
   },
 
   // ---------------------------------------------------------------- Achievements
@@ -6877,7 +7574,7 @@ const Game = {
       if (A.diff === 2) S.hardClear++;
       Save.save(); this.checkAch();
       const def = ROSTER_BY_ID[A.id];
-      this.card(`<div class="ending" style="--pc:${def.color}"><img src="${portraitURL(A.id, 192)}" alt=""><h2>${def.short} הוא ראש הממשלה!</h2>${partyChip(def)}<p class="endtxt">${def.ending}</p><small>נפתחה דמות סודית: אחוז החסימה. ויושב ראש הכנסת נפתח אחרי 10 ניצחונות.</small></div>${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="menu">חזרה לתפריט</button></div>`);
+      this.card(`<div class="ending" style="--pc:${def.color}"><img src="${portraitURL(A.id, 192)}" alt=""><h2>${def.short} הוא ראש הממשלה!</h2>${partyChip(def)}<p class="endtxt">${def.ending}</p><small>נפתחה דמות סודית: אחוז החסימה.</small></div>${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="menu">חזרה לתפריט</button></div>`);
       Snd.play('crowd');
       return;
     }

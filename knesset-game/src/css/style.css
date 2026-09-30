@@ -93,7 +93,7 @@ body.canfs .row.fsonly { display: flex; }
 
 /* ------------------------------------------------------------ character select */
 .selbody { flex: 1; display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2vmin; padding: 0 3vmin 1vmin; min-height: 0; }
-.grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1.1vmin; align-content: start; overflow-y: auto; padding: 6px; }
+.grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1vmin; align-content: start; overflow-y: auto; padding: 6px; }
 .card {
   --pc: #888; position: relative; appearance: none; border: 4px solid var(--line); border-radius: 18px; cursor: pointer; color: #fff; padding: .5rem .3rem .45rem;
   background: #2a1a5a; background: linear-gradient(180deg, color-mix(in srgb, var(--pc) 55%, #1a0e40) 0%, #1a0e40 100%); box-shadow: 0 5px 0 var(--line);
@@ -116,6 +116,8 @@ body.canfs .row.fsonly { display: flex; }
 .dhead h3 { margin: 0 0 .2rem; font: 400 1.7em/1.1 var(--f-disp); }
 .arch { color: var(--muted); font-weight: 700; margin-inline-start: .4rem; }
 .party { display: inline-block; background: var(--pc, #666); color: #10061f; font-weight: 800; font-size: .78em; padding: .1em .7em; border-radius: 999px; border: 2px solid var(--line); }
+.role { margin: .25rem 0 0; font-size: .8em; color: #d9d0f2; font-weight: 600; line-height: 1.3; }
+.asof { margin: .7rem 0 .2rem; font-size: .7em; color: var(--muted); line-height: 1.35; }
 .blurb { margin: .3rem 0 .8rem; color: #e6defa; line-height: 1.45; }
 .lockmsg { color: #ff9ab4; font-weight: 700; }
 .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: .3rem; margin-bottom: .8rem; }
@@ -348,7 +350,7 @@ body.portrait #trainbar { top: calc(calc(56.25 * var(--u-vw)) + 24px + 104px); m
   body.ls .pause-card .btn { padding: .38em .8em; }
   body.ls .pause-card .btn.big { padding: .45em 1em; }
   body.ls .selbody { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
-  body.ls .grid { grid-template-columns: repeat(7, 1fr); gap: .8vmin; }
+  body.ls .grid { grid-template-columns: repeat(8, 1fr); gap: .7vmin; }
   body.ls .card { padding: .3rem .1rem; border-width: 3px; border-radius: 12px; }
   body.ls .card span { display: none; }
   body.ls .card b { font-size: .8em; }

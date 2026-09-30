@@ -1,25 +1,33 @@
 // ===== Roster =====
-// Cartoon caricatures of Knesset members for a satire / parody game. Moves, quotes and abilities are invented.
-// Party affiliations reflect the public record at the time of writing and are trivial to update here.
+// Cartoon caricatures of Knesset members and party leaders for a satire / parody game. Moves, quotes, abilities and
+// nicknames are invented for fun. The only factual claims are the party and the `role` line; both were checked against
+// news reports on VERIFIED_ON (see ../DATA.md for the sources) and are trivial to update here.
+const VERIFIED_ON = '30.9.2026';
 
 const PARTIES = {
-  likud:    { name: 'הליכוד', color: '#2155e0' },
-  otzma:    { name: 'עוצמה יהודית', color: '#8a4fe0' },
-  rz:       { name: 'הציונות הדתית', color: '#f28a1e' },
-  shas:     { name: 'ש״ס', color: '#f4c81d' },
-  yb:       { name: 'ישראל ביתנו', color: '#b3562a' },
-  ya:       { name: 'יש עתיד', color: '#19c6b7' },
-  bw:       { name: 'כחול לבן', color: '#6ec6ff' },
-  dem:      { name: 'הדמוקרטים', color: '#38b56a' },
-  hadash:   { name: 'חד״ש', color: '#e23b52' },
-  raam:     { name: 'רע״מ', color: '#a5d63c' },
-  taal:     { name: 'תע״ל', color: '#e05fb4' },
-  neutral:  { name: 'עצמאי', color: '#c9ced8' },
+  likud:      { name: 'הליכוד', color: '#2155e0' },
+  otzma:      { name: 'עוצמה יהודית', color: '#8a4fe0' },
+  rz:         { name: 'הציונות הדתית', color: '#f28a1e' },
+  noam:       { name: 'נעם לישראל', color: '#c76a1f' },
+  shas:       { name: 'ש״ס', color: '#f4c81d' },
+  utj:        { name: 'יהדות התורה', color: '#7c86c8' },
+  yb:         { name: 'ישראל ביתנו', color: '#b3562a' },
+  byachad:    { name: 'ביחד', color: '#19c6b7' },            // Bennett + Lapid (Yesh Atid) joint list
+  yashar:     { name: 'ישר!', color: '#18b0e0' },
+  bw:         { name: 'כחול לבן', color: '#6ec6ff' },
+  dem:        { name: 'הדמוקרטים', color: '#38b56a' },
+  hadash:     { name: 'חד״ש', color: '#e23b52', bloc: 'הרשימה המשותפת' },
+  taal:       { name: 'תע״ל', color: '#e05fb4', bloc: 'הרשימה המשותפת' },
+  balad:      { name: 'בל״ד', color: '#1f8f63', bloc: 'הרשימה המשותפת' },
+  raam:       { name: 'רע״מ', color: '#a5d63c' },
+  reservists: { name: 'המילואימניקים', color: '#b59f5a' },
+  amcha:      { name: 'עמך ישראל', color: '#e0a82e' },
+  neutral:    { name: 'עצמאי', color: '#c9ced8' },
 };
 
 function fighterDef(d) {
   const p = PARTIES[d.party];
-  d.color = p.color; d.partyName = p.name; d.look = LOOKS[d.id];
+  d.color = p.color; d.partyName = p.name; d.bloc = p.bloc || ''; d.look = LOOKS[d.id];
   d.moves = Object.assign(normals(d.normals), { sp1: d.sp1, sp2: d.sp2, sup: d.sup });
   d.stats = Object.assign({ hp: 118, spd: 1, pow: 1, def: 1, jump: 1, meter: 1 }, d.stats);
   d.passive = d.passive || {};
@@ -37,7 +45,7 @@ const hudPips = (ctx, f, x, y, dir, s, n, max, col, label) => {
 const ROSTER = [
   // ============================================================================ נתניהו
   fighterDef({
-    id: 'bibi', name: 'בנימין נתניהו', short: 'נתניהו', party: 'likud', title: 'הקוסם', arch: 'שרדן',
+    id: 'bibi', name: 'בנימין נתניהו', short: 'נתניהו', party: 'likud', title: 'הקוסם', arch: 'שרדן', role: 'ראש הממשלה · יו״ר הליכוד',
     blurb: 'כל קרב אצלו הוא הצגה של קוסם. כשכבר נראה שנגמר, מגיע קלף מהשרוול.',
     stats: { hp: 112 }, rating: { pow: 3, spd: 3, def: 3, rng: 4, dif: 2 },
     ai: { style: 'zone', space: 320 },
@@ -100,7 +108,7 @@ const ROSTER = [
 
   // ============================================================================ בן גביר
   fighterDef({
-    id: 'bengvir', name: 'איתמר בן גביר', short: 'בן גביר', party: 'otzma', title: 'האדרנלין', arch: 'מסתער',
+    id: 'bengvir', name: 'איתמר בן גביר', short: 'בן גביר', party: 'otzma', title: 'האדרנלין', arch: 'מסתער', role: 'השר לביטחון לאומי · יו״ר עוצמה יהודית',
     blurb: 'לא מחכה לתור. נכנס למכה, ועם כל פגיעה נהיה מהיר וחזק יותר.',
     stats: { hp: 114, spd: 1.1, pow: 1.04 }, rating: { pow: 4, spd: 4, def: 2, rng: 2, dif: 3 },
     ai: { style: 'rush', space: 110 },
@@ -160,7 +168,7 @@ const ROSTER = [
 
   // ============================================================================ סמוטריץ'
   fighterDef({
-    id: 'smotrich', name: 'בצלאל סמוטריץ׳', short: 'סמוטריץ׳', party: 'rz', title: 'שר האוצר', arch: 'חשב',
+    id: 'smotrich', name: 'בצלאל סמוטריץ׳', short: 'סמוטריץ׳', party: 'rz', title: 'שר האוצר', arch: 'חשב', role: 'שר האוצר · יו״ר הציונות הדתית',
     blurb: 'לא רק מנצח בנקודות: גוזל מהיריב את ההייפ ומשלם בו את החשבון.',
     stats: { hp: 110, spd: 0.96 }, rating: { pow: 3, spd: 3, def: 2, rng: 4, dif: 3 },
     ai: { style: 'zone', space: 300 },
@@ -209,7 +217,7 @@ const ROSTER = [
 
   // ============================================================================ דרעי
   fighterDef({
-    id: 'deri', name: 'אריה דרעי', short: 'דרעי', party: 'shas', title: 'קלף המיקוח', arch: 'עוגן',
+    id: 'deri', name: 'אריה דרעי', short: 'דרעי', party: 'shas', title: 'קלף המיקוח', arch: 'עוגן', role: 'יו״ר ש״ס',
     blurb: 'מתאמן על סבלנות. סוגר עסקה בכל סיבוב ויוצא עם רווח.',
     stats: { hp: 118, spd: 0.9, pow: 1, def: 0.97 }, rating: { pow: 3, spd: 2, def: 5, rng: 3, dif: 2 },
     ai: { style: 'tank', space: 150 },
@@ -254,7 +262,7 @@ const ROSTER = [
 
   // ============================================================================ ליברמן
   fighterDef({
-    id: 'liberman', name: 'אביגדור ליברמן', short: 'ליברמן', party: 'yb', title: 'אין פשרות', arch: 'טנק',
+    id: 'liberman', name: 'אביגדור ליברמן', short: 'ליברמן', party: 'yb', title: 'אין פשרות', arch: 'טנק', role: 'יו״ר ישראל ביתנו',
     blurb: 'מכות כבדות שלא מוותרות. מתי שכבר התחיל, אף אחד לא עוצר אותו.',
     stats: { hp: 116, spd: 0.92, pow: 1.04 }, rating: { pow: 4, spd: 2, def: 4, rng: 2, dif: 2 },
     ai: { style: 'tank', space: 130 },
@@ -296,7 +304,7 @@ const ROSTER = [
 
   // ============================================================================ לפיד
   fighterDef({
-    id: 'lapid', name: 'יאיר לפיד', short: 'לפיד', party: 'ya', title: 'הרייטינג', arch: 'תקשורתי',
+    id: 'lapid', name: 'יאיר לפיד', short: 'לפיד', party: 'byachad', title: 'הרייטינג', arch: 'תקשורתי', role: 'ראש האופוזיציה · יו״ר יש עתיד · מס׳ 2 ברשימת ביחד',
     blurb: 'קליעים ויראליים והייפ שמתמלא מהר. כל פגיעה היא עוד כותרת.',
     stats: { hp: 104, spd: 1.06, pow: 0.96, meter: 1.3 }, rating: { pow: 2, spd: 4, def: 2, rng: 5, dif: 3 },
     ai: { style: 'zone', space: 360 },
@@ -359,7 +367,7 @@ const ROSTER = [
 
   // ============================================================================ גנץ
   fighterDef({
-    id: 'gantz', name: 'בני גנץ', short: 'גנץ', party: 'bw', title: 'משמעת', arch: 'מפקד',
+    id: 'gantz', name: 'בני גנץ', short: 'גנץ', party: 'bw', title: 'משמעת', arch: 'מפקד', role: 'יו״ר כחול לבן',
     blurb: 'מגן קודם, מכה אחר כך. בלוק מושלם אצלו מסתיים בתגובה מיידית.',
     stats: { hp: 136, spd: 1, pow: 1.08, def: 0.96 }, rating: { pow: 3, spd: 3, def: 4, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 200 },
@@ -423,7 +431,7 @@ const ROSTER = [
 
   // ============================================================================ גולן
   fighterDef({
-    id: 'golan', name: 'יאיר גולן', short: 'גולן', party: 'dem', title: 'רוח המחאה', arch: 'מתאושש',
+    id: 'golan', name: 'יאיר גולן', short: 'גולן', party: 'dem', title: 'רוח המחאה', arch: 'מתאושש', role: 'יו״ר הדמוקרטים',
     blurb: 'ככל שהוא נדחק לפינה, הוא נעשה מסוכן יותר. הרחוב תמיד איתו.',
     stats: { hp: 125, spd: 0.95, pow: 1.04 }, rating: { pow: 4, spd: 3, def: 3, rng: 3, dif: 2 },
     ai: { style: 'balanced', space: 170 },
@@ -475,7 +483,7 @@ const ROSTER = [
 
   // ============================================================================ עודה
   fighterDef({
-    id: 'odeh', name: 'איימן עודה', short: 'עודה', party: 'hadash', title: 'גשר', arch: 'זריז',
+    id: 'odeh', name: 'איימן עודה', short: 'עודה', party: 'hadash', title: 'גשר', arch: 'זריז', role: 'חבר כנסת · יו״ר חד״ש היוצא (לא מתמודד ב-2026)',
     blurb: 'קופץ פעמיים, חוצה פערים וממשיך לדבר. קשה לתפוס אותו במקום אחד.',
     stats: { hp: 124, spd: 1.1, pow: 1.07, jump: 1.05 }, rating: { pow: 2, spd: 5, def: 2, rng: 3, dif: 4 },
     ai: { style: 'rush', space: 150 },
@@ -531,7 +539,7 @@ const ROSTER = [
 
   // ============================================================================ עבאס
   fighterDef({
-    id: 'abbas', name: 'מנסור עבאס', short: 'עבאס', party: 'raam', title: 'לשון המאזניים', arch: 'מכריע',
+    id: 'abbas', name: 'מנסור עבאס', short: 'עבאס', party: 'raam', title: 'לשון המאזניים', arch: 'מכריע', role: 'יו״ר רע״מ · ועדת הבחירות פסלה את הרשימה, ממתין לבג״ץ',
     blurb: 'כשהקרב צמוד, הוא זה שמטה את הכף. אוהב לחכות עד הרגע הנכון.',
     stats: { hp: 124, spd: 1, pow: 1.05 }, rating: { pow: 3, spd: 3, def: 3, rng: 3, dif: 3 },
     ai: { style: 'balanced', space: 200 },
@@ -592,7 +600,7 @@ const ROSTER = [
 
   // ============================================================================ טיבי
   fighterDef({
-    id: 'tibi', name: 'אחמד טיבי', short: 'טיבי', party: 'taal', title: 'שנינות', arch: 'חד לשון',
+    id: 'tibi', name: 'אחמד טיבי', short: 'טיבי', party: 'taal', title: 'שנינות', arch: 'חד לשון', role: 'יו״ר תע״ל · מס׳ 2 ברשימה המשותפת · הרשימה נפסלה בוועדת הבחירות, ממתין לבג״ץ',
     blurb: 'מחזיר כל קליע לשולח. הפאנץ׳ליין תמיד מגיע בזמן.',
     stats: { hp: 116, spd: 1.05, pow: 1.02 }, rating: { pow: 3, spd: 4, def: 2, rng: 4, dif: 4 },
     ai: { style: 'zone', space: 260 },
@@ -646,7 +654,7 @@ const ROSTER = [
 
   // ============================================================================ רגב
   fighterDef({
-    id: 'regev', name: 'מירי רגב', short: 'רגב', party: 'likud', title: 'על הפסים', arch: 'קטר',
+    id: 'regev', name: 'מירי רגב', short: 'רגב', party: 'likud', title: 'על הפסים', arch: 'קטר', role: 'שרת התחבורה · הליכוד',
     blurb: 'ככל שהיא רצה קדימה היא מגיעה למהירות שאי אפשר לעצור. פגיעה מחזירה אותה לתחנה.',
     stats: { hp: 132, spd: 1.06, pow: 1.06 }, rating: { pow: 4, spd: 4, def: 2, rng: 3, dif: 3 },
     ai: { style: 'rush', space: 140 },

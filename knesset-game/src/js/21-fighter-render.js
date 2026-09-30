@@ -352,6 +352,23 @@ function drawHead(ctx, f, look, p, C, o = {}) {
     ctx.restore();
   }
 
+  // black brimmed hat
+  if (look.hat) {
+    const hc = look.hat.color || '#121118';
+    ctx.save(); ctx.translate(0, -18.6); ctx.rotate(-0.05);
+    ctx.beginPath(); ctx.ellipse(-0.6, 0.6, 25.5, 5.4, 0, 0, TAU);
+    const bg = ctx.createLinearGradient(0, -5, 0, 6); bg.addColorStop(0, C(lighten(hc, 0.16))); bg.addColorStop(1, C(darken(hc, 0.1)));
+    ctx.fillStyle = bg; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-15.4, 0.6); ctx.bezierCurveTo(-16.6, -12.5, -12.6, -20.2, -3, -20.6); ctx.bezierCurveTo(6.4, -21, 13, -15.6, 14, 0.6); ctx.closePath();
+    const cg = ctx.createLinearGradient(-16, -20, 14, 0); cg.addColorStop(0, C(lighten(hc, 0.22))); cg.addColorStop(0.5, C(hc)); cg.addColorStop(1, C(darken(hc, 0.2)));
+    ctx.fillStyle = cg; ctx.fill(); ctx.lineWidth = 1.4; ctx.strokeStyle = INK; ctx.stroke();
+    ctx.fillStyle = C(lighten(hc, 0.3)); ctx.globalAlpha = 0.3;
+    ctx.beginPath(); ctx.moveTo(-14.6, -5.6); ctx.quadraticCurveTo(-1, -3.4, 13.6, -6); ctx.lineTo(13.8, -2.6); ctx.quadraticCurveTo(-1, -0.2, -15, -2.4); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.moveTo(-14, -18); ctx.quadraticCurveTo(-8, -20.6, -2, -20.4); ctx.lineWidth = 1.2; ctx.strokeStyle = C(lighten(hc, 0.5)); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
   // glasses
   if (look.glasses) {
     const gl = look.glasses, col = C(gl.color || '#222');

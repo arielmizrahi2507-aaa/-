@@ -1,7 +1,7 @@
 // ===== Persistence, statistics, achievements =====
 const ACHIEVEMENTS = [
   { id: 'first_win', name: 'ניצחון ראשון', desc: 'נצחו קרב אחד.', test: (d) => d.wins >= 1 },
-  { id: 'wins10', name: 'חבר כנסת ותיק', desc: 'נצחו 10 קרבות (פותח את יושב הראש).', test: (d) => d.wins >= 10 },
+  { id: 'wins10', name: 'חבר כנסת ותיק', desc: 'נצחו 10 קרבות.', test: (d) => d.wins >= 10 },
   { id: 'combo10', name: 'קומבו של 10', desc: 'חבטו עשר פעמים ברצף.', test: (d) => d.bestCombo >= 10 },
   { id: 'flawless', name: 'ניצחון מוחלט', desc: 'נצחו סיבוב בלי לספוג פגיעה.', test: (d) => d.flawless >= 1 },
   { id: 'perfect5', name: 'בלוק מושלם ×5', desc: 'בצעו חמישה בלוקים מושלמים.', test: (d) => d.perfects >= 5 },
@@ -11,7 +11,7 @@ const ACHIEVEMENTS = [
   { id: 'boss', name: 'מעל האחוז', desc: 'הביסו את אחוז החסימה.', test: (d) => d.bossBeaten >= 1 },
   { id: 'wave10', name: 'מרתון חקיקה: גל 10', desc: 'הגיעו לגל 10 במרתון.', test: (d) => d.survivalBest >= 10 },
   { id: 'comeback', name: 'המהפך', desc: 'נצחו קרב כשנשארו לכם פחות מ-10% חיים.', test: (d) => d.comebacks >= 1 },
-  { id: 'allchars', name: 'כל הבית', desc: 'נצחו עם כל 12 חברי הכנסת.', test: (d) => ROSTER.every((r) => (d.winsBy[r.id] || 0) >= 1) },
+  { id: 'allchars', name: 'כל הבית', desc: 'נצחו עם כל הלוחמים בסגל.', test: (d) => ROSTER.every((r) => (d.winsBy[r.id] || 0) >= 1) },
   { id: 'throws10', name: 'זריקה לחדר', desc: 'בצעו 10 זריקות.', test: (d) => d.throws >= 10 },
   { id: 'burekas', name: '!בורקס', desc: 'ראו את הבורקס הסודי מציץ בפינה.', test: (d) => d.burekas >= 1 },
   { id: 'daily3', name: 'רצף יומי', desc: 'סיימו אתגר יומי 3 ימים ברצף.', test: (d) => d.daily.best >= 3 },

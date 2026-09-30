@@ -609,6 +609,7 @@ class Battle {
       const au = f.passive.aura ? f.passive.aura(f) : null;
       if (au) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 120, au, 0.35 + 0.1 * Math.sin(this.frame * 0.2)); ctx.restore(); }
       const flash = f.flashT > 0 ? 0.65 : 0;
+      if (f.burnT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 88, '#ff6a1f', 0.28 + 0.1 * Math.sin(this.frame * 0.5)); ctx.restore(); }
       drawFighter(ctx, f, { flash });
       if (f.hasArmor && f.hasArmor() && f.mi && f.mi.armor > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 110, '#ffd94a', 0.25); ctx.restore();

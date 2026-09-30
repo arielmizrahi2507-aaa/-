@@ -496,7 +496,7 @@ const Game = {
       if (A.diff === 2) S.hardClear++;
       Save.save(); this.checkAch();
       const def = ROSTER_BY_ID[A.id];
-      this.card(`<div class="ending" style="--pc:${def.color}"><img src="${portraitURL(A.id, 192)}" alt=""><h2>${def.short} הוא ראש הממשלה!</h2>${partyChip(def)}<p class="endtxt">${def.ending}</p><small>נפתחה דמות סודית: אחוז החסימה. ויושב ראש הכנסת נפתח אחרי 10 ניצחונות.</small></div>${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="menu">חזרה לתפריט</button></div>`);
+      this.card(`<div class="ending" style="--pc:${def.color}"><img src="${portraitURL(A.id, 192)}" alt=""><h2>${def.short} הוא ראש הממשלה!</h2>${partyChip(def)}<p class="endtxt">${def.ending}</p><small>נפתחה דמות סודית: אחוז החסימה.</small></div>${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="menu">חזרה לתפריט</button></div>`);
       Snd.play('crowd');
       return;
     }
