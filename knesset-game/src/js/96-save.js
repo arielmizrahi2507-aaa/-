@@ -36,7 +36,7 @@ const Save = {
       v: 1, wins: 0, losses: 0, matches: 0, ko: 0, supers: 0, perfects: 0, throws: 0, bestCombo: 0, flawless: 0, comebacks: 0,
       burekas: 0, hardClear: 0, bossBeaten: 0, winsBy: {}, arcadeClears: {}, survivalBest: 0, unlocked: {}, ach: {},
       daily: { date: '', streak: 0, best: 0, done: {} },
-      settings: { sfx: 0.8, music: 0.5, shake: true, calm: false, touch: 'auto', muted: false, rounds: 2, timer: 60, rotate: 'off' },
+      settings: { sfx: 0.8, music: 0.5, shake: true, calm: false, touch: 'auto', muted: false, rounds: 2, timer: 60, rotate: 'auto', rotateSet: false },
     };
   },
 
@@ -47,6 +47,7 @@ const Save = {
       const got = raw ? JSON.parse(raw) : {};
       this.d = Object.assign(def, got);
       this.d.settings = Object.assign(def.settings, got.settings || {});
+      if (!this.d.settings.rotateSet) this.d.settings.rotate = 'auto';       // the old default was 'off'; landscape-first is the new default
       this.d.daily = Object.assign(this.defaults().daily, got.daily || {});
     } catch (e) { this.d = def; }
     return this.d;

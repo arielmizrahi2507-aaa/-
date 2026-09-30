@@ -216,8 +216,8 @@ const UI = {
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
         <label class="row">כפתורי מגע
           <select id="set-touch" class="nav"><option value="auto">אוטומטי</option><option value="on">תמיד</option><option value="off">כבוי</option></select></label>
-        <label class="row touchonly">מצב רוחב (לטלפון שנשאר במסך לאורך)
-          <select id="set-rotate" class="nav"><option value="off">כבוי</option><option value="cw">סיבוב ימינה ↻</option><option value="ccw">סיבוב שמאלה ↺</option></select></label>
+        <label class="row touchonly">מצב רוחב (בטלפון שמוחזק לאורך)
+          <select id="set-rotate" class="nav"><option value="auto">אוטומטי: לרוחב בטלפון</option><option value="off">כבוי</option><option value="cw">סיבוב ימינה ↻</option><option value="ccw">סיבוב שמאלה ↺</option></select></label>
         <div class="row fsonly"><button class="btn nav" data-act="fullscreen">מסך מלא</button></div>
         <label class="row nextmatch">סיבובים לניצחון
           <select id="set-rounds" class="nav"><option value="1">1 (קרב חטוף)</option><option value="2">2 (מומלץ)</option><option value="3">3 (ארוך)</option></select></label>
@@ -319,6 +319,10 @@ const UI = {
     const dk = todayKey();
     $('#daily-sub').textContent = s.daily.done[dk] ? 'הושלם היום! רצף: ' + s.daily.streak : (s.daily.streak ? 'רצף נוכחי: ' + s.daily.streak : 'חוק חדש כל יום');
     Snd.playMusic('menu');
+    if (Game.rot && !s.settings.rotHinted) {         // a phone held upright: the game turns itself to landscape, so tell the player once
+      s.settings.rotHinted = true; Save.save();
+      setTimeout(() => UI.toast('סובבו את הטלפון על הצד', 'המשחק מיועד לרוחב ומסתובב לבד. אם הוא הפוך, לחצו "הפוך כיוון" בתפריט', 'unlock'), 700);
+    }
   },
 
   // ---------------------------------------------------------------- Select
@@ -409,7 +413,7 @@ const UI = {
     $('#set-back').textContent = inFight ? 'חזרה להפסקה' : 'חזרה';
     const s = Save.d.settings;
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
-    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotate || 'off';
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
   },
   bindSettings() {

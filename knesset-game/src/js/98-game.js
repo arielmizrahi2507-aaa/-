@@ -8,7 +8,7 @@ const MUTATORS = [
 ];
 
 const Game = {
-  scene: null, acc: 0, last: 0, paused: false, spec: null, dummy: 'stand', infMeter: false, showBoxes: false, showInputs: true, seg: 0,
+  scene: null, acc: 0, last: 0, paused: false, spec: null, dummy: 'stand', infMeter: false, showBoxes: false, showInputs: true, seg: 0, tiltDir: 1, tiltT: 0,
 
   // ------------------------------------------------------------------ boot / loop
   init() {
@@ -29,6 +29,8 @@ const Game = {
     window.addEventListener('resize', () => this.layout());
     if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
     window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
+    window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
+    window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
     document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
     this.last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
@@ -87,7 +89,8 @@ const Game = {
     const set = Save.d.settings;
     const pw0 = window.innerWidth, ph0 = window.innerHeight;
     const physPortrait = ph0 > pw0 * 1.02;
-    const rot = set.rotate && set.rotate !== 'off' && physPortrait ? (set.rotate === 'ccw' ? -1 : 1) : 0;
+    const mode = this.rotMode();
+    const rot = mode !== 'off' && physPortrait ? (mode === 'ccw' ? -1 : 1) : 0;
     this.rot = rot;
     const vw = rot ? ph0 : pw0, vh = rot ? pw0 : ph0;
     const B0 = document.body, RS = document.documentElement.style;
@@ -126,10 +129,37 @@ const Game = {
     if (!this.rot) return [cx, cy];
     return this.rot === 1 ? [cy, window.innerWidth - cx] : [window.innerHeight - cy, cx];
   },
+  // 'auto' (the default) turns the UI to landscape on touch devices that are held upright; the direction follows the accelerometer when there is one.
+  rotMode() {
+    const s = Save.d.settings;
+    const m = s.rotateSet ? s.rotate : 'auto';
+    if (m === 'auto' || !m) return this.touchEnabled() ? (this.tiltDir === -1 ? 'ccw' : 'cw') : 'off';
+    return m;
+  },
   setRotate(v) {
-    Save.d.settings.rotate = v; Save.save(); this.layout();
+    const s = Save.d.settings;
+    s.rotate = v; s.rotateSet = true; Save.save(); this.layout();
     const sel = $('#set-rotate'); if (sel) sel.value = v;
     Snd.play('select');
+  },
+  // Phone locked to portrait: which way was it turned? (x > 0: the top of the phone points to the player's left, so the UI turns clockwise)
+  onMotion(e) {
+    const a = e.accelerationIncludingGravity, s = Save.d.settings;
+    if (!a || typeof a.x !== 'number' || (s.rotateSet && s.rotate !== 'auto') || !this.rot) return;
+    const ax = /iP(hone|ad|od)/.test(navigator.userAgent) ? -a.x : a.x;
+    const want = ax > 6.5 ? 1 : ax < -6.5 ? -1 : 0;
+    if (!want || want === this.tiltDir) { this.tiltT = 0; return; }
+    if (++this.tiltT > 14) { this.tiltDir = want; this.tiltT = 0; this.layout(); }
+  },
+  // First tap on an upright phone: go fullscreen and ask for landscape. Android Chrome honours it; elsewhere the UI is turned by CSS.
+  landscapeAttempt() {
+    if (this.fsTried || !this.rot || !this.touchEnabled()) return;
+    this.fsTried = true;
+    const d = document, el = d.documentElement;
+    if (d.fullscreenElement || d.webkitFullscreenElement) return;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    try { Promise.resolve(req.call(el)).then(() => { try { screen.orientation.lock('landscape').catch(() => {}); } catch (e) { /* not supported */ } }).catch(() => {}); } catch (e) { /* not allowed */ }
   },
   toggleFullscreen() {
     const d = document, el = d.documentElement;
@@ -346,8 +376,8 @@ const Game = {
       case 'resume': this.togglePause(); break;
       case 'pause-sound': UI.setMuted(!Snd.muted); $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל'; Snd.play('select'); break;
       case 'pause-moves': this.showMovesCard(); break;
-      case 'rotate-on': this.setRotate('cw'); break;
-      case 'rotate-flip': this.setRotate(Save.d.settings.rotate === 'ccw' ? 'cw' : 'ccw'); break;
+      case 'rotate-on': this.setRotate('auto'); break;
+      case 'rotate-flip': this.setRotate(this.rot === -1 ? 'cw' : 'ccw'); break;
       case 'rotate-off': this.setRotate('off'); break;
       case 'fullscreen': this.toggleFullscreen(); break;
       case 'pause-settings': UI.show('settings', { keepScene: true }); $('#s-pause').classList.remove('on'); break;
