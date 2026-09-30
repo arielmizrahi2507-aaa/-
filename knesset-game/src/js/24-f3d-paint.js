@@ -202,7 +202,7 @@ function paintEye3(c, kind, look, pal, lookX) {
     c.fillStyle = pal.skin; c.beginPath(); c.moveTo(-5.4, -5.4); c.lineTo(5.4, -5.4); c.lineTo(5.4, -0.4); c.quadraticCurveTo(0.6, ly * 1.35 + 0.3, -5.4, -1.4 + look.lid * 0.4); c.closePath(); c.fill();
     c.strokeStyle = rgba(dk, 0.6); c.lineWidth = 0.7; c.beginPath(); c.moveTo(-5.2, -2.9 + look.lid * 0.3); c.quadraticCurveTo(0, ly * 1.35 - 1.5, 5.3, -2.0); c.stroke();
   }
-  c.strokeStyle = '#1d0f10'; c.lineWidth = female ? 1.5 : 1.15;
+  c.strokeStyle = '#1d0f10'; c.lineWidth = female ? 1.2 : 1.15;
   c.beginPath(); c.moveTo(-4.8, 0.5); c.bezierCurveTo(-3, -3.4 * squash - 0.2, 2.9, -3.6 * squash - 0.2, 4.8, -0.5); c.stroke();     // upper lash line
   c.strokeStyle = rgba(dk, 0.5); c.lineWidth = 0.55; c.beginPath(); c.moveTo(-4.2, -0.6 - 2.4 * squash); c.bezierCurveTo(-2.4, -3.9 * squash - 1.4, 2.6, -4.2 * squash - 1.4, 4.9, -1.9); c.stroke();   // lid crease
   if (female) { c.strokeStyle = '#1d0f10'; c.lineWidth = 0.5; c.beginPath(); c.moveTo(4.6, -0.7); c.lineTo(5.9, -1.9); c.moveTo(3.4, -2.4 * squash); c.lineTo(4.4, -3.7 * squash); c.moveTo(1.6, -3.0 * squash); c.lineTo(2.1, -4.3 * squash); c.stroke(); }
@@ -218,7 +218,7 @@ function paintBrow3(c, side, e, look, pal) {
   else if (e === 'squint') { inY = 7.8; midY = 9.2; outY = 8.0; }
   else if (e === 'happy') { inY = 8.8; midY = 11.4; outY = 9.4; }
   else if (e === 'ko') { inY = 9.6; midY = 10.6; outY = 8.4; }
-  c.save(); c.translate(faceX(side * 6.0 * (look.eyeGap || 1)), faceY(0)); c.scale(side * FT, -FT);
+  c.save(); c.translate(faceX(side * (6.0 * (look.eyeGap || 1) + Math.max(0, Math.min(1.3, faceK(look.eyeSize, 'eye')) - 1) * 5)), faceY(0)); c.scale(side * FT, -FT);
   c.lineCap = 'round';
   inY -= tilt * 1.1; outY += tilt * 0.9; midY += arch * 1.3;
   const P = [[-3.6, inY], [-0.8, midY - 0.2], [2.4 * bl, midY], [5.2 * bl, outY]];
@@ -305,9 +305,9 @@ function paintFaceExpr(c, look, pal, eyes, mouth) {
   if (eyes === 'happy' || mouth === 'smile' || mouth === 'grin') {
     for (const s of [-1, 1]) { soft(s * 8, -3.4, 3.6, 2.6, rgbHex(pal.skinL), 0.24); if (age < 0.3) crease(c, pal, [[s * 11, 3.2], [s * 13.6, 4.6]], w * 0.7, 0.35); }
   }
-  const K = 0.82 * FT * faceK(look.eyeSize, 'eye');
+  const eyeK = Math.min(1.3, faceK(look.eyeSize, 'eye')), K = 0.82 * FT * eyeK, eyeX = 5.7 * (look.eyeGap || 1) + Math.max(0, eyeK - 1) * 5;       // bigger eyes sit further apart
   for (const side of [-1, 1]) {
-    c.save(); c.translate(faceX(side * 5.7 * (look.eyeGap || 1)), faceY(3.5)); c.scale(side * K, K);
+    c.save(); c.translate(faceX(side * eyeX), faceY(3.5)); c.scale(side * K, K);
     paintEye3(c, eyes, look, pal, 0.3);
     c.restore();
   }

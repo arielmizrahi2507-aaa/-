@@ -57,8 +57,8 @@ const LOOKS = {
     skin: '#c79770', hair: { style: 'thin', color: '#3a3a44', vol: 1, hl: 0.1 }, stache: '#33302e', glasses: { shape: 'rect', color: '#2a2a33' }, age: 0.55, brow: 4, iris: '#2e2119', suit: '#3a2f4a', shirt: '#ffffff', tie: '#e05fb4', pin: '#e05fb4', h: 0.96, w: 1.02, belly: 0.2,
   },
   regev: {
-    fw: 0.94, cheek: 1.35, chin: 0.88, jaw: 0.9, nose: 0.92, noseL: 0.95, noseW: 0.9, lips: 1.5, eyeSize: 1.15, browArch: 0.9, neck: 0.9,
-    skin: '#f0c5a0', hair: { style: 'wavy', color: '#c49a62', len: 30 }, browColor: '#7a5a30', brow: 2.6, earring: '#ffd24a', female: true, age: 0.3, iris: '#5a4028', suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.93, w: 0.9, open: true, head: 0.97, shoulders: -0.3,
+    fw: 1.06, cheek: 1.3, chin: 0.98, jaw: 1, nose: 0.9, noseL: 0.92, noseW: 0.98, lips: 1.35, eyeSize: 1.2, ridge: 1.05, browArch: 0.75, neck: 1,
+    skin: '#e8b88c', hair: { style: 'layered', color: '#b08650', vol: 1.3, len: 40, sweep: 1 }, browColor: '#4e3522', brow: 3.4, earring: '#ffd24a', female: true, age: 0.4, iris: '#5a4028', suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.98, w: 0.97, open: true, head: 1, shoulders: 0.05,
   },
   ohana: {
     fw: 0.95, len: 1.1, fore: 1.1, ridge: 1.1, cheek: 0.88, chin: 1.1, nose: 1.05, noseL: 1.1, noseW: 0.95, lips: 0.95, lid: 0.2,

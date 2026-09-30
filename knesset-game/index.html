@@ -1670,6 +1670,12 @@ const HAIR_DEF = {
     strands: ['M 14 -15 Q 6 -23.5 -6 -24.5', 'M 9 -16.8 Q 0 -22 -12 -21', 'M 4 -17 Q -6 -20 -16 -15', 'M -6 -14 Q -14 -12 -18 -3'],
     back: [[-9, -22], [-21, -19], [-27, -5], [-27.6, 12], [-24.6, 27], [-19, 35], [-12, 34], [-8.6, 23], [-8, 10]],
   },
+  layered: { // shoulder-length, full and lifted at the crown, a long fringe swept forward, the ends flicked out
+    outer: [[17.2, -10.5], [16.8, -18.2], [10.4, -26.4], [0, -29], [-11.4, -26.4], [-19.4, -17.6], [-23.4, -4], [-22.8, 10], [-17.6, 14.4]],
+    line: [[-11.4, 9], [-11.8, 0.6], [-9.4, -8.6], [-3, -14.6], [4.4, -16.4], [11.4, -14.4], [16.2, -10.6]],
+    strands: ['M 15.4 -12.5 Q 6.5 -24.5 -7 -26.2', 'M 10.6 -13.4 Q 0.5 -22.4 -13.5 -22', 'M 5 -14.6 Q -6 -20 -18 -16', 'M -7 -13.4 Q -16.5 -10.5 -20.6 1'],
+    back: [[-9, -23.5], [-23.5, -21], [-31.5, -6], [-32.6, 11], [-31.4, 22], [-35.4, 32.4], [-27.4, 34.4], [-18.6, 31], [-10.4, 24], [-8, 10]],
+  },
   buzz: {    // cropped very close to the skull
     outer: [[15, -12], [14.6, -16.2], [9, -21.9], [1.6, -23.4], [-8, -22.4], [-14.4, -17.6], [-18.5, -9.5], [-18.9, -1], [-17.4, 6.4], [-13.9, 10.3]],
     line: [[-11, 8.5], [-10.6, 2], [-10.8, -3.5], [-8, -9.8], [-2, -13.8], [4, -15.6], [10, -15.8], [14.4, -14]],
@@ -2977,7 +2983,7 @@ function paintEye3(c, kind, look, pal, lookX) {
     c.fillStyle = pal.skin; c.beginPath(); c.moveTo(-5.4, -5.4); c.lineTo(5.4, -5.4); c.lineTo(5.4, -0.4); c.quadraticCurveTo(0.6, ly * 1.35 + 0.3, -5.4, -1.4 + look.lid * 0.4); c.closePath(); c.fill();
     c.strokeStyle = rgba(dk, 0.6); c.lineWidth = 0.7; c.beginPath(); c.moveTo(-5.2, -2.9 + look.lid * 0.3); c.quadraticCurveTo(0, ly * 1.35 - 1.5, 5.3, -2.0); c.stroke();
   }
-  c.strokeStyle = '#1d0f10'; c.lineWidth = female ? 1.5 : 1.15;
+  c.strokeStyle = '#1d0f10'; c.lineWidth = female ? 1.2 : 1.15;
   c.beginPath(); c.moveTo(-4.8, 0.5); c.bezierCurveTo(-3, -3.4 * squash - 0.2, 2.9, -3.6 * squash - 0.2, 4.8, -0.5); c.stroke();     // upper lash line
   c.strokeStyle = rgba(dk, 0.5); c.lineWidth = 0.55; c.beginPath(); c.moveTo(-4.2, -0.6 - 2.4 * squash); c.bezierCurveTo(-2.4, -3.9 * squash - 1.4, 2.6, -4.2 * squash - 1.4, 4.9, -1.9); c.stroke();   // lid crease
   if (female) { c.strokeStyle = '#1d0f10'; c.lineWidth = 0.5; c.beginPath(); c.moveTo(4.6, -0.7); c.lineTo(5.9, -1.9); c.moveTo(3.4, -2.4 * squash); c.lineTo(4.4, -3.7 * squash); c.moveTo(1.6, -3.0 * squash); c.lineTo(2.1, -4.3 * squash); c.stroke(); }
@@ -2993,7 +2999,7 @@ function paintBrow3(c, side, e, look, pal) {
   else if (e === 'squint') { inY = 7.8; midY = 9.2; outY = 8.0; }
   else if (e === 'happy') { inY = 8.8; midY = 11.4; outY = 9.4; }
   else if (e === 'ko') { inY = 9.6; midY = 10.6; outY = 8.4; }
-  c.save(); c.translate(faceX(side * 6.0 * (look.eyeGap || 1)), faceY(0)); c.scale(side * FT, -FT);
+  c.save(); c.translate(faceX(side * (6.0 * (look.eyeGap || 1) + Math.max(0, Math.min(1.3, faceK(look.eyeSize, 'eye')) - 1) * 5)), faceY(0)); c.scale(side * FT, -FT);
   c.lineCap = 'round';
   inY -= tilt * 1.1; outY += tilt * 0.9; midY += arch * 1.3;
   const P = [[-3.6, inY], [-0.8, midY - 0.2], [2.4 * bl, midY], [5.2 * bl, outY]];
@@ -3080,9 +3086,9 @@ function paintFaceExpr(c, look, pal, eyes, mouth) {
   if (eyes === 'happy' || mouth === 'smile' || mouth === 'grin') {
     for (const s of [-1, 1]) { soft(s * 8, -3.4, 3.6, 2.6, rgbHex(pal.skinL), 0.24); if (age < 0.3) crease(c, pal, [[s * 11, 3.2], [s * 13.6, 4.6]], w * 0.7, 0.35); }
   }
-  const K = 0.82 * FT * faceK(look.eyeSize, 'eye');
+  const eyeK = Math.min(1.3, faceK(look.eyeSize, 'eye')), K = 0.82 * FT * eyeK, eyeX = 5.7 * (look.eyeGap || 1) + Math.max(0, eyeK - 1) * 5;       // bigger eyes sit further apart
   for (const side of [-1, 1]) {
-    c.save(); c.translate(faceX(side * 5.7 * (look.eyeGap || 1)), faceY(3.5)); c.scale(side * K, K);
+    c.save(); c.translate(faceX(side * eyeX), faceY(3.5)); c.scale(side * K, K);
     paintEye3(c, eyes, look, pal, 0.3);
     c.restore();
   }
@@ -3363,8 +3369,9 @@ function buildHeadMeshes(look, pal) {
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
   const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
   const style0 = look.hair ? look.hair.style : 'none';
-  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
-  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
+  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part', layered: 'wavy' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
+  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05, layered: 1.2 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
+  const sweep = (look.hair && look.hair.sweep) || 0;              // a fringe swept to one side: lower on the near side, higher on the far side
   const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR, CLS.HAIR);
   const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
     const PS = [], COV = [], SH = [];
@@ -3378,7 +3385,7 @@ function buildHeadMeshes(look, pal) {
   if (style !== 'none' && style !== 'sides') {
     const kn = HAIRLINE[style];
     shell(hairMesh, (th, ph, base) => {
-      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + ((look.hair.hl || 0) + hlAdd) * sstep(2.2, 0.4, at);      // hl > 0: receding hairline
+      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + ((look.hair.hl || 0) + hlAdd) * sstep(2.2, 0.4, at) + sweep * (0.14 - 0.24 * Math.tanh(th * 2.2)) * sstep(1.6, 0.1, at);      // hl > 0: receding hairline
       let cov = sstep(Hl - 0.08, Hl + 0.08, ph);
       const vol = (look.hair.vol || 1) * volK;
       let t = 0.5 + vol * (style === 'swoop' ? 1.5 : style === 'wavy' ? 1.6 : style === 'part' ? 1.4 : 1.0) * sstep(Hl, Hl + 0.7, ph);
@@ -3399,13 +3406,13 @@ function buildHeadMeshes(look, pal) {
   }
   // long hair behind the head (women): a curtain hanging from the crown down to the shoulders
   if (style === 'wavy') {
-    const rows = 12, cols = 25, PS = [];
+    const rows = 12, cols = 25, PS = [], flare = style0 === 'layered' ? 0.55 : 0;            // the ends of layered hair flick out
     for (let j = 0; j < rows; j++) {
       const t = j / (rows - 1);
       for (let i = 0; i < cols; i++) {
         const a = -2.05 + (i / (cols - 1)) * 4.1 + Math.PI, th = wrapPi(a), edge = Math.abs(i / (cols - 1) - 0.5) * 2;
-        const yy = 8 - t * (look.hair.len || 42), wob = Math.sin(t * 5 + i * 0.7) * 1.4 * t;
-        const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t) * (1 - 0.1 * edge * t);
+        const yy = 8 - t * (look.hair.len || 42), wob = Math.sin(t * 5 + i * 0.7) * (style0 === 'layered' ? 3.2 : 1.4) * t;
+        const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t + flare * t * t) * (1 - 0.1 * edge * t);
         PS.push([Math.cos(th) * HD.Rf * rad - 3 * t + wob, yy, Math.sin(th) * RLL * 1.03 * rad]);
       }
     }
@@ -4139,8 +4146,8 @@ const LOOKS = {
     skin: '#c79770', hair: { style: 'thin', color: '#3a3a44', vol: 1, hl: 0.1 }, stache: '#33302e', glasses: { shape: 'rect', color: '#2a2a33' }, age: 0.55, brow: 4, iris: '#2e2119', suit: '#3a2f4a', shirt: '#ffffff', tie: '#e05fb4', pin: '#e05fb4', h: 0.96, w: 1.02, belly: 0.2,
   },
   regev: {
-    fw: 0.94, cheek: 1.35, chin: 0.88, jaw: 0.9, nose: 0.92, noseL: 0.95, noseW: 0.9, lips: 1.5, eyeSize: 1.15, browArch: 0.9, neck: 0.9,
-    skin: '#f0c5a0', hair: { style: 'wavy', color: '#c49a62', len: 30 }, browColor: '#7a5a30', brow: 2.6, earring: '#ffd24a', female: true, age: 0.3, iris: '#5a4028', suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.93, w: 0.9, open: true, head: 0.97, shoulders: -0.3,
+    fw: 1.06, cheek: 1.3, chin: 0.98, jaw: 1, nose: 0.9, noseL: 0.92, noseW: 0.98, lips: 1.35, eyeSize: 1.2, ridge: 1.05, browArch: 0.75, neck: 1,
+    skin: '#e8b88c', hair: { style: 'layered', color: '#b08650', vol: 1.3, len: 40, sweep: 1 }, browColor: '#4e3522', brow: 3.4, earring: '#ffd24a', female: true, age: 0.4, iris: '#5a4028', suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.98, w: 0.97, open: true, head: 1, shoulders: 0.05,
   },
   ohana: {
     fw: 0.95, len: 1.1, fore: 1.1, ridge: 1.1, cheek: 0.88, chin: 1.1, nose: 1.05, noseL: 1.1, noseW: 0.95, lips: 0.95, lid: 0.2,
@@ -5062,6 +5069,8 @@ const Snd = {
 
   // ---- Music ----
   playMusic(name) {
+    if (name === 'menu2') name = 'menu';
+    if (name === 'menu' && typeof Save !== 'undefined' && Save.d && Save.d.settings.lobbySong === 'new') name = 'menu2';         // the lobby song chosen in the settings
     if (!this.ctx) { this.music.pending = name; return; }
     if (this.music.name === name && this.music.timer) return;
     this.stopMusic();
@@ -5244,9 +5253,25 @@ const TRACKS = {
       }
     },
   },
-  // The lobby theme: D minor with a phrygian flavour (the Andalusian run Dm - C - Bb - A), 124 BPM, 32 bars (about 62 s, then it loops):
+  // The classic lobby theme (the default)
+  menu: {
+    bpm: 96,
+    arp: [0, 4, 7, 4, 1, 4, 8, 4, 0, 4, 7, 12, 10, 7, 4, 1],
+    step(s, i, t, sd) {
+      const k = i % 16, bar = Math.floor(i / 16) % 4;
+      if (k === 0 || k === 8) s.kick(t, 0.5);
+      if (k === 4 || k === 12) s.snare(t, 0.16);
+      if (k % 2 === 0) s.hat(t, 0.06);
+      const root = [0, 0, 1, 0][bar];
+      if (k % 4 === 0) s.note(t, hz(-22 + root), sd * 3.5, { type: 'sine', vol: 0.5, lp: 400 });
+      const a = this.arp[k] + root;
+      s.note(t, hz(14 + a), sd * 2.2, { type: 'triangle', vol: 0.14, lp: 2400, lp2: 900 });
+      if (k === 0) { s.note(t, hz(2 + root), sd * 14, { type: 'sawtooth', vol: 0.05, lp: 700, attack: 0.3 }); s.note(t, hz(9 + root), sd * 14, { type: 'sawtooth', vol: 0.04, lp: 700, attack: 0.4 }); }
+    },
+  },
+  // The second lobby theme (Settings > lobby song > new): D minor with a phrygian flavour (the Andalusian run Dm - C - Bb - A), 124 BPM, 32 bars (about 62 s, then it loops):
   // intro, verse, verse with a harmony, chorus, chorus, break, verse, final chorus. Notes are semitones above D4.
-  menu: (() => {
+  menu2: (() => {
     const V = [           // verse melody, 4 bars = 64 sixteenth steps: [step, note, length in steps]
       [0, 12, 3], [3, 7, 1], [4, 10, 2], [6, 12, 2], [8, 15, 4], [12, 14, 2], [14, 12, 2],
       [16, 14, 3], [19, 12, 1], [20, 10, 2], [22, 5, 2], [24, 7, 2], [26, 10, 2], [28, 5, 4],
@@ -8647,7 +8672,7 @@ const Save = {
       v: 1, wins: 0, losses: 0, matches: 0, ko: 0, supers: 0, perfects: 0, throws: 0, bestCombo: 0, flawless: 0, comebacks: 0,
       burekas: 0, hardClear: 0, bossBeaten: 0, winsBy: {}, arcadeClears: {}, survivalBest: 0, unlocked: {}, ach: {},
       daily: { date: '', streak: 0, best: 0, done: {} },
-      settings: { sfx: 0.8, music: 0.5, shake: true, calm: false, touch: 'auto', muted: false, rounds: 2, timer: 60, rotate: 'auto', rotateSet: false, gfx3d: true },
+      settings: { sfx: 0.8, music: 0.5, shake: true, calm: false, touch: 'auto', muted: false, rounds: 2, timer: 60, rotate: 'auto', rotateSet: false, gfx3d: true, lobbySong: 'classic' },
     };
   },
 
@@ -9057,6 +9082,8 @@ const UI = {
       <div class="panel narrow">
         <label class="row">עוצמת אפקטים<input type="range" min="0" max="100" id="set-sfx" class="nav"></label>
         <label class="row">עוצמת מוזיקה<input type="range" min="0" max="100" id="set-music" class="nav"></label>
+        <label class="row">שיר הפתיחה
+          <select id="set-song" class="nav"><option value="classic">הקלאסי</option><option value="new">החדש</option></select></label>
         <label class="row">רעידות מסך<input type="checkbox" id="set-shake" class="nav"></label>
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
         <label class="row">דמויות תלת־ממדיות (מכבים אם המשחק איטי)<input type="checkbox" id="set-3d" class="nav"></label>
@@ -9266,12 +9293,14 @@ const UI = {
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
     $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
+    $('#set-song').value = s.lobbySong === 'new' ? 'new' : 'classic';
   },
   bindSettings() {
     const s = () => Save.d.settings;
     const on = (id, ev, fn) => $(id).addEventListener(ev, fn);
     on('#set-sfx', 'input', (e) => { s().sfx = e.target.value / 100; Snd.init(); Snd.setVol('sfx', s().sfx); Snd.play('hitM'); Save.save(); });
     on('#set-music', 'input', (e) => { s().music = e.target.value / 100; Snd.init(); Snd.setVol('music', s().music); Save.save(); });
+    on('#set-song', 'change', (e) => { s().lobbySong = e.target.value === 'new' ? 'new' : 'classic'; Save.save(); Snd.init(); const n = Snd.music.name; if (n === 'menu' || n === 'menu2') Snd.playMusic('menu'); });
     on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-3d', 'change', (e) => { s().gfx3d = e.target.checked; Save.save(); Game.applySettings(); });

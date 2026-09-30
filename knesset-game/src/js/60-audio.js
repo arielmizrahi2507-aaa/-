@@ -136,6 +136,8 @@ const Snd = {
 
   // ---- Music ----
   playMusic(name) {
+    if (name === 'menu2') name = 'menu';
+    if (name === 'menu' && typeof Save !== 'undefined' && Save.d && Save.d.settings.lobbySong === 'new') name = 'menu2';         // the lobby song chosen in the settings
     if (!this.ctx) { this.music.pending = name; return; }
     if (this.music.name === name && this.music.timer) return;
     this.stopMusic();
@@ -318,9 +320,25 @@ const TRACKS = {
       }
     },
   },
-  // The lobby theme: D minor with a phrygian flavour (the Andalusian run Dm - C - Bb - A), 124 BPM, 32 bars (about 62 s, then it loops):
+  // The classic lobby theme (the default)
+  menu: {
+    bpm: 96,
+    arp: [0, 4, 7, 4, 1, 4, 8, 4, 0, 4, 7, 12, 10, 7, 4, 1],
+    step(s, i, t, sd) {
+      const k = i % 16, bar = Math.floor(i / 16) % 4;
+      if (k === 0 || k === 8) s.kick(t, 0.5);
+      if (k === 4 || k === 12) s.snare(t, 0.16);
+      if (k % 2 === 0) s.hat(t, 0.06);
+      const root = [0, 0, 1, 0][bar];
+      if (k % 4 === 0) s.note(t, hz(-22 + root), sd * 3.5, { type: 'sine', vol: 0.5, lp: 400 });
+      const a = this.arp[k] + root;
+      s.note(t, hz(14 + a), sd * 2.2, { type: 'triangle', vol: 0.14, lp: 2400, lp2: 900 });
+      if (k === 0) { s.note(t, hz(2 + root), sd * 14, { type: 'sawtooth', vol: 0.05, lp: 700, attack: 0.3 }); s.note(t, hz(9 + root), sd * 14, { type: 'sawtooth', vol: 0.04, lp: 700, attack: 0.4 }); }
+    },
+  },
+  // The second lobby theme (Settings > lobby song > new): D minor with a phrygian flavour (the Andalusian run Dm - C - Bb - A), 124 BPM, 32 bars (about 62 s, then it loops):
   // intro, verse, verse with a harmony, chorus, chorus, break, verse, final chorus. Notes are semitones above D4.
-  menu: (() => {
+  menu2: (() => {
     const V = [           // verse melody, 4 bars = 64 sixteenth steps: [step, note, length in steps]
       [0, 12, 3], [3, 7, 1], [4, 10, 2], [6, 12, 2], [8, 15, 4], [12, 14, 2], [14, 12, 2],
       [16, 14, 3], [19, 12, 1], [20, 10, 2], [22, 5, 2], [24, 7, 2], [26, 10, 2], [28, 5, 4],

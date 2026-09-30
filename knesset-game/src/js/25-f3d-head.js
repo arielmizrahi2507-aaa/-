@@ -107,8 +107,9 @@ function buildHeadMeshes(look, pal) {
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
   const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
   const style0 = look.hair ? look.hair.style : 'none';
-  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
-  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
+  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part', layered: 'wavy' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
+  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05, layered: 1.2 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
+  const sweep = (look.hair && look.hair.sweep) || 0;              // a fringe swept to one side: lower on the near side, higher on the far side
   const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR, CLS.HAIR);
   const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
     const PS = [], COV = [], SH = [];
@@ -122,7 +123,7 @@ function buildHeadMeshes(look, pal) {
   if (style !== 'none' && style !== 'sides') {
     const kn = HAIRLINE[style];
     shell(hairMesh, (th, ph, base) => {
-      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + ((look.hair.hl || 0) + hlAdd) * sstep(2.2, 0.4, at);      // hl > 0: receding hairline
+      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + ((look.hair.hl || 0) + hlAdd) * sstep(2.2, 0.4, at) + sweep * (0.14 - 0.24 * Math.tanh(th * 2.2)) * sstep(1.6, 0.1, at);      // hl > 0: receding hairline
       let cov = sstep(Hl - 0.08, Hl + 0.08, ph);
       const vol = (look.hair.vol || 1) * volK;
       let t = 0.5 + vol * (style === 'swoop' ? 1.5 : style === 'wavy' ? 1.6 : style === 'part' ? 1.4 : 1.0) * sstep(Hl, Hl + 0.7, ph);
@@ -143,13 +144,13 @@ function buildHeadMeshes(look, pal) {
   }
   // long hair behind the head (women): a curtain hanging from the crown down to the shoulders
   if (style === 'wavy') {
-    const rows = 12, cols = 25, PS = [];
+    const rows = 12, cols = 25, PS = [], flare = style0 === 'layered' ? 0.55 : 0;            // the ends of layered hair flick out
     for (let j = 0; j < rows; j++) {
       const t = j / (rows - 1);
       for (let i = 0; i < cols; i++) {
         const a = -2.05 + (i / (cols - 1)) * 4.1 + Math.PI, th = wrapPi(a), edge = Math.abs(i / (cols - 1) - 0.5) * 2;
-        const yy = 8 - t * (look.hair.len || 42), wob = Math.sin(t * 5 + i * 0.7) * 1.4 * t;
-        const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t) * (1 - 0.1 * edge * t);
+        const yy = 8 - t * (look.hair.len || 42), wob = Math.sin(t * 5 + i * 0.7) * (style0 === 'layered' ? 3.2 : 1.4) * t;
+        const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t + flare * t * t) * (1 - 0.1 * edge * t);
         PS.push([Math.cos(th) * HD.Rf * rad - 3 * t + wob, yy, Math.sin(th) * RLL * 1.03 * rad]);
       }
     }

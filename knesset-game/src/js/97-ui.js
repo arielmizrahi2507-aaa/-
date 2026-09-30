@@ -252,6 +252,8 @@ const UI = {
       <div class="panel narrow">
         <label class="row">עוצמת אפקטים<input type="range" min="0" max="100" id="set-sfx" class="nav"></label>
         <label class="row">עוצמת מוזיקה<input type="range" min="0" max="100" id="set-music" class="nav"></label>
+        <label class="row">שיר הפתיחה
+          <select id="set-song" class="nav"><option value="classic">הקלאסי</option><option value="new">החדש</option></select></label>
         <label class="row">רעידות מסך<input type="checkbox" id="set-shake" class="nav"></label>
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
         <label class="row">דמויות תלת־ממדיות (מכבים אם המשחק איטי)<input type="checkbox" id="set-3d" class="nav"></label>
@@ -461,12 +463,14 @@ const UI = {
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
     $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
+    $('#set-song').value = s.lobbySong === 'new' ? 'new' : 'classic';
   },
   bindSettings() {
     const s = () => Save.d.settings;
     const on = (id, ev, fn) => $(id).addEventListener(ev, fn);
     on('#set-sfx', 'input', (e) => { s().sfx = e.target.value / 100; Snd.init(); Snd.setVol('sfx', s().sfx); Snd.play('hitM'); Save.save(); });
     on('#set-music', 'input', (e) => { s().music = e.target.value / 100; Snd.init(); Snd.setVol('music', s().music); Save.save(); });
+    on('#set-song', 'change', (e) => { s().lobbySong = e.target.value === 'new' ? 'new' : 'classic'; Save.save(); Snd.init(); const n = Snd.music.name; if (n === 'menu' || n === 'menu2') Snd.playMusic('menu'); });
     on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-3d', 'change', (e) => { s().gfx3d = e.target.checked; Save.save(); Game.applySettings(); });
