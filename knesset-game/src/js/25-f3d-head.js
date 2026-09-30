@@ -16,23 +16,23 @@ function headPt(th, ph, look) {
   const jk = look.jaw || 1, female = !!look.female;
   // individual face structure (all optional, 1 = average): fw head width, cheek fullness, chin size, jowl (heavy lower cheeks, 0..1),
   // ridge (brow ridge), fore (forehead prominence), lips (fullness), eyeGap
-  const G = (v) => 1 + ((v || 1) - 1) * 1.35;          // a caricature: differences between people are exaggerated a little
-  const fw = G(look.fw), chk = G(look.cheek), chinK = G(look.chin), jowl = (look.jowl || 0) * 1.35, ridge = G(look.ridge), fore = G(look.fore), lipK = G(look.lips), eg = look.eyeGap || 1;
+  const G = faceK;                                     // a caricature: differences between people are exaggerated (FACE_GAIN)
+  const fw = G(look.fw), chk = G(look.cheek), chinK = G(look.chin), jowl = (look.jowl || 0) * FACE_GAIN, ridge = G(look.ridge), fore = G(look.fore), lipK = G(look.lips), eg = look.eyeGap || 1;
   const low = sstep(0.1, -1.2, ph);                                   // 0 above the cheeks .. 1 at the chin
   let f = HD.Rf * cp * ct, y = HD.Ry * sp, l = HD.Rl * fw * cp * st;
-  l *= 1 - low * ((female ? 0.32 : 0.25) - (jk - 1) * 0.55);
+  l *= 1 - low * ((female ? 0.3 : 0.2) - (faceK(jk) - 1) * 0.55);
   f *= 1 - 0.05 * low;
   const at = Math.abs(th);
-  f += 0.9 * fore * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                        // forehead
-  f += (female ? 0.8 : 1.5) * ridge * bump(ph, 0.36, 0.13) * bump(at, 0.38, 0.55);                 // brow ridge
-  f -= 1.4 * bump(ph, 0.14, 0.15) * bump(at, 0.36 * eg, 0.17);                                      // eye sockets
-  l += Math.sign(st) * (1.1 * chk + 0.5 * (chk - 1)) * bump(ph, -0.1, 0.22) * bump(at, 0.85, 0.3);  // cheekbones
-  l += Math.sign(st) * 0.9 * (chk - 1) * bump(ph, -0.4, 0.28) * bump(at, 1.05, 0.4);                // fuller (or leaner) cheeks
-  l += Math.sign(st) * jowl * 1.7 * bump(ph, -0.78, 0.2) * bump(at, 1.1, 0.4);                      // jowls
-  f += 1.0 * lipK * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                       // upper lip
-  f += 1.6 * lipK * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                      // lower lip
-  f += (2.0 * chinK + (jk - 1) * 3) * bump(ph, -1.12, 0.16) * bump(th, 0, (female ? 0.42 : 0.52) * (0.85 + 0.15 * chinK));   // chin
-  l += Math.sign(st) * (female ? 0.9 : 1.5) * bump(ph, -0.72, 0.2) * bump(at, 1.25, 0.3) * jk;      // jaw angle
+  f += 1.3 * fore * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                        // forehead
+  f += (female ? 1.4 : 2.5) * ridge * bump(ph, 0.36, 0.13) * bump(at, 0.38, 0.55);                 // brow ridge
+  f -= 2.2 * bump(ph, 0.14, 0.15) * bump(at, 0.36 * eg, 0.17);                                      // eye sockets
+  l += Math.sign(st) * (1.5 * chk + 0.6 * (chk - 1)) * bump(ph, -0.1, 0.26) * bump(at, 0.85, 0.36);  // cheekbones
+  l += Math.sign(st) * 0.9 * (chk - 1) * bump(ph, -0.4, 0.34) * bump(at, 1.05, 0.5);                // fuller (or leaner) cheeks
+  l += Math.sign(st) * jowl * 1.5 * bump(ph, -0.78, 0.26) * bump(at, 1.1, 0.5);                      // jowls
+  f += 1.5 * lipK * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                       // upper lip
+  f += 2.3 * lipK * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                      // lower lip
+  f += (3.0 * chinK + (faceK(jk) - 1) * 4) * bump(ph, -1.12, 0.16) * bump(th, 0, (female ? 0.42 : 0.52) * (0.85 + 0.15 * chinK));   // chin
+  l += Math.sign(st) * (female ? 1.2 : 1.9) * bump(ph, -0.72, 0.26) * bump(at, 1.25, 0.42) * faceK(jk);      // jaw angle
   f -= 0.8 * bump(ph, 0.1, 0.35) * bump(Math.PI - at, 0, 0.6);                                       // back of the skull
   return [f, y, l];
 }
@@ -58,7 +58,7 @@ const HL_AT = [0, 0.5, 1.0, 1.4, 1.9, 2.5, Math.PI];
 const hairline = (k, at) => ipoly(HL_AT, k, at);
 
 function buildHeadMeshes(look, pal) {
-  const RLL = HD.Rl * (1 + ((look.fw || 1) - 1) * 1.35);                    // this person's head half-width
+  const RLL = HD.Rl * faceK(look.fw);                    // this person's head half-width
   const skinMesh = new Mesh(3200, 15000), hairMesh = new Mesh(14000, 60000), accMesh = new Mesh(2600, 12000);
   const G = headGrid(look, 73, 49);
   const skinCol = packRGBA(1, 1, 1, 1);
@@ -76,7 +76,7 @@ function buildHeadMeshes(look, pal) {
 
   // ---- nose
   {
-    const gx = (v) => 1 + ((v || 1) - 1) * 1.35, nk = gx(look.nose), female = !!look.female, sc = (female ? 0.9 : 1) * nk, nw = gx(look.noseW), nl = gx(look.noseL), br = look.bridge || 0;
+    const gx = faceK, nk = gx(look.nose), female = !!look.female, sc = (female ? 0.9 : 1) * nk, nw = gx(look.noseW), nl = gx(look.noseL), br = look.bridge || 0;
     const tipF = 16.6 + 4.2 * (0.55 + 0.45 * sc) * nl;
     const rings = [   // [f, y, half-width, half-depth]  (bridge > 0: a bump on the bridge, < 0: a dip)
       [15.6, 5.8, 1.7 * nw, 1.3], [16.6 + br * 0.5, 3.2, 2.0 * nw, 2.0], [17.7 + br * 1.0, 0.2, 2.5 * nw, 2.7], [18.9 + br * 0.5, -3.0, 3.1 * nw, 3.2], [tipF - 0.6, -5.4, 3.8 * nw, 3.4], [tipF, -6.9, 3.5 * nw, 3.0], [tipF - 1.3, -7.7, 3.0 * nw, 2.2],
@@ -89,8 +89,8 @@ function buildHeadMeshes(look, pal) {
 
   // ---- ears
   for (const s of [-1, 1]) {
-    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (RLL - 0.3)], [2.6 * (look.ear || 1), 0.7, 0], [1.0, 5.0 * (look.ear || 1), 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
-    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (RLL + 0.5)], [1.4 * (look.ear || 1), 0.4, 0], [0.5, 3.0 * (look.ear || 1), 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
+    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (RLL - 0.3)], [2.6 * faceK(look.ear), 0.7, 0], [1.0, 5.0 * faceK(look.ear), 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
+    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (RLL + 0.5)], [1.4 * faceK(look.ear), 0.4, 0], [0.5, 3.0 * faceK(look.ear), 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
   }
 
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth

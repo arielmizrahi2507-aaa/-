@@ -296,7 +296,7 @@ function paintFaceExpr(c, look, pal, eyes, mouth) {
   if (eyes === 'happy' || mouth === 'smile' || mouth === 'grin') {
     for (const s of [-1, 1]) { soft(s * 8, -3.4, 3.6, 2.6, rgbHex(pal.skinL), 0.24); if (age < 0.3) crease(c, pal, [[s * 11, 3.2], [s * 13.6, 4.6]], w * 0.7, 0.35); }
   }
-  const K = 0.82 * FT * (look.eyeSize || 1);
+  const K = 0.82 * FT * faceK(look.eyeSize);
   for (const side of [-1, 1]) {
     c.save(); c.translate(faceX(side * 5.7 * (look.eyeGap || 1)), faceY(3.5)); c.scale(side * K, K);
     paintEye3(c, eyes, look, pal, 0.3);

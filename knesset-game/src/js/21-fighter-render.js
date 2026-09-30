@@ -116,13 +116,15 @@ const GEO = new WeakMap();
 function geo(look) {
   let g = GEO.get(look);
   if (g) return g;
-  const nk = look.nose || 1, jk = look.jaw || 1;
-  const tipX = 20.7 + 2.1 * nk, tipY = 5.2 + 1.2 * nk;
+  const nk = faceK(look.nose), jk = look.jaw || 1;
+  const fw = faceK(look.fw), chk = faceK(look.cheek), chn = faceK(look.chin), fore = faceK(look.fore), rdg = faceK(look.ridge), lp = faceK(look.lips), jl = (look.jowl || 0) * FACE_GAIN, nl = faceK(look.noseL), nw = faceK(look.noseW);
+  const tipX = 20.7 + 2.1 * nk * nl, tipY = 5.2 + 1.2 * nk;
   const J = (x) => (x < 6 ? x * jk : x);
+  const bk = 1 + (fw - 1) * 0.55;                       // head depth follows the head width
   const face = spline([
-    [-9, 15.5], [-14.6, 10], [-18, 2], [-18.7, -6], [-16.2, -14.5], [-9, -20.6], [0, -22.6], [8.6, -20.8], [14.2, -16], [16.4, -10], [16.7, -5.6],
-    [16.2, -2.8], [18.2, 0.4], [20.6, 3.4], [tipX, tipY], [tipX - 0.5, tipY + 1.9], [tipX - 3.4, tipY + 3.1],
-    [19, 9.5], [19.6, 11.2], [18.8, 12.5], [19.2, 13.9], [17.7, 15.9], [17.5, 18.3], [14.4, 21], [J(7), 21.7], [J(0), 19.7], [J(-5), 17.6],
+    [-9 * bk, 15.5], [-14.6 * bk, 10], [-18 * bk, 2], [-18.7 * bk, -6], [-16.2 * bk, -14.5], [-9 * bk, -20.6 - (fore - 1) * 1.5], [0, -22.6 - (fore - 1) * 2.4], [8.6, -20.8 - (fore - 1) * 2.2], [14.2 + (fore - 1) * 0.9, -16 - (fore - 1) * 1.2], [16.4 + (fore - 1) * 0.9, -10], [16.7 + (fore - 1) * 0.7, -5.6],
+    [16.2 + (rdg - 1) * 1.1, -2.8], [18.2, 0.4], [20.6, 3.4], [tipX, tipY], [tipX - 0.5, tipY + 1.9 * nw], [tipX - 3.4, tipY + 3.1 * nw],
+    [19 + (lp - 1) * 0.9, 9.5], [19.6 + (lp - 1) * 1.1, 11.2], [18.8 + (lp - 1) * 0.6, 12.5], [19.2 + (chn - 1) * 1.6, 13.9 + (chn - 1) * 0.5], [17.7 + (chn - 1) * 2.0, 15.9 + (chn - 1) * 1.0], [17.5 + (chn - 1) * 1.8, 18.3 + (chn - 1) * 1.4 + jl * 0.6], [14.4, 21 + (chn - 1) * 0.8 + jl * 1.6 + (chk - 1) * 0.8], [J(7), 21.7 + jl * 1.8 + (chk - 1) * 0.8], [J(0), 19.7 + jl * 1.2], [J(-5), 17.6 + jl * 0.8],
   ], true);
   const beardZone = spline([[-8, 1.5], [-2, 4.6], [4.5, 7], [9.6, 9.2], [12, 11.4], [11.6, 14], [14, 15.5], [17.2, 15.8], [19.2, 15.3], [19.8, 17.6], [17.8, 21.6], [13, 23.8], [6.5, 24.4], [0, 22.4], [-5.4, 17.8], [-9.2, 10]], true);
   const stache = spline([[10.6, 10.4], [15, 9.2], [19.6, 9.7], [20, 11.2], [17, 12.2], [13.4, 12]], true);
@@ -263,7 +265,8 @@ function drawHead(ctx, f, look, p, C, o = {}) {
   ctx.restore();
   ctx.lineWidth = 1.5; ctx.strokeStyle = INK; ctx.stroke(g.face);
   // ear
-  ctx.beginPath(); ctx.ellipse(-5.4, 3.6, 2.9, 4.7, 0.14, 0, TAU);
+  const eK = faceK(look.ear);
+  ctx.beginPath(); ctx.ellipse(-5.4, 3.6, 2.9 * eK, 4.7 * eK, 0.14, 0, TAU);
   ctx.fillStyle = C(pal.skin); ctx.fill(); ctx.lineWidth = 1; ctx.strokeStyle = INK; ctx.stroke();
   ctx.beginPath(); ctx.moveTo(-6.2, 1); ctx.quadraticCurveTo(-3.6, 2.6, -5, 6.4); ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(80,30,22,.5)'; ctx.stroke();
   ctx.beginPath(); ctx.ellipse(-5.2, 3.9, 1.2, 2.4, 0.14, 0, TAU); ctx.fillStyle = C(pal.skinDD); ctx.globalAlpha = 0.28; ctx.fill(); ctx.globalAlpha = 1;

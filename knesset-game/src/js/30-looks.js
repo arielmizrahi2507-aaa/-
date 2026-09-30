@@ -3,6 +3,9 @@
 // beard {color}, stache, glasses, kippah, hat {color} (black brimmed hat), female (lips + lashes), iris colour.
 // hair {style, color, vol (thickness), hl (receding hairline, radians), len (length of long hair)}.
 // Face structure for the 3D head (1 = average): fw head width, cheek fullness, chin, jowl (0..1), ridge (brow ridge), fore (forehead), lips, nose (size), noseL, noseW, bridge (bump), ear, eyeSize, eyeGap, neck.
+// How strongly the personal face-structure fields below are drawn (they are exaggerated on purpose: this is a caricature).
+const FACE_GAIN = 1.9;
+const faceK = (v) => 1 + ((v || 1) - 1) * FACE_GAIN;
 const LOOKS = {
   bibi: {
     fw: 0.96, fore: 1.15, ridge: 1.15, chin: 1.15, cheek: 0.9, nose: 1.08, noseL: 1.12, noseW: 0.95, lips: 0.85, eyeSize: 0.95,
