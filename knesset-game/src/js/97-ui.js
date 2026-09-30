@@ -45,10 +45,19 @@ const UI = {
   params: {},
   screens: {},
 
+  // true when a click lands where the guarded finger is (the ghost click of a release); a deliberate tap on another button is not swallowed
+  nearGuard(e) {
+    const g = this.guardAt;
+    if (!g) return true;
+    if (!e.clientX && !e.clientY) return false;                                   // a click made with the keyboard has no position
+    return Math.abs(e.clientX - g[0]) < 48 && Math.abs(e.clientY - g[1]) < 48;
+  },
+
   init() {
     this.root = $('#screens');
     this.root.innerHTML = [this.tplTitle(), this.tplSelect(), this.tplVs(), this.tplSettings(), this.tplHelp(), this.tplAchv(), this.tplResult(), this.tplBills(), this.tplPause(), this.tplDaily()].join('');
     this.root.addEventListener('click', (e) => {
+      if (this.clickGuard && performance.now() < this.clickGuard && this.nearGuard(e)) return;       // the finger that opened the pause menu is still on the screen: its release is not a tap on a menu button
       const t = e.target.closest('[data-act]');
       if (!t || t.disabled) return;
       Snd.init(); Snd.resume();
@@ -182,7 +191,7 @@ const UI = {
         </div>
         <nav class="menu">
           <button class="btn primary big nav autofocus" data-act="arcade"><b>מסע לראשות הממשלה</b><small>סדרת קרבות + בוס סודי</small></button>
-          <button class="btn big nav" data-act="quick"><b>קרב רגיל</b><small>קרב אחד נגד המחשב: בוחרים יריב, קושי וזירה</small></button>
+          <button class="btn blue big nav" data-act="quick"><b>קרב רגיל</b><small>קרב אחד נגד המחשב: בוחרים יריב, קושי וזירה</small></button>
           <button class="btn pink big nav" data-act="survival"><b>מרתון חקיקה</b><small>גלים אינסופיים, חוקים ושדרוגים</small></button>
           <button class="btn cyan big nav" data-act="daily"><b>האתגר היומי</b><small id="daily-sub">חוק חדש כל יום</small></button>
           <button class="btn big nav" data-act="versus"><b>קרב חברים</b><small>שניים על מקלדת אחת</small></button>

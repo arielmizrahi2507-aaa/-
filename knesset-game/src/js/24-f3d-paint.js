@@ -80,7 +80,8 @@ function paintFaceBase(c, look, pal) {
   soft(-11.2, -9, 3.4, 8, shade, 0.18); soft(11.2, -9, 3.4, 8, shade, 0.18);          // jaw sides
   soft(0, -7.8, 4.4, 1.5, shade, 0.34);                // under the nose
   soft(-5.6, 3.6, 6.4, 4.4, shade, 0.2 + 0.1 * age); soft(5.6, 3.6, 6.4, 4.4, shade, 0.2 + 0.1 * age);   // eye sockets
-  soft(-5.4, 0.2, 5.4, 1.5, '#7a5a86', 0.1 + 0.16 * age); soft(5.4, 0.2, 5.4, 1.5, '#7a5a86', 0.1 + 0.16 * age);   // eye bags, a little violet
+  const bag = look.bags || 0;
+  soft(-5.4, 0.2, 5.4, 1.5 + bag, '#7a5a86', 0.1 + 0.16 * age + 0.3 * bag); soft(5.4, 0.2, 5.4, 1.5 + bag, '#7a5a86', 0.1 + 0.16 * age + 0.3 * bag);   // eye bags, a little violet
   soft(0, 7.6, 2.4, 3.4, light, 0.16);                 // nose bridge / glabella
   soft(-7.8, -3.6, 4.6, 3.6, female ? '#e0687a' : '#e07a6a', female ? 0.2 : 0.13); soft(7.8, -3.6, 4.6, 3.6, female ? '#e0687a' : '#e07a6a', female ? 0.2 : 0.13);   // cheeks
   soft(0, -5.7, 2.6, 2.2, '#d9645a', 0.2);             // warm nose tip
@@ -131,7 +132,7 @@ function paintFaceBase(c, look, pal) {
   for (const s of [-1, 1]) {
     crease(c, pal, [[s * 4.8, -6.0], [s * 6.9, -8.4], [s * 7.6, -11.4]], w * 1.2, A(0.1, 1.2));                                  // nasolabial fold
     if (age > 0.3) for (const [dy, ex, ey] of [[1, 13.4, 5.0], [-1, 13.4, 1.6]]) crease(c, pal, [[s * 10.9, 3.4 + dy * 0.3], [s * (12.2 + dy * 0.1), 3.4 + (ey - 3.4) * 0.5], [s * ex, ey]], w * 0.7, A(0.3, 1.2));   // crow's feet
-    if (age > 0.45) crease(c, pal, [[s * 3.4, -1.1], [s * 6.6, -1.8], [s * 9.0, -0.9]], w * 0.9, A(0.45));                       // under-eye line
+    if (age > 0.45 || bag > 0.3) crease(c, pal, [[s * 3.4, -1.1], [s * 6.6, -1.8], [s * 9.0, -0.9]], w * (0.9 + 0.5 * bag), Math.max(A(0.45), 0.25 + 0.4 * bag));   // under-eye line
     if (age > 0.45) crease(c, pal, [[s * 5.8, -13.6], [s * 6.2, -16.8]], w, A(0.45));                                          // marionette lines
     if (age > 0.4) crease(c, pal, [[s * 1.5, 10.6], [s * 1.8, 7.4]], w * 0.9, A(0.4));                                         // frown lines
   }
@@ -196,6 +197,11 @@ function paintEye3(c, kind, look, pal, lookX) {
     c.fillStyle = pal.skin; c.beginPath(); c.moveTo(-5.4, -4.6); c.lineTo(5.4, -4.6); c.lineTo(5.4, -0.9); c.lineTo(-5.4, -2.6); c.closePath(); c.fill();
     c.strokeStyle = rgba(dk, 0.55); c.lineWidth = 0.6; c.beginPath(); c.moveTo(-5.2, -2.7); c.lineTo(5.2, -1.0); c.stroke();
   }
+  if (look.lid > 0.05) {                                                        // a heavy, drooping upper lid (look.lid 0..1) that covers part of the eye
+    const ly = (-2.6 + look.lid * 2.7) * squash;
+    c.fillStyle = pal.skin; c.beginPath(); c.moveTo(-5.4, -5.4); c.lineTo(5.4, -5.4); c.lineTo(5.4, -0.4); c.quadraticCurveTo(0.6, ly * 1.35 + 0.3, -5.4, -1.4 + look.lid * 0.4); c.closePath(); c.fill();
+    c.strokeStyle = rgba(dk, 0.6); c.lineWidth = 0.7; c.beginPath(); c.moveTo(-5.2, -2.9 + look.lid * 0.3); c.quadraticCurveTo(0, ly * 1.35 - 1.5, 5.3, -2.0); c.stroke();
+  }
   c.strokeStyle = '#1d0f10'; c.lineWidth = female ? 1.5 : 1.15;
   c.beginPath(); c.moveTo(-4.8, 0.5); c.bezierCurveTo(-3, -3.4 * squash - 0.2, 2.9, -3.6 * squash - 0.2, 4.8, -0.5); c.stroke();     // upper lash line
   c.strokeStyle = rgba(dk, 0.5); c.lineWidth = 0.55; c.beginPath(); c.moveTo(-4.2, -0.6 - 2.4 * squash); c.bezierCurveTo(-2.4, -3.9 * squash - 1.4, 2.6, -4.2 * squash - 1.4, 4.9, -1.9); c.stroke();   // lid crease
@@ -205,7 +211,7 @@ function paintEye3(c, kind, look, pal, lookX) {
 
 // eyebrow made of individual hairs
 function paintBrow3(c, side, e, look, pal) {
-  const bw = look.brow || 2.5;
+  const bw = look.brow || 2.5, arch = look.browArch || 0, tilt = look.browTilt || 0, bl = look.browLen || 1;      // arch: higher in the middle; tilt > 0: the inner end sits lower (stern)
   let inY = 8.6, midY = 10.6, outY = 8.9;
   if (e === 'angry') { inY = 7.0; midY = 9.4; outY = 9.6; }
   else if (e === 'hurt') { inY = 10.4; midY = 10.8; outY = 8.0; }
@@ -214,7 +220,8 @@ function paintBrow3(c, side, e, look, pal) {
   else if (e === 'ko') { inY = 9.6; midY = 10.6; outY = 8.4; }
   c.save(); c.translate(faceX(side * 6.0 * (look.eyeGap || 1)), faceY(0)); c.scale(side * FT, -FT);
   c.lineCap = 'round';
-  const P = [[-3.6, inY], [-0.8, midY - 0.2], [2.4, midY], [5.2, outY]];
+  inY -= tilt * 1.1; outY += tilt * 0.9; midY += arch * 1.3;
+  const P = [[-3.6, inY], [-0.8, midY - 0.2], [2.4 * bl, midY], [5.2 * bl, outY]];
   const bez = (t) => { const u = 1 - t, a = u * u * u, b = 3 * u * u * t, d = 3 * u * t * t, f = t * t * t; return [a * P[0][0] + b * P[1][0] + d * P[2][0] + f * P[3][0], a * P[0][1] + b * P[1][1] + d * P[2][1] + f * P[3][1]]; };
   const bc = rgbHex(pal.brow), dark = darken(bc, 0.3), lite = lighten(bc, 0.18);
   c.strokeStyle = rgba(bc, 0.3); c.lineWidth = bw * 0.62;                      // the skin shadow under the hairs
@@ -239,7 +246,9 @@ function paintMouth3(c, m, pal, look) {
   c.save(); c.translate(faceX(0), faceY(-12.2)); c.scale(FT * (0.92 + 0.08 * (look.lips || 1)) * (look.mouthW || 1), -FT);      // units, y up
   c.lineCap = 'round'; c.lineJoin = 'round';
   const line = 'rgba(38,12,14,.85)';
+  const lk = 0.7 + 0.3 * faceK(look.lips, 'lips');                     // thicker or thinner lips
   const lips = (w, up, lo) => {                                       // closed lips: cupid's bow on top, fuller lower lip
+    up *= lk; lo *= lk;
     const a = female ? 0.95 : 0.6;
     c.globalAlpha = 1; c.fillStyle = rgba(shade, 0.22); c.beginPath(); c.ellipse(0, -lo * 1.55, w * 0.5, 0.6, 0, 0, TAU); c.fill();     // shadow below the lower lip
     c.globalAlpha = a;
@@ -296,7 +305,7 @@ function paintFaceExpr(c, look, pal, eyes, mouth) {
   if (eyes === 'happy' || mouth === 'smile' || mouth === 'grin') {
     for (const s of [-1, 1]) { soft(s * 8, -3.4, 3.6, 2.6, rgbHex(pal.skinL), 0.24); if (age < 0.3) crease(c, pal, [[s * 11, 3.2], [s * 13.6, 4.6]], w * 0.7, 0.35); }
   }
-  const K = 0.82 * FT * faceK(look.eyeSize);
+  const K = 0.82 * FT * faceK(look.eyeSize, 'eye');
   for (const side of [-1, 1]) {
     c.save(); c.translate(faceX(side * 5.7 * (look.eyeGap || 1)), faceY(3.5)); c.scale(side * K, K);
     paintEye3(c, eyes, look, pal, 0.3);

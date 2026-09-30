@@ -102,7 +102,7 @@ function skeleton3D(f, p, look) {
   };
   S.legN = leg(p.footF, true); S.legF = leg(p.footB, false);
   // head
-  const hc = [headCX, -headCY - 2, 0], k = HEAD_K * hs * 1.14;
+  const hc = [headCX, -headCY - 2, 0], k = HEAD_K * hs * 1.3;         // a caricature's head is big: the face stays readable on a phone
   const roll = -p.headRot;
   S.headM = M4.mul(M4.translate(hc[0], hc[1], hc[2]), M4.mul(M4.rotZ(roll), M4.mul(M4.rotY(-YAW_H), M4.scale(k, k, k))));
   S.hc = hc; S.hk = k;
@@ -224,8 +224,11 @@ function emitBody(mesh, S, L, opt) {
   // torso (front half with the jacket texture, back half plain)
   {
     const rows = TORSO_RINGS.length, nA = 21, P = [];
+    const belly = look.belly || 0, shoulders = look.shoulders || 0;                        // build: a belly (waist and stomach), broad (or narrow) shoulders
     for (let j = 0; j < rows; j++) {
-      const [u, A, B, off] = TORSO_RINGS[j];
+      const [u, A0, B0, off0] = TORSO_RINGS[j];
+      const bel = belly * bump(u, 10, 11), sho = shoulders * bump(u, 38, 9);
+      const A = A0 * (1 + sho * 0.16 + bel * 0.12), B = B0 * (1 + bel * 0.4), off = off0 + bel * 3.4;
       const c = S.at(u, 0, off), fw = V3.mul(S.ff, B), ax = V3.mul(S.ll, A * bw);
       for (let i = 0; i < nA; i++) {
         const th = -Math.PI / 2 + Math.PI * (i / (nA - 1)) * 2;    // -90 .. +270 degrees
@@ -253,7 +256,7 @@ function emitBody(mesh, S, L, opt) {
   // neck + collar
   {
     const a = S.neckBase, b = S.neckTop;
-    emitTube(mesh, a, b, 7.7 * faceK(look.neck), 7.1 * faceK(look.neck), skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
+    emitTube(mesh, a, b, 7.7 * faceK(look.neck, 'neck'), 7.1 * faceK(look.neck, 'neck'), skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
     const d = V3.norm(V3.sub(b, a));
     emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.5, 8.0, look.open ? skin : shirt, look.open ? MAT_SKIN : MAT_CLOTH, { sides: 12, rings: 3, bulge: 0 });
   }

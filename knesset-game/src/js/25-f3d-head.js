@@ -13,14 +13,15 @@ const ipoly = (xs, ys, x) => {                       // piecewise-linear lookup
 // Point on the (displaced) skull for longitude th (0 = straight ahead, +pi/2 = the near side) and latitude ph (-pi/2 chin .. +pi/2 crown)
 function headPt(th, ph, look) {
   const cp = Math.cos(ph), sp = Math.sin(ph), ct = Math.cos(th), st = Math.sin(th);
-  const jk = look.jaw || 1, female = !!look.female;
-  // individual face structure (all optional, 1 = average): fw head width, cheek fullness, chin size, jowl (heavy lower cheeks, 0..1),
-  // ridge (brow ridge), fore (forehead prominence), lips (fullness), eyeGap
-  const G = faceK;                                     // a caricature: differences between people are exaggerated (FACE_GAIN)
-  const fw = G(look.fw), chk = G(look.cheek), chinK = G(look.chin), jowl = (look.jowl || 0) * FACE_GAIN, ridge = G(look.ridge), fore = G(look.fore), lipK = G(look.lips), eg = look.eyeGap || 1;
+  const female = !!look.female;
+  // individual face structure (all optional, 1 = average): fw head width, len face length, cheek fullness, chin size, jaw width, jowl (heavy
+  // lower cheeks, 0..1), ridge (brow ridge), fore (forehead prominence), lips (fullness), eyeGap
+  const G = faceK;                                     // a caricature: differences between people are exaggerated (FG)
+  const fw = Math.max(0.84, Math.min(1.24, G(look.fw, 'fw'))), chk = G(look.cheek, 'cheek'), chinK = G(look.chin, 'chin'), jk = G(look.jaw, 'jaw'), jowl = (look.jowl || 0) * FACE_GAIN;
+  const ridge = G(look.ridge, 'ridge'), fore = G(look.fore, 'fore'), lipK = G(look.lips, 'lips'), eg = look.eyeGap || 1, lenK = look.len || 1;
   const low = sstep(0.1, -1.2, ph);                                   // 0 above the cheeks .. 1 at the chin
-  let f = HD.Rf * cp * ct, y = HD.Ry * sp, l = HD.Rl * fw * cp * st;
-  l *= 1 - low * ((female ? 0.3 : 0.2) - (faceK(jk) - 1) * 0.55);
+  let f = HD.Rf * cp * ct, y = HD.Ry * sp - (lenK - 1) * 20 * low, l = HD.Rl * fw * cp * st;       // len: the lower face is longer (or shorter)
+  l *= 1 - low * ((female ? 0.3 : 0.2) - (jk - 1) * 0.55);
   f *= 1 - 0.05 * low;
   const at = Math.abs(th);
   f += 1.3 * fore * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                        // forehead
@@ -31,8 +32,8 @@ function headPt(th, ph, look) {
   l += Math.sign(st) * jowl * 1.5 * bump(ph, -0.78, 0.26) * bump(at, 1.1, 0.5);                      // jowls
   f += 1.5 * lipK * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                       // upper lip
   f += 2.3 * lipK * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                      // lower lip
-  f += (3.0 * chinK + (faceK(jk) - 1) * 4) * bump(ph, -1.12, 0.16) * bump(th, 0, (female ? 0.42 : 0.52) * (0.85 + 0.15 * chinK));   // chin
-  l += Math.sign(st) * (female ? 1.2 : 1.9) * bump(ph, -0.72, 0.26) * bump(at, 1.25, 0.42) * faceK(jk);      // jaw angle
+  f += (3.0 * chinK + (jk - 1) * 4) * bump(ph, -1.12, 0.16) * bump(th, 0, (female ? 0.42 : 0.52) * (0.85 + 0.15 * chinK));   // chin
+  l += Math.sign(st) * (female ? 1.2 : 1.9) * bump(ph, -0.72, 0.26) * bump(at, 1.25, 0.42) * jk;      // jaw angle
   f -= 0.8 * bump(ph, 0.1, 0.35) * bump(Math.PI - at, 0, 0.6);                                       // back of the skull
   return [f, y, l];
 }
@@ -58,7 +59,7 @@ const HL_AT = [0, 0.5, 1.0, 1.4, 1.9, 2.5, Math.PI];
 const hairline = (k, at) => ipoly(HL_AT, k, at);
 
 function buildHeadMeshes(look, pal) {
-  const RLL = HD.Rl * faceK(look.fw);                    // this person's head half-width
+  const RLL = HD.Rl * Math.max(0.84, Math.min(1.24, faceK(look.fw, 'fw')));                    // this person's head half-width
   const skinMesh = new Mesh(3200, 15000), hairMesh = new Mesh(14000, 60000), accMesh = new Mesh(2600, 12000);
   const G = headGrid(look, 73, 49);
   const skinCol = packRGBA(1, 1, 1, 1);
@@ -74,28 +75,40 @@ function buildHeadMeshes(look, pal) {
     return { uv: [0.985, 0.985], col: skinCol, mat: skinMat };
   }, [cutA, cutB]);
 
-  // ---- nose
+  // ---- nose. Rings are cross-sections from the root (between the eyes) down to the tip; `proj` is how far the tip sticks out of the face
   {
-    const gx = faceK, nk = gx(look.nose), female = !!look.female, sc = (female ? 0.9 : 1) * nk, nw = gx(look.noseW), nl = gx(look.noseL), br = look.bridge || 0;
-    const tipF = 16.6 + 4.2 * (0.55 + 0.45 * sc) * nl;
-    const rings = [   // [f, y, half-width, half-depth]  (bridge > 0: a bump on the bridge, < 0: a dip)
-      [15.6, 5.8, 1.7 * nw, 1.3], [16.6 + br * 0.5, 3.2, 2.0 * nw, 2.0], [17.7 + br * 1.0, 0.2, 2.5 * nw, 2.7], [18.9 + br * 0.5, -3.0, 3.1 * nw, 3.2], [tipF - 0.6, -5.4, 3.8 * nw, 3.4], [tipF, -6.9, 3.5 * nw, 3.0], [tipF - 1.3, -7.7, 3.0 * nw, 2.2],
-    ];
+    const clampN = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const female = !!look.female;
+    const nk = clampN(faceK(look.nose, 'nose') * (female ? 0.92 : 1), 0.7, 1.55), nl = clampN(faceK(look.noseL, 'noseL'), 0.7, 1.6), nw = clampN(faceK(look.noseW, 'noseW'), 0.7, 1.5);
+    const br = look.bridge || 0, td = look.noseT || 0, w0 = 0.65 + 0.35 * nk, dy = 1 + clampN((nk - 1) * 0.12, -0.08, 0.1);
+    const proj = 4.2 * (0.45 + 0.55 * nk) * nl, tipFront = 18.1 + proj, D = 2.6;
+    const T = [0, 0.22, 0.45, 0.68, 0.86, 1.0], Wd = [1.6, 2.1, 2.6, 3.1, 3.5, 3.2];
+    const rings = T.map((t, i) => {
+      const y = (5.8 - (5.8 + 6.3 * dy + td * 1.2) * t);
+      const prof = Math.pow(t, 1.1) * (1 - 0.06 * Math.sin(t * Math.PI)) + br * 0.09 * Math.exp(-Math.pow((t - 0.42) / 0.26, 2));
+      const fFront = 15.9 + (tipFront - 15.9) * prof - td * 0.5 * t * t;
+      return [fFront - 0.9 * D, y, Wd[i] * nw * w0, D];
+    });
+    const tip = rings[rings.length - 1];
+    rings.push([tip[0] - 2.1, tip[1] - 1.5 - td * 0.3, 2.6 * nw * w0, D * 0.85]);            // the underside, turning back to the lip
     const P = [], n = 14;
     for (const [f, y, w, d] of rings) for (let i = 0; i < n; i++) { const a = (i / n) * TAU; P.push([f + d * Math.cos(a) * 0.9, y, w * Math.sin(a)]); }
     gridSurface(skinMesh, P, n, rings.length, true, [12, -0.5, 0], (i, j) => { const p = P[j * n + i]; return { uv: [(20 - p[2]) / 40, (18 - p[1]) / 40], col: skinCol, mat: skinMat }; });
-    for (const s of [-1, 1]) emitEllipsoid(skinMesh, [tipF - 2.0, -6.3, s * 3.1], [1.9, 0, 0], [0, 1.7, 0], [0, 0, 1.5], skinCol, skinMat, { uv: [(20 - s * 3.1) / 40, (18 + 6.3) / 40], nu: 8, nv: 6 });
+    for (const s of [-1, 1]) emitEllipsoid(skinMesh, [tip[0] - 0.6, tip[1] + 0.3, s * tip[2] * 0.72], [1.9 * w0, 0, 0], [0, 1.6 * w0, 0], [0, 0, 1.5 * (0.7 + 0.3 * nw)], skinCol, skinMat, { uv: [(20 - s * 3.1) / 40, (18 + 6.3) / 40], nu: 8, nv: 6 });      // the wings of the nostrils
   }
 
   // ---- ears
+  const eK = faceK(look.ear, 'ear'), eOut = (look.earOut || 0) * 2.2;                      // earOut: ears that stick out
   for (const s of [-1, 1]) {
-    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (RLL - 0.3)], [2.6 * faceK(look.ear), 0.7, 0], [1.0, 5.0 * faceK(look.ear), 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
-    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (RLL + 0.5)], [1.4 * faceK(look.ear), 0.4, 0], [0.5, 3.0 * faceK(look.ear), 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
+    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (RLL - 0.3 + eOut * 0.5)], [2.6 * eK, 0.7, 0], [1.0, 5.0 * eK, 0], [0, 0, (1.3 + eOut * 0.4) * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
+    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (RLL + 0.5 + eOut * 0.9)], [1.4 * eK, 0.4, 0], [0.5, 3.0 * eK, 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
   }
 
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
   const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
-  const style = look.hair ? look.hair.style : 'none';
+  const style0 = look.hair ? look.hair.style : 'none';
+  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
+  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
   const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR, CLS.HAIR);
   const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
     const PS = [], COV = [], SH = [];
@@ -107,11 +120,11 @@ function buildHeadMeshes(look, pal) {
     gridSurface(mesh, PS, NU, NV, false, O, (i, j) => { const k = j * NU + i, s = SH[k]; return { uv: uvfn(i, j, k), col: packRGBA(s, s, s, COV[k]), mat: matv }; });
   };
   if (style !== 'none' && style !== 'sides') {
-    const kn = HAIRLINE[style === 'curly' ? 'crop' : style];
+    const kn = HAIRLINE[style];
     shell(hairMesh, (th, ph, base) => {
-      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + (look.hair.hl || 0) * sstep(2.2, 0.4, at);      // hl > 0: receding hairline
+      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + ((look.hair.hl || 0) + hlAdd) * sstep(2.2, 0.4, at);      // hl > 0: receding hairline
       let cov = sstep(Hl - 0.08, Hl + 0.08, ph);
-      const vol = look.hair.vol || 1;
+      const vol = (look.hair.vol || 1) * volK;
       let t = 0.5 + vol * (style === 'swoop' ? 1.5 : style === 'wavy' ? 1.6 : style === 'part' ? 1.4 : 1.0) * sstep(Hl, Hl + 0.7, ph);
       if (style === 'swoop') t += vol * 2.4 * bump(ph, 1.0, 0.34) * bump(at, 0.55, 0.85);
       if (style === 'part') t += vol * 2.0 * bump(ph, 1.0, 0.32) * bump(at, 0.45, 0.8) * (th > 0 ? 1 : 0.55);

@@ -23,6 +23,7 @@ const Game = {
     soft('input', () => Inp.init());
     soft('fullscreen', () => { if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs'); });
     soft('zoomguard', () => this.zoomGuard());
+    soft('backtrap', () => { const arm = () => { this.backTrap(); }; ['pointerdown', 'keydown'].forEach((ev) => window.addEventListener(ev, arm, { once: true, capture: true, passive: true })); });
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
     soft('touch', () => TouchUI.init());
@@ -36,7 +37,12 @@ const Game = {
       window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
       window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
       window.addEventListener('pagehide', () => this.clear3dFlag());
-      document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); if (!document.hidden) Snd.resume(); });
+      let hideT = 0;      // a real trip to another app pauses the fight; a flicker of the page (fullscreen / rotation changes) does not
+      document.addEventListener('visibilitychange', () => {
+        clearTimeout(hideT);
+        if (document.hidden) hideT = setTimeout(() => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); }, 350);
+        else Snd.resume();
+      });
       window.addEventListener('gamepadconnected', (e) => Controls.onPad(e));
       window.addEventListener('pointerdown', () => { document.body.classList.remove('padnav'); if (Inp.dev === 'pad') Inp.dev = null; }, { passive: true });
       ['pageshow', 'focus'].forEach((ev) => window.addEventListener(ev, () => Snd.resume()));       // coming back to the game: wake the audio again
@@ -77,6 +83,31 @@ const Game = {
         }, 150);
       });
     }
+  },
+
+  // The system Back (Android button or gesture, iOS edge swipe) would leave the page in the middle of a fight, and a thumb resting on the stick at the edge of the
+  // screen triggers it by accident. One extra history entry is pushed (only after the first touch, or Chrome skips it) and pushed again every time it is popped.
+  backTrap() {
+    if (this.trapped || !window.history || !history.pushState) return;
+    this.trapped = true;
+    const push = () => { try { history.pushState({ ks: 1 }, ''); } catch (e) { /* not allowed here */ } };
+    try { history.replaceState({ ks: 0 }, ''); } catch (e) { return; }
+    push();
+    let armed = 0, hintAt = 0;
+    window.addEventListener('popstate', () => {
+      if (this.scene && this.scene.kind === 'fight') {
+        push();
+        if (this.paused) { UI.onKey({ code: 'Escape', repeat: false, preventDefault() { /* synthetic */ } }); return; }          // paused: Back = resume
+        const now = performance.now();
+        if (now - hintAt > 3500) { hintAt = now; UI.toast('עצירה', this.touchEnabled() ? 'כדי לעצור את הקרב מחזיקים את כפתור התפריט חצי שנייה' : 'כדי לעצור את הקרב: Esc או כפתור התפריט', 'unlock'); }
+        return;
+      }
+      const back = UI.cur && $('.screen.on [data-act="back"], .screen.on [data-act="close"]');
+      if (back) { push(); back.click(); return; }                                   // menus: Back works like the on-screen back button
+      if (armed && performance.now() - armed < 3500) return;                         // the title screen: a second Back really leaves
+      armed = performance.now(); UI.toast('יציאה מהמשחק', 'לחיצה נוספת על "חזרה" תסגור את המשחק', 'unlock');
+      setTimeout(() => { if (armed) { armed = 0; push(); } }, 3600);
+    });
   },
 
   // Safe mode (?safe) and crash recovery: if the last run died while it was starting the 3D renderer, start without it this time.

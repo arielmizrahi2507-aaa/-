@@ -193,12 +193,60 @@ const Snd = {
   },
   note(t, freq, dur, o = {}) {
     const c = this.ctx, osc = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
-    osc.type = o.type || 'sawtooth'; osc.frequency.setValueAtTime(freq, t);
+    osc.type = o.type || 'sawtooth'; osc.frequency.setValueAtTime(freq, t); if (o.detune) osc.detune.value = o.detune;
     if (o.vib) { const l = c.createOscillator(), lg = c.createGain(); l.frequency.value = 5.5; lg.gain.value = freq * 0.012; l.connect(lg); lg.connect(osc.frequency); l.start(t); l.stop(t + dur + 0.05); }
     f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp || 1200, t); if (o.lp2) f.frequency.exponentialRampToValueAtTime(o.lp2, t + dur);
     const v = o.vol || 0.15;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + (o.attack || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     osc.connect(f); f.connect(g); g.connect(this.mdst()); osc.start(t); osc.stop(t + dur + 0.05);
+  },
+  // a kick with a click on top, so it is heard on a phone speaker (which plays almost no real bass)
+  kick2(t, v = 0.8) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.frequency.setValueAtTime(190, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.11);
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.24);
+    o.connect(g); g.connect(this.mdst()); o.start(t); o.stop(t + 0.26);
+    const s = c.createBufferSource(); s.buffer = this.noiseBuf;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 2600; f.Q.value = 0.8;
+    const cg = c.createGain(); cg.gain.setValueAtTime(v * 0.22, t); cg.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+    s.connect(f); f.connect(cg); cg.connect(this.mdst()); s.start(t, Math.random() * 0.5); s.stop(t + 0.04);
+  },
+  clap(t, v = 0.3) {
+    const c = this.ctx;
+    [0, 0.011, 0.023].forEach((d, k) => {
+      const s = c.createBufferSource(); s.buffer = this.noiseBuf;
+      const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1500; f.Q.value = 0.9;
+      const g = c.createGain(), last = k === 2;
+      g.gain.setValueAtTime(v * (last ? 1 : 0.7), t + d); g.gain.exponentialRampToValueAtTime(0.001, t + d + (last ? 0.17 : 0.03));
+      s.connect(f); f.connect(g); g.connect(this.mdst()); s.start(t + d, Math.random() * 0.5); s.stop(t + d + 0.2);
+    });
+  },
+  crash(t, v = 0.16) {
+    const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noiseBuf;
+    const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3800;
+    const g = c.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 1.4);
+    s.connect(f); f.connect(g); g.connect(this.mdst()); s.start(t, Math.random() * 0.5); s.stop(t + 1.45);
+  },
+  // a noise sweep that rises over `dur` seconds: the build-up before a new section
+  riser(t, dur, v = 0.12) {
+    const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noiseBuf; s.loop = true;
+    const f = c.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.2; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(7000, t + dur);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + dur * 0.95); g.gain.linearRampToValueAtTime(0.0001, t + dur + 0.04);
+    s.connect(f); f.connect(g); g.connect(this.mdst()); s.start(t, Math.random() * 0.5); s.stop(t + dur + 0.08);
+  },
+  // a soft chord: every tone is two slightly detuned saws through a low-pass filter that opens slowly
+  pad(t, freqs, dur, o = {}) {
+    const c = this.ctx, v = o.vol || 0.05;
+    const f = c.createBiquadFilter(); f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp || 700, t); f.frequency.exponentialRampToValueAtTime(o.lp2 || 1500, t + dur * 0.8);
+    const g = c.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + (o.attack || 0.25)); g.gain.setValueAtTime(v, t + dur - 0.3); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    f.connect(g); g.connect(this.mdst());
+    for (const fr of freqs) for (const d of [-7, 7]) { const osc = c.createOscillator(); osc.type = 'sawtooth'; osc.frequency.setValueAtTime(fr, t); osc.detune.value = d; osc.connect(f); osc.start(t); osc.stop(t + dur + 0.05); }
+  },
+  // the lead voice: two detuned saws and a thin octave above, a little vibrato once a long note has settled
+  lead(t, freq, dur, v = 0.1) {
+    this.note(t, freq, dur, { type: 'sawtooth', vol: v * 0.6, lp: 2800, lp2: 1700, detune: 8, attack: 0.012 });
+    this.note(t, freq, dur, { type: 'sawtooth', vol: v * 0.6, lp: 2800, lp2: 1700, detune: -8, attack: 0.012, vib: dur > 0.3 });
+    this.note(t, freq * 2, dur, { type: 'sine', vol: v * 0.22, lp: 4000, attack: 0.012 });
   },
 };
 
@@ -270,21 +318,70 @@ const TRACKS = {
       }
     },
   },
-  menu: {
-    bpm: 96,
-    arp: [0, 4, 7, 4, 1, 4, 8, 4, 0, 4, 7, 12, 10, 7, 4, 1],
-    step(s, i, t, sd) {
-      const k = i % 16, bar = Math.floor(i / 16) % 4;
-      if (k === 0 || k === 8) s.kick(t, 0.5);
-      if (k === 4 || k === 12) s.snare(t, 0.16);
-      if (k % 2 === 0) s.hat(t, 0.06);
-      const root = [0, 0, 1, 0][bar];
-      if (k % 4 === 0) s.note(t, hz(-22 + root), sd * 3.5, { type: 'sine', vol: 0.5, lp: 400 });
-      const a = this.arp[k] + root;
-      s.note(t, hz(14 + a), sd * 2.2, { type: 'triangle', vol: 0.14, lp: 2400, lp2: 900 });
-      if (k === 0) { s.note(t, hz(2 + root), sd * 14, { type: 'sawtooth', vol: 0.05, lp: 700, attack: 0.3 }); s.note(t, hz(9 + root), sd * 14, { type: 'sawtooth', vol: 0.04, lp: 700, attack: 0.4 }); }
-    },
-  },
+  // The lobby theme: D minor with a phrygian flavour (the Andalusian run Dm - C - Bb - A), 124 BPM, 32 bars (about 62 s, then it loops):
+  // intro, verse, verse with a harmony, chorus, chorus, break, verse, final chorus. Notes are semitones above D4.
+  menu: (() => {
+    const V = [           // verse melody, 4 bars = 64 sixteenth steps: [step, note, length in steps]
+      [0, 12, 3], [3, 7, 1], [4, 10, 2], [6, 12, 2], [8, 15, 4], [12, 14, 2], [14, 12, 2],
+      [16, 14, 3], [19, 12, 1], [20, 10, 2], [22, 5, 2], [24, 7, 2], [26, 10, 2], [28, 5, 4],
+      [32, 12, 3], [35, 15, 1], [36, 15, 2], [38, 12, 2], [40, 8, 4], [44, 10, 2], [46, 12, 2],
+      [48, 14, 2], [50, 11, 1], [51, 12, 1], [52, 14, 4], [56, 7, 2], [58, 11, 2], [60, 14, 2], [62, 7, 2],
+    ];
+    const C1 = [          // chorus melody over Bb - F - C - Dm
+      [0, 15, 4], [4, 12, 2], [6, 15, 2], [8, 20, 4], [12, 19, 2], [14, 15, 2],
+      [16, 19, 4], [20, 15, 2], [22, 19, 2], [24, 22, 4], [28, 19, 2], [30, 15, 2],
+      [32, 17, 4], [36, 14, 2], [38, 17, 2], [40, 22, 4], [44, 17, 2], [46, 14, 2],
+      [48, 15, 2], [50, 19, 2], [52, 24, 8], [60, 22, 2], [62, 19, 2],
+    ];
+    const C2 = C1.slice(0, 18).concat([[48, 23, 4], [52, 19, 2], [54, 23, 2], [56, 26, 4], [60, 23, 2], [62, 19, 2]]);      // the second chorus ends on A (turns back to Dm)
+    const CH = {          // r: bass root, t: triad for the arpeggio, pv / pc: pad voicing in the verse / the chorus
+      Dm: { r: -12, t: [0, 3, 7], pv: [-5, 0, 3], pc: [0, 3, 7] }, C: { r: -14, t: [-2, 2, 5], pv: [-7, -2, 2], pc: [-2, 2, 5] },
+      Bb: { r: -16, t: [-4, 0, 3], pv: [-9, -4, 0], pc: [-4, 0, 3] }, A: { r: -17, t: [-5, -1, 2], pv: [-10, -5, -1], pc: [-1, 2, 7] }, F: { r: -21, t: [-9, -5, -2], pv: [-9, -5, -2], pc: [-2, 3, 7] },
+    };
+    const VC = ['Dm', 'C', 'Bb', 'A'], CC = ['Bb', 'F', 'C', 'Dm'], CC2 = ['Bb', 'F', 'C', 'A'];
+    const SEC = 'iiii' + 'aaaa' + 'aaaa' + 'cccc' + 'cccc' + 'kkkk' + 'aaaa' + 'cccc';
+    const BA = [0, null, 0, null, 0, null, 12, null, 0, null, 0, null, 0, null, 7, null], BC = [0, null, 12, null, 0, null, 12, null, 0, null, 12, null, 0, null, 7, null];
+    const ARP = [0, 1, 2, 1, 0, 1, 2, 1, 0, 1, 2, 1, 0, 2, 1, 2];
+    const pm = (n) => ((n % 12) + 12) % 12;
+    const below = (n, tones) => { const pcs = tones.map(pm); for (const d of [3, 4, 5, 2]) if (pcs.indexOf(pm(n - d)) >= 0) return n - d; return null; };      // a chord tone a third or so under the melody
+    return {
+      bpm: 124,
+      step(s, i, t, sd) {
+        const k = i % 16, bar = Math.floor(i / 16) % 32, sec = SEC[bar];
+        const cn = sec === 'c' ? (bar < 16 ? CC : CC2)[bar % 4] : VC[bar % 4], ch = CH[cn], ns = (n) => hz(2 + n);
+        // ---- drums
+        if (sec === 'k' || (sec === 'i' && bar < 2)) {
+          if (k === 0 || (k === 8 && sec === 'i')) s.kick2(t, 0.55);
+          if (k % 4 === 2) s.hat(t, 0.05);
+        } else {
+          if (k % 4 === 0) s.kick2(t, sec === 'c' ? 0.85 : 0.72);
+          if (k === 10 && sec === 'c') s.kick2(t, 0.42);
+          if (k === 4 || k === 12) s.clap(t, sec === 'c' ? 0.36 : 0.28);
+          if (sec === 'c') s.hat(t, k % 4 === 2 ? 0.11 : 0.05, k === 14);
+          else if (k % 2 === 0) s.hat(t, k % 4 === 2 ? 0.1 : 0.05, k === 14);
+        }
+        if ((bar === 3 || bar === 11 || bar === 23 || bar === 31) && k >= 8) s.snare(t, 0.07 + (k - 8) * 0.035);          // a roll that builds into the next section
+        if (k === 0 && (bar === 3 || bar === 11 || bar === 23 || bar === 31)) s.riser(t, 16 * sd, 0.1);
+        if (k === 0 && (bar === 0 || bar === 4 || bar === 12 || bar === 16 || bar === 24 || bar === 28)) s.crash(t, bar === 12 || bar === 16 || bar === 28 ? 0.16 : 0.1);
+        // ---- bass: a sub under everything, a rolling saw line once the beat is in
+        if (k === 0 || k === 8) s.note(t, ns(ch.r - 12), sd * 7.5, { type: 'sine', vol: 0.3, lp: 300, attack: 0.008 });
+        const bp = (sec === 'c' ? BC : BA)[k];
+        if (bp !== null && sec !== 'k' && !(sec === 'i' && bar < 2)) s.note(t, ns(ch.r + bp), sd * 1.7, { type: 'sawtooth', vol: sec === 'c' ? 0.26 : 0.22, lp: 650, lp2: 260 });
+        // ---- pad and arpeggio
+        if (k === 0) s.pad(t, (sec === 'c' ? ch.pc : ch.pv).map(ns), sd * 16, { vol: sec === 'c' ? 0.055 : 0.045, lp: sec === 'c' ? 1000 : 700, lp2: sec === 'c' ? 2200 : 1400 });
+        s.note(t, ns(ch.t[ARP[k] % 3] + 12), sd * 1.9, { type: 'triangle', vol: (k % 4 === 0 ? 0.085 : 0.06) * (sec === 'c' ? 1.15 : sec === 'k' ? 1.25 : bar < 2 ? 0.8 : 1), lp: 2600, lp2: 1100 });
+        // ---- melody (and, in the later verses, a second voice a third below)
+        const mel = sec === 'a' ? V : sec === 'c' ? (bar < 16 ? C1 : C2) : sec === 'k' && bar % 4 < 2 ? V : null;
+        if (mel) {
+          const st = (bar % 4) * 16 + k, v = sec === 'c' ? 0.115 : sec === 'k' ? 0.05 : 0.1;
+          for (const m of mel) if (m[0] === st) {
+            s.lead(t, ns(m[1]), sd * m[2] * 0.92, v);
+            if (sec === 'a' && bar >= 8) { const h = below(m[1], ch.t); if (h !== null) s.lead(t, ns(h), sd * m[2] * 0.92, v * 0.5); }
+          }
+        }
+      },
+    };
+  })(),
   victory: {
     bpm: 128,
     step(s, i, t, sd) {
