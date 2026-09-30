@@ -396,7 +396,7 @@ function drawRobotHead(ctx, f, look, p, C) {
   ctx.restore();
 }
 
-function drawRobotTorso(ctx, look, C, ink, tint, tw, torsoLen) {
+function drawRobotTorso(ctx, look, C, ink, tint, tw, torsoLen, face = 1) {
   const top = -torsoLen - 8, h = torsoLen + 22, w = tw * 0.95;
   const g = ctx.createLinearGradient(-w, 0, w, 0);
   g.addColorStop(0, C(darken(look.suit, 0.2))); g.addColorStop(0.5, C(lighten(look.suit, 0.14))); g.addColorStop(1, C(darken(look.suit, 0.25)));
@@ -405,7 +405,9 @@ function drawRobotTorso(ctx, look, C, ink, tint, tw, torsoLen) {
   rr(ctx, -w * 0.5, top - 2, w, 4.5, 2.2); ctx.fillStyle = C('#1b1330'); ctx.fill();
   if (!tint) {
     ctx.save(); ctx.translate(4, top - 4); ctx.rotate(-0.12); ctx.fillStyle = '#fff'; ctx.fillRect(-7, -10, 14, 11); ctx.lineWidth = 1.3; ctx.strokeStyle = INK; ctx.strokeRect(-7, -10, 14, 11); ctx.restore();
+    ctx.save(); ctx.scale(face, 1);     // the label must read correctly when the fighter faces left
     T(ctx, '3.25%', 0, top + h * 0.5 + 2, { size: 16, font: 'disp', fill: '#fff', stroke: OUT, lw: 5 });
+    ctx.restore();
     ctx.fillStyle = C('#ffd23d'); ctx.fillRect(-w + 5, top + h - 11, w * 2 - 10, 4.5);
   }
 }
@@ -459,7 +461,8 @@ function drawFighter(ctx, f, opt = {}) {
   ctx.translate(f.x, f.y);
   ctx.scale(f.face, 1);
   if (opt.alpha !== undefined) ctx.globalAlpha *= opt.alpha;
-  ctx.scale(s * BODY_S, s * BODY_S);
+  const gs = s * BODY_S * (f.scale || 1);      // f.scale: giants mutator and the secret boss
+  ctx.scale(gs, gs);
   if (p.rot) { ctx.translate(p.rotX, p.rotY); ctx.rotate(p.rot); ctx.translate(-p.rotX, -p.rotY); }
   ctx.scale(p.sx, p.sy);
   ctx.lineJoin = 'round'; ctx.lineCap = 'round';
@@ -514,7 +517,7 @@ function drawFighter(ctx, f, opt = {}) {
   ctx.save();
   ctx.translate(hipX, hipY);
   ctx.rotate(p.lean);
-  if (look.robot) drawRobotTorso(ctx, look, C, ink, tint, 27 * bw, torsoLen);
+  if (look.robot) drawRobotTorso(ctx, look, C, ink, tint, 27 * bw, torsoLen, f.face);
   else {
     const sw = 23 * bw, cw = 22 * bw, ww = 18 * bw, hw = 19.5 * bw;
     const torso = new Path2D();

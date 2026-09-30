@@ -8,8 +8,8 @@ function drawSpeech(ctx, text, x, y, tailDir, alpha = 1, sc = 1) {
   ctx.translate(x, y); ctx.scale(sc, sc); ctx.globalAlpha *= alpha;
   ctx.font = `700 22px ${FONT.ui}`; ctx.direction = 'rtl';
   const w = Math.min(340, ctx.measureText(text).width + 36), h = 46;
-  ctx.beginPath(); ctx.moveTo(tailDir * 8 - 12, -4); ctx.lineTo(tailDir * 26, 20); ctx.lineTo(tailDir * 8 + 14, -4); ctx.closePath(); ol(ctx, '#ffffff', 3.5);
-  rr(ctx, -w / 2, -h, w, h, 18); ol(ctx, '#ffffff', 3.5);
+  ctx.beginPath(); ctx.moveTo(tailDir * 8 - 12, -4); ctx.lineTo(tailDir * 26, 20); ctx.lineTo(tailDir * 8 + 14, -4); ctx.closePath(); ol(ctx, '#fbfaff', 2.6);
+  rr(ctx, -w / 2, -h, w, h, 18); ol(ctx, '#fbfaff', 2.6);
   ctx.fillStyle = '#ffffff'; ctx.fillRect(tailDir * 8 - 10, -6, 22, 6);
   T(ctx, text, 0, -h / 2 + 1, { size: 22, fill: OUT, weight: 800 });
   ctx.restore();
@@ -587,7 +587,7 @@ class Battle {
     }
     // glossy floors mirror the fighters (a short, faint reflection right under the feet)
     const refl = this.stage.refl || 0;
-    if (refl >= 0.06 && !this.cfg.attract) {
+    if (refl >= 0.06 && !this.cfg.attract && !Battle.lowFx) {
       ctx.save();
       ctx.beginPath(); ctx.rect(this.cam.x - 900, GROUND + 2, 1800, 84); ctx.clip();
       ctx.translate(0, (GROUND + 2) * 2); ctx.scale(1, -1);
@@ -597,7 +597,7 @@ class Battle {
     // trails (afterimages)
     for (const f of this.f) {
       f.trail.forEach((tr, i) => {
-        const dummy = { def: f.def, x: tr.x, y: tr.y, face: tr.face, pose: tr.pose, clock: f.clock };
+        const dummy = { def: f.def, x: tr.x, y: tr.y, face: tr.face, pose: tr.pose, clock: f.clock, scale: f.scale };
         drawFighter(ctx, dummy, { tint: rgba(f.def.color || '#ffffff', 0.5), alpha: 0.35 * (i + 1) / f.trail.length });
       });
     }

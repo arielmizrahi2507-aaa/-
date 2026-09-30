@@ -52,6 +52,7 @@ const Game = {
     const B = sc.B;
     if (!B) return;
     if (!this.paused) {
+      if (sc.kind === 'fight') this.perf(dt);
       const speed = (B.cfg.speed || 1) * B.timeScale;
       this.acc += dt * speed;
       let steps = 0;
@@ -70,6 +71,18 @@ const Game = {
 
   // Screen geometry. With "landscape mode" on, a phone that the host keeps in portrait gets the whole UI turned by 90 degrees,
   // so it can be held sideways: everything below works in the rotated ("logical") size, and CSS uses --u-vw / --u-vh instead of vw / vh.
+  // Slow phones: if the first seconds of a fight run well below 60 fps, drop to a cheaper mode (lower resolution, no reflections) for the session.
+  perf(dt) {
+    const q = this.q || (this.q = { n: 0, sum: 0, done: false });
+    if (q.done) return;
+    if (++q.n <= 40) return;                  // skip the warm-up (stage bitmaps are painted on the first frames)
+    q.sum += Math.min(dt, 80);
+    if (q.n >= 190) {
+      q.done = true;
+      if (q.sum / (q.n - 40) > 27 && !Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+    }
+  },
+
   layout() {
     const set = Save.d.settings;
     const pw0 = window.innerWidth, ph0 = window.innerHeight;
@@ -101,7 +114,7 @@ const Game = {
     box.style.cssText = `left:${left}px;top:${top}px;width:${w}px;height:${h}px`;
     document.documentElement.style.setProperty('--vx', left + 'px'); document.documentElement.style.setProperty('--vy', top + 'px');
     document.documentElement.style.setProperty('--vw', w + 'px'); document.documentElement.style.setProperty('--vh', h + 'px');
-    let dpr = Math.min(window.devicePixelRatio || 1, 2);
+    let dpr = Math.min(window.devicePixelRatio || 1, Battle.lowFx ? 1.25 : 2);
     while (w * h * dpr * dpr > 2.4e6 && dpr > 1) dpr -= 0.25;
     const pw = Math.round(w * dpr), ph = Math.round(h * dpr);
     if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
