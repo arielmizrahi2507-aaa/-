@@ -1,5 +1,21 @@
 // ===== HUD: mandate bars, hype meter, cooldowns, timer, combo counter, announcer =====
 const Hud = {
+  // a round key cap ("A", "B", "RB", "L"...) drawn on top of HUD elements
+  cap(ctx, x, y, t, col, r = 9) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = OUT; ctx.stroke();
+    T(ctx, t, x, y + 0.6, { size: t.length > 1 ? 8.5 : 11, fill: col === '#f4c81d' ? '#2b1400' : '#ffffff', weight: 900 });
+    ctx.restore();
+  },
+  // which key does this fighter use for the given action? null when it is a CPU / touch player
+  keyFor(B, slot, key) {
+    const dev = Inp.device();
+    if (dev === 'touch') return null;
+    if (slot === 1 && !(typeof Game !== 'undefined' && Game.spec && Game.spec.mode === 'versus')) return null;
+    if (dev === 'pad') { if (slot === 1 && Inp.pads().length < 2) return null; if (slot === 0 && !Inp.pads().length) return null; return CTL.pad[key]; }
+    if (slot === 1) return null;
+    return CTL.kb[key];
+  },
   draw(ctx, B, cine) {
     const [a, b] = B.f;
     this.bar(ctx, B, a, 0);
@@ -102,7 +118,11 @@ const Hud = {
     ctx.restore();
     ctx.beginPath(); if (s === 0) rr(ctx, x0, my, mw, mh, 5); else rr(ctx, x0 - mw, my, mw, mh, 5);
     ctx.lineWidth = 2.5; ctx.strokeStyle = full ? '#ffe14a' : OUT; ctx.stroke();
-    if (full) T(ctx, '!סופר מוכן', s === 0 ? x0 + mw + 8 : x0 - mw - 8, my + mh / 2 + 1, { size: 13, fill: '#ffe14a', stroke: OUT, lw: 4, align: s === 0 ? 'left' : 'right', font: 'disp' });
+    if (full) {
+      T(ctx, '!סופר מוכן', s === 0 ? x0 + mw + 8 : x0 - mw - 8, my + mh / 2 + 1, { size: 13, fill: '#ffe14a', stroke: OUT, lw: 4, align: s === 0 ? 'left' : 'right', font: 'disp' });
+      const sk = this.keyFor(B, s, 'sup');
+      if (sk) this.cap(ctx, s === 0 ? x0 + mw + 96 : x0 - mw - 96, my + mh / 2 + 1, sk, '#ffd23d', 10);
+    }
 
     // cooldown icons
     const cy = my + 20;
@@ -121,6 +141,8 @@ const Hud = {
       rr(ctx, ix, cy, 30, 30, 7); ctx.lineWidth = 3; ctx.strokeStyle = ready ? col : OUT; ctx.stroke();
       if (f.tm.silence > 0) { ctx.strokeStyle = '#ff5a7a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ix + 5, cy + 5); ctx.lineTo(ix + 25, cy + 25); ctx.moveTo(ix + 25, cy + 5); ctx.lineTo(ix + 5, cy + 25); ctx.stroke(); }
       ctx.restore();
+      const kc = this.keyFor(B, s, k);
+      if (kc) this.cap(ctx, ix + 25, cy + 25, kc, PAD_COL[kc] || '#4a3a8a');          // which button fires this ability
     });
     // status pips
     const st = [];
@@ -182,7 +204,7 @@ const Hud = {
     });
   },
 
-  // First-run key reminder (keyboard players only)
+  // First-run key reminder (keyboard players; and the first three fights with a gamepad)
   hint(ctx, B) {
     if (!B.cfg.hint || B.phase !== 'fight' || B.phaseT > 60 * 12) return;
     const a = Math.min(1, (60 * 12 - B.phaseT) / 40);
@@ -190,8 +212,13 @@ const Hud = {
     ctx.globalAlpha = 0.9 * a;
     // above the fighters' heads, clear of the feet
     rr(ctx, W / 2 - 330, 196, 660, 50, 12); ctx.fillStyle = 'rgba(8,5,24,.72)'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke();
-    T(ctx, 'תנועה: A D · קפיצה: W · התכופפות: S · חסימה: I · תפריט: Esc', W / 2, 212, { size: 14, fill: '#ffffff', weight: 700 });
-    T(ctx, 'אגרוף: J · בעיטה: K · מיוחד 1: L · מיוחד 2: U · סופר: O · זריקה: E', W / 2, 233, { size: 14, fill: '#ffe14a', weight: 700 });
+    if (Inp.device() === 'pad') {
+      T(ctx, 'תנועה: מקל · קפיצה: ↑ · התכופפות: ↓ · חסימה: LB · תפריט: Start', W / 2, 212, { size: 14, fill: '#ffffff', weight: 700 });
+      T(ctx, 'אגרוף: X · בעיטה: Y · מיוחד 1: A · מיוחד 2: B · סופר: RB · זריקה: RT', W / 2, 233, { size: 14, fill: '#ffe14a', weight: 700 });
+    } else {
+      T(ctx, 'תנועה: A D · קפיצה: W · התכופפות: S · חסימה: I · תפריט: Esc', W / 2, 212, { size: 14, fill: '#ffffff', weight: 700 });
+      T(ctx, 'אגרוף: J · בעיטה: K · מיוחד 1: L · מיוחד 2: U · סופר: O · זריקה: E', W / 2, 233, { size: 14, fill: '#ffe14a', weight: 700 });
+    }
     ctx.restore();
   },
 

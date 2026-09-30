@@ -32,9 +32,11 @@ const Inp = {
   capture: false,        // true while a fight is on screen: swallow game keys
   padPrev: [],
   anyKey: null,
+  dev: null,             // the device used last: 'kb' | 'pad' | 'touch'
 
   init() {
     window.addEventListener('keydown', (e) => {
+      this.dev = 'kb';
       if (e.repeat && this.capture) { if (this.isGameKey(e.code)) e.preventDefault(); return; }
       this.keys.add(e.code);
       if (this.capture && this.isGameKey(e.code)) e.preventDefault();
@@ -49,7 +51,11 @@ const Inp = {
     return code in KEYMAPS.solo || code in KEYMAPS.p2;
   },
 
-  touchSet(bit, on) { this.touch = on ? (this.touch | bit) : (this.touch & ~bit); },
+  device() { return this.dev || (typeof Game !== 'undefined' && Game.touchEnabled() ? 'touch' : 'kb'); },
+  // a pad button was pressed: remember it, and let the audio start (a pad press is not always counted as a gesture by the browser)
+  markPad() { this.dev = 'pad'; document.body.classList.add('padnav'); if (Snd.canAuto() && (!Snd.ctx || Snd.ctx.state !== 'running')) { Snd.init(); Snd.resume(); } },
+  touchSet(bit, on) {
+    this.dev = 'touch'; this.touch = on ? (this.touch | bit) : (this.touch & ~bit); },
 
   pads() {
     const list = [];
@@ -75,6 +81,7 @@ const Inp = {
     if (on(4) || on(6)) m |= IN.K;
     if (on(5)) m |= IN.S;
     if (on(7)) m |= IN.G;
+    if (m) this.markPad();
     return m;
   },
 
@@ -107,6 +114,7 @@ const Inp = {
       if (cur.a && !prev.a) out.ok = true;
       if (cur.b && !prev.b) out.back = true;
       if (cur.s && !prev.s) out.start = true;
+      if (cur.l || cur.r || cur.u || cur.d || cur.a || cur.b || cur.s) this.markPad();
       this.padPrev[i] = cur;
     });
     return out;

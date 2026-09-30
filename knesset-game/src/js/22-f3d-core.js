@@ -122,7 +122,7 @@ const F3D_FS = `#version 300 es
 precision highp float;
 precision highp sampler2DArray;
 uniform sampler2DArray uTex;
-uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim;
+uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim, uNorm;
 uniform vec4 uTint;
 uniform float uFlash, uAlpha, uCover;
 in vec3 vN; in vec3 vP; in vec2 vUV; in vec4 vCol; in vec4 vMat;
@@ -175,7 +175,7 @@ void main() {
   vec3 V = vec3(0.0, 0.0, 1.0), H = normalize(uKeyDir + V);
   float ndl = dot(N, uKeyDir);
   float wrap = clamp((ndl + 0.3) / 1.3, 0.0, 1.0); wrap *= wrap * (3.0 - 2.0 * wrap) * 0.6 + wrap * 0.4;
-  vec3 diff = uKeyCol * wrap + uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5);
+  vec3 diff = (uKeyCol * wrap + uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5)) * uNorm;   // uNorm: a well-lit face shows the colour the look asks for
   float ndh = max(dot(N, H), 0.0), lit = smoothstep(-0.05, 0.25, ndl);
   vec3 add = vec3(0.0), spc;
   if (skin) {
@@ -200,9 +200,11 @@ void main() {
   }
   float nz = clamp(Ng.z, -1.0, 1.0);
   float fres = pow(1.0 - clamp(abs(nz), 0.0, 1.0), 3.0);
-  vec3 col = alb * (diff + add) + spc + uRim * fres * rim * (0.4 + 0.6 * clamp(-dot(N, uKeyDir) * 0.5 + 0.6, 0.0, 1.0));
+  float rl = clamp(sqrt(dot(alb, vec3(0.3, 0.59, 0.11))) * 1.3, 0.12, 1.0);      // a rim light bounces off the surface colour: dark hair must stay dark
+  vec3 col = alb * (diff + add) + spc + uRim * fres * rim * rl * (0.4 + 0.6 * clamp(-dot(N, uKeyDir) * 0.5 + 0.6, 0.0, 1.0));
   col *= 1.0 - 0.38 * pow(1.0 - clamp(abs(nz), 0.0, 1.0), 5.0);       // soft dark contour
-  col = 1.0 - exp(-col * 1.4);                                        // gentle highlight roll-off
+  float mx = max(col.r, max(col.g, col.b));
+  if (mx > 0.92) col *= (0.92 + 0.3 * (1.0 - exp(-(mx - 0.92) * 2.2))) / mx;   // roll off highlights without shifting the hue
   col = sqrt(max(col, 0.0));
   col = mix(col, uTint.rgb, uTint.a);
   col = mix(col, vec3(1.0), uFlash);
@@ -233,7 +235,7 @@ F3D.init = function () {
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
     G3.gl = gl; G3.cv = cv; G3.prog = prog;
-    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uNorm', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
     G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
     G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
     F3D.ok = true;

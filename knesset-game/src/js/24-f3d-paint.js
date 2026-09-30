@@ -43,9 +43,9 @@ function crease(c, pal, pts, w, a) {
   };
   const dk = rgbHex(pal.skinDD);
   c.lineCap = 'round'; c.lineJoin = 'round';
-  c.strokeStyle = rgba(dk, a * 0.22); c.lineWidth = w * 3.6; path(); c.stroke();
-  c.strokeStyle = rgba(dk, a * 0.45); c.lineWidth = w * 1.9; path(); c.stroke();
-  c.strokeStyle = rgba('#3a1610', a * 0.7); c.lineWidth = w * 0.7; path(); c.stroke();
+  c.strokeStyle = rgba(dk, a * 0.2); c.lineWidth = w * 4.2; path(); c.stroke();
+  c.strokeStyle = rgba(dk, a * 0.32); c.lineWidth = w * 2.2; path(); c.stroke();
+  c.strokeStyle = rgba('#3a1610', a * 0.42); c.lineWidth = w * 0.8; path(); c.stroke();
   c.save(); c.translate(0, w * 1.5); c.strokeStyle = rgba(rgbHex(pal.skinL), a * 0.4); c.lineWidth = w * 0.9; path(); c.stroke(); c.restore();
 }
 
@@ -106,9 +106,9 @@ function paintFaceBase(c, look, pal) {
       if (st > 0) {
         const dens = st * stubbleZone(l, yy) * (0.7 + 0.6 * nA(x * 0.1 + 9, y * 0.1));
         if (dens > 0.01) {
-          const m0 = 0.2 * dens;                                                       // the blue-grey shadow of shaved hair under the skin
+          const m0 = 0.3 * dens;                                                       // the blue-grey shadow of shaved hair under the skin
           r += (hcol[0] - r) * m0; gg += (hcol[1] - gg) * m0; b += (hcol[2] - b) * m0;
-          if (hash2(x + 31, y + 17) < dens * 0.3) { const k = 0.3 + 0.35 * hash2(x + 3, y + 91); r += (hcol[0] * 0.6 - r) * k; gg += (hcol[1] * 0.6 - gg) * k; b += (hcol[2] * 0.6 - b) * k; }
+          if (hash2(x + 31, y + 17) < dens * 0.16) { const k = 0.22 + 0.25 * hash2(x + 3, y + 91); r += (hcol[0] * 0.6 - r) * k; gg += (hcol[1] * 0.6 - gg) * k; b += (hcol[2] * 0.6 - b) * k; }
         }
       }
       d[i] = r; d[i + 1] = gg; d[i + 2] = b;
@@ -127,11 +127,11 @@ function paintFaceBase(c, look, pal) {
       c.fillStyle = rgba('#8a5a3a', 0.1 + 0.16 * rng()); c.beginPath(); c.ellipse(faceX(l), faceY(y), r * FT * 0.6, r * FT * 0.5, rng() * 3, 0, TAU); c.fill();
     }
   }
-  const w = 0.62, A = (thr, k = 1.7) => clamp((age - thr) * k + 0.28, 0, 0.9);
+  const w = 0.62, A = (thr, k = 1.5) => clamp((age - thr) * k + 0.2, 0, 0.62);
   for (const s of [-1, 1]) {
-    crease(c, pal, [[s * 4.6, -5.6], [s * 6.9, -8.4], [s * 7.9, -11.8]], w * 1.15, A(0.1));                                  // nasolabial fold
-    if (age > 0.25) for (const [dy, ex, ey] of [[1, 14, 5.6], [0, 14.8, 3.2], [-1, 14, 0.9]]) crease(c, pal, [[s * 10.9, 3.4 + dy * 0.3], [s * (12.6 + dy * 0.2), 3.4 + (ey - 3.4) * 0.5], [s * ex, ey]], w * 0.8, A(0.25));   // crow's feet
-    if (age > 0.3) crease(c, pal, [[s * 2.8, -0.7], [s * 6.6, -1.5], [s * 9.4, -0.4]], w * 0.9, A(0.3));                       // under-eye line
+    crease(c, pal, [[s * 4.8, -6.0], [s * 6.9, -8.4], [s * 7.6, -11.4]], w * 1.2, A(0.1, 1.2));                                  // nasolabial fold
+    if (age > 0.3) for (const [dy, ex, ey] of [[1, 13.4, 5.0], [-1, 13.4, 1.6]]) crease(c, pal, [[s * 10.9, 3.4 + dy * 0.3], [s * (12.2 + dy * 0.1), 3.4 + (ey - 3.4) * 0.5], [s * ex, ey]], w * 0.7, A(0.3, 1.2));   // crow's feet
+    if (age > 0.45) crease(c, pal, [[s * 3.4, -1.1], [s * 6.6, -1.8], [s * 9.0, -0.9]], w * 0.9, A(0.45));                       // under-eye line
     if (age > 0.45) crease(c, pal, [[s * 5.8, -13.6], [s * 6.2, -16.8]], w, A(0.45));                                          // marionette lines
     if (age > 0.4) crease(c, pal, [[s * 1.5, 10.6], [s * 1.8, 7.4]], w * 0.9, A(0.4));                                         // frown lines
   }

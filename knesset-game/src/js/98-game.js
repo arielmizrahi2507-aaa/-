@@ -35,7 +35,10 @@ const Game = {
       window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
       window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
       window.addEventListener('pagehide', () => this.clear3dFlag());
-      document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
+      document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); if (!document.hidden) Snd.resume(); });
+      window.addEventListener('gamepadconnected', (e) => Controls.onPad(e));
+      window.addEventListener('pointerdown', () => { document.body.classList.remove('padnav'); if (Inp.dev === 'pad') Inp.dev = null; }, { passive: true });
+      ['pageshow', 'focus'].forEach((ev) => window.addEventListener(ev, () => Snd.resume()));       // coming back to the game: wake the audio again
     });
     soft('settings', () => this.applySettings());
     this.last = performance.now();
@@ -327,7 +330,9 @@ const Game = {
       speed: spec.speed || 1, pickups: spec.mode === 'survival' || spec.mode === 'daily', onEvent: (n, a, b, c, d) => this.onEvent(n, a, b, c, d),
     });
     if (spec.training) { B.phase = 'fight'; B.phaseT = 0; }
-    B.cfg.hint = !Save.d.seenHelp && !this.touchEnabled() && spec.mode !== 'versus';
+    const padHint = Inp.pads().length > 0 && (Save.d.padHints | 0) < 3 && !spec.training;
+    if (padHint) { Save.d.padHints = (Save.d.padHints | 0) + 1; Save.save(); }
+    B.cfg.hint = (!Save.d.seenHelp && !this.touchEnabled() && spec.mode !== 'versus') || padHint;
     this.B = B;
     UI.hide();
     this.setScene('fight', { B });
@@ -405,6 +410,8 @@ const Game = {
       case 'resume': this.togglePause(); break;
       case 'pause-sound': UI.setMuted(!Snd.muted); $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל'; Snd.play('select'); break;
       case 'pause-moves': this.showMovesCard(); break;
+      case 'pause-controls': this.showControls(Inp.device()); break;
+      case 'ctl-kb': case 'ctl-pad': case 'ctl-touch': Snd.play('select'); this.showControls(name.slice(4)); break;
       case 'rotate-on': this.setRotate('auto'); break;
       case 'rotate-flip': this.setRotate(this.rot === -1 ? 'cw' : 'ccw'); break;
       case 'rotate-off': this.setRotate('off'); break;
@@ -487,6 +494,8 @@ const Game = {
     $('#pause-snd').textContent = Snd.muted ? 'כבוי' : 'פועל';
     $('#pause-mode').textContent = [this.modeName(spec), spec.label].filter(Boolean).join(' · ');
     $('#pause-quit').textContent = spec.training ? 'יציאה מהאימון' : 'יציאה לתפריט הראשי';
+    const dv = Inp.device();
+    const kh = $('#s-pause .keyhint'); if (kh) kh.textContent = dv === 'pad' ? 'בשלט: Start או B להמשך' : dv === 'touch' ? 'הקישו "המשך לשחק"' : 'במקלדת: Esc או P להמשך';
     const t = $('#pause-train');
     if (spec.training) {
       t.innerHTML = `<button class="btn nav" data-act="train-reset">איפוס עמדות ובריאות</button>
@@ -503,7 +512,10 @@ const Game = {
     $('#s-pause').classList.remove('on');
     $('#s-result').classList.add('on'); document.body.dataset.screen = 'result';
     $('#s-result').scrollTop = 0;
-    requestAnimationFrame(() => { const f = $('#s-result .autofocus'); if (f && matchMedia('(hover:hover)').matches) f.focus({ preventScroll: true }); });
+    requestAnimationFrame(() => UI.focusPrimary($('#s-result')));
+  },
+  showControls(dev) {
+    this.pauseSub(`<div class="ctlcard">${Controls.cardHTML(dev)}</div>`);
   },
   showMovesCard() {
     const def = this.B.f[0].def;

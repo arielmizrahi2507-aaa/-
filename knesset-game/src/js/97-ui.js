@@ -54,7 +54,7 @@ const UI = {
       Snd.init(); Snd.resume();
       this.act(t.dataset.act, t, e);
     });
-    const unlock = () => { Snd.init(); Snd.resume(); if (Snd.music.pending) Snd.playMusic(Snd.music.pending); };
+    const unlock = () => { Snd.gestured = true; Snd.init(); Snd.resume(true); if (Snd.music.pending) Snd.playMusic(Snd.music.pending); };
     ['pointerdown', 'touchend', 'click', 'keydown'].forEach((ev) => document.addEventListener(ev, unlock, { passive: true }));
     document.addEventListener('keydown', (e) => this.onKey(e));
     $('#mute').addEventListener('click', () => { Snd.init(); this.setMuted(!Snd.muted); });
@@ -68,7 +68,13 @@ const UI = {
     document.body.dataset.screen = name;
     const scr = $('#s-' + name, this.root);
     if (scr) { scr.scrollTop = 0; const h = this['enter_' + name]; if (h) h.call(this, params); }
-    requestAnimationFrame(() => { const f = $('.autofocus', scr || document) || $('.nav', scr || document); if (f && matchMedia('(hover:hover)').matches) f.focus({ preventScroll: true }); });
+    this.shownAt = performance.now();
+    requestAnimationFrame(() => this.focusPrimary(scr));
+  },
+  // the main button of a screen gets the focus for mouse and gamepad players (touch players never see a focus ring)
+  focusPrimary(scr) {
+    const f = $('.autofocus', scr || document) || $('.nav', scr || document);
+    if (f && (matchMedia('(hover:hover)').matches || Inp.dev === 'pad')) f.focus({ preventScroll: true });
   },
   hide() { $$('.screen', this.root).forEach((s) => s.classList.remove('on')); this.cur = null; document.body.dataset.screen = 'fight'; },
   overlay(name, on = true) { const s = $('#s-' + name, this.root); if (s) s.classList.toggle('on', on); },
@@ -114,7 +120,7 @@ const UI = {
     const items = $$('.nav', scr).filter((n) => n.offsetParent !== null && !n.disabled);
     if (!items.length) return;
     const cur = document.activeElement && items.includes(document.activeElement) ? document.activeElement : null;
-    if (!cur) { items[0].focus(); return; }
+    if (!cur) { (items.find((n) => n.classList.contains('autofocus')) || items[0]).focus(); return; }
     const r0 = cur.getBoundingClientRect(), cx = r0.left + r0.width / 2, cy = r0.top + r0.height / 2;
     let best = null, bs = 1e9;
     for (const n of items) {
@@ -128,6 +134,23 @@ const UI = {
     }
     if (best) { best.focus(); Snd.play('move'); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); if (best.dataset.act === 'pick') this.preview(best.dataset.id); }
   },
+  // gamepad left / right on a slider or a drop-down changes its value (returns true when it did); wrap: cycle a drop-down on "A"
+  stepControl(el, dir, wrap) {
+    if (!el) return false;
+    if (el.tagName === 'INPUT' && el.type === 'range') {
+      const mn = +el.min || 0, mx = +el.max || 100, step = Math.max(+el.step || 1, (mx - mn) / 10), rtl = getComputedStyle(el).direction === 'rtl';
+      const v = Math.max(mn, Math.min(mx, +el.value + (rtl ? -dir : dir) * step));
+      if (v !== +el.value) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); Snd.play('move'); }
+      return true;
+    }
+    if (el.tagName === 'SELECT') {
+      const n = el.options.length; let i = el.selectedIndex + dir;
+      if (wrap) i = (i + n) % n; else i = Math.max(0, Math.min(n - 1, i));
+      if (i !== el.selectedIndex) { el.selectedIndex = i; el.dispatchEvent(new Event('change', { bubbles: true })); Snd.play('move'); }
+      return true;
+    }
+    return false;
+  },
   padPoll() {
     const n = Inp.padNav();   // polled every frame so the edge detection stays fresh
     if (Game.scene && Game.scene.kind === 'fight') {
@@ -135,8 +158,14 @@ const UI = {
       if (n.start || (n.back && this.cur === 'pause')) { const sub = this.cur && $('.screen.on [data-act="closemoves"], .screen.on [data-act="stay"], .screen.on [data-act="back"]'); if (sub) sub.click(); else Game.togglePause(); return; }
     }
     if (this.cur === null || Inp.capture) return;
-    if (n.dx || n.dy) this.nav(n.dx, n.dy);
-    if (n.ok) { const a = document.activeElement; if (a && a.click && a.closest('.screen.on')) a.click(); }
+    if (n.dx && this.stepControl(document.activeElement, n.dx)) { /* a slider or a list changed */ }
+    else if (n.dx || n.dy) this.nav(n.dx, n.dy);
+    const fresh = performance.now() - (this.shownAt || 0) > 350;         // a button still being mashed at the end of a fight must not press "next" by accident
+    if (n.ok && fresh) { const a = document.activeElement; if (a && a.click && a.closest('.screen.on') && a.tagName !== 'SELECT' && a.type !== 'range') a.click(); else if (a && a.tagName === 'SELECT') this.stepControl(a, 1, true); }
+    if (n.start && fresh) {                                              // Start = the big button: confirm a choice / next fight / continue
+      if (this.cur === 'select' && this.sel && !this.sel.view) this.confirmPick();
+      else if (['result', 'bills', 'daily', 'vs'].includes(this.cur)) { const b = $('.screen.on .autofocus'); if (b) b.click(); }
+    }
     if (n.back) { const b = $('.screen.on [data-act="back"], .screen.on [data-act="close"], .screen.on [data-act="closemoves"], .screen.on [data-act="stay"]'); if (b) b.click(); }
   },
 
@@ -253,7 +282,7 @@ const UI = {
             <table>
               ${kb('שחקן 1', 'WASD · F,G,H,R,T,Y')}
               ${kb('שחקן 2', 'חיצים · פסיק, נקודה, סלש, נקודה-פסיק, גרש, Enter')}
-              ${kb('שלט משחק', 'מקל או חיצים לתנועה · X אגרוף · Y בעיטה · A מיוחד 1 · B מיוחד 2 · LB חסימה · RB סופר · RT זריקה')}
+              ${kb('שלט משחק', 'X אגרוף · Y בעיטה · A מיוחד 1 · B מיוחד 2 · LB חסימה · RB סופר · RT זריקה · Start הפסקה. הסבר מלא למטה')}
             </table>
           </div>
           <div>
@@ -272,6 +301,8 @@ const UI = {
             <p>מקל התנועה משמאל: החליקו ימינה/שמאלה, למעלה לקפיצה, למטה להתכופפות. כפתורי הפעולה מימין. שני הכפתורים הקטנים שלידם הם ריצה וזריקה.</p>
           </div>
         </div>
+        <h3 class="padh">🎮 שלט משחק: איך מפעילים יכולות</h3>
+        ${Controls.padHTML()}
       </div>
     </section>`;
   },
@@ -300,6 +331,7 @@ const UI = {
           <button class="btn nav" data-act="restart">התחלה מחדש</button>
           <button class="btn nav" data-act="pause-moves">המכות שלי</button>
         </div>
+        <button class="btn nav" data-act="pause-controls">🎮 בקרות: מה לוחצים</button>
         <div class="two">
           <button class="btn nav" data-act="pause-settings">הגדרות</button>
           <button class="btn nav" data-act="pause-sound">סאונד: <span id="pause-snd"></span></button>
@@ -380,7 +412,7 @@ const UI = {
   },
   detailHTML(def, locked) {
     const r = def.rating;
-    const mv = (label, m, cls) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}</em> ${m.name}</b> <span class="cdc">${cls === 'sup' ? 'דורש הייפ מלא' : cdText(m)}</span><p>${m.desc}</p></div></div>`;
+    const mv = (label, m, cls, key) => `<div class="mv ${cls || ''}"><img src="${iconURL(m.icon || 'star')}" alt=""><div><b><em>${label}${key ? Controls.tag(key) : ''}</em> ${m.name}</b> <span class="cdc">${cls === 'sup' ? 'דורש הייפ מלא' : cdText(m)}</span><p>${m.desc}</p></div></div>`;
     const nm = def.moves;
     return `<div class="dwrap" style="--pc:${def.color}"><div class="dhead">
         <img src="${portraitURL(def.id)}" alt="">
@@ -391,9 +423,9 @@ const UI = {
       <div class="stats">${[['כוח', r.pow], ['מהירות', r.spd], ['הגנה', r.def], ['טווח', r.rng], ['קושי', r.dif]].map(([n, v]) => `<div><span>${n}</span><span class="pips">${pips(v)}</span></div>`).join('')}</div>
       <div class="passive"><h4>יכולת מיוחדת · ${def.passive.name}</h4><p>${def.passive.desc}</p></div>
       <div class="moves">
-        ${mv('מיוחד 1', nm.sp1)}${mv('מיוחד 2', nm.sp2)}${mv('סופר', nm.sup, 'sup')}
+        ${mv('מיוחד 1', nm.sp1, '', 'sp1')}${mv('מיוחד 2', nm.sp2, '', 'sp2')}${mv('סופר', nm.sup, 'sup', 'sup')}
         <div class="normals"><h4>המכות הרגילות</h4>
-          <ul><li><em>אגרוף</em> ${nm.L.name}</li><li><em>בעיטה</em> ${nm.H.name}</li><li><em>קדימה+בעיטה</em> ${nm.FH.name}</li>
+          <ul><li><em>אגרוף${Controls.tag('L')}</em> ${nm.L.name}</li><li><em>בעיטה${Controls.tag('H')}</em> ${nm.H.name}</li><li><em>קדימה+בעיטה</em> ${nm.FH.name}</li>
           <li><em>למטה+אגרוף</em> ${nm.DL.name}</li><li><em>למטה+בעיטה</em> ${nm.DH.name}</li><li><em>באוויר</em> ${nm.AL.name} / ${nm.AH.name}</li></ul></div>
       </div>
       <p class="asof">המפלגה והתפקיד נכונים ל-${VERIFIED_ON}. המכות, היכולות והכינויים בדויים, לצחוק בלבד.</p></div>`;

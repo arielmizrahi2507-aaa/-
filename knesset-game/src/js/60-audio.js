@@ -2,8 +2,8 @@
 const Snd = {
   ctx: null, master: null, sfxG: null, musG: null, noiseBuf: null,
   vol: { sfx: 0.8, music: 0.5 }, muted: false, quiet: false,
-  music: { name: null, step: 0, nextT: 0, timer: 0, track: null },
-  last: {},
+  music: { name: null, step: 0, nextT: 0, timer: 0, track: null, bus: null },
+  last: {}, tryAt: 0, watchT: 0, watchLast: -1, stuck: 0, gestured: false,
 
   init() {
     if (this.ctx) return;
@@ -21,10 +21,58 @@ const Snd = {
       this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      this.ctx.onstatechange = () => { if (this.ctx && this.ctx.state === 'running') this.stuck = 0; };
+      this.iosUnlock();
     } catch (e) { this.ctx = null; }
+    if (!this.watchT) this.watchT = setInterval(() => this.watch(), 1000);
   },
 
-  resume() { try { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); } catch (e) { /* ignore */ } },
+  // iPhones stay silent while the ring switch is on unless the page plays "media": ask for the playback audio session, and loop an inaudible clip
+  iosUnlock() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) { /* not supported */ }
+    if (!/iP(hone|ad|od)/.test(navigator.userAgent) || this.silentEl) return;
+    try {
+      const a = document.createElement('audio');
+      a.src = 'data:audio/wav;base64,UklGRvQHAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YdAHAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgA=='; a.loop = true; a.setAttribute('playsinline', ''); a.volume = 0.01;
+      this.silentEl = a; const p = a.play(); if (p && p.catch) p.catch(() => { this.silentEl = null; });
+    } catch (e) { this.silentEl = null; }
+  },
+
+  // The browser can switch the audio off behind our back (phone call, locked screen, another tab, "interrupted" on iOS, a stalled page).
+  // Anything that is not "running" is retried on every gesture / when the page comes back; a context that is closed or frozen is rebuilt.
+  // (the browser only lets audio start after the player touched the page; before that we do not even try, which keeps the console quiet)
+  canAuto() { return this.gestured || !!(navigator.userActivation && navigator.userActivation.hasBeenActive); },
+  resume(force) {
+    const c = this.ctx;
+    if (!force && !this.canAuto()) return;
+    if (!c) { this.init(); return; }
+    if (c.state === 'closed' || this.stuck >= 3) { this.rebuild(); return; }
+    if (c.state !== 'running') {
+      const now = performance.now();
+      if (now - this.tryAt < 250) return;
+      this.tryAt = now;
+      try { const p = c.resume(); if (p && p.catch) p.catch(() => { /* needs a gesture */ }); } catch (e) { /* ignore */ }
+    }
+    this.iosUnlock();
+  },
+  rebuild() {
+    const keep = this.music.name;
+    this.stopMusic();
+    try { if (this.ctx && this.ctx.state !== 'closed') this.ctx.close(); } catch (e) { /* ignore */ }
+    this.ctx = null; this.stuck = 0; this.silentEl = null;
+    this.init();
+    if (this.ctx) { this.setVol('sfx', this.vol.sfx); this.setVol('music', this.vol.music); this.setMuted(this.muted); if (keep) this.playMusic(keep); }
+  },
+  // once a second: if the clock of a "running" context does not advance, the audio is frozen
+  watch() {
+    const c = this.ctx;
+    if (!c || document.hidden) { this.watchLast = -1; return; }
+    if (c.state === 'running') {
+      if (this.watchLast >= 0 && c.currentTime - this.watchLast < 0.05) this.stuck++; else this.stuck = 0;
+      this.watchLast = c.currentTime;
+      if (this.stuck >= 3) this.resume();
+    } else { this.watchLast = -1; this.resume(); }
+  },
 
   setVol(kind, v) {
     this.vol[kind] = v;
@@ -77,6 +125,7 @@ const Snd = {
   // ---- SFX ----
   play(name, o) {
     if (!this.ctx || this.muted) return;
+    if (this.ctx.state !== 'running') { this.resume(); return; }
     if (this.quiet && !UI_SOUNDS.has(name)) return;
     const now = performance.now();
     if (this.last[name] && now - this.last[name] < 35) return;
@@ -88,51 +137,59 @@ const Snd = {
   // ---- Music ----
   playMusic(name) {
     if (!this.ctx) { this.music.pending = name; return; }
-    if (this.music.name === name) return;
+    if (this.music.name === name && this.music.timer) return;
     this.stopMusic();
     const tr = TRACKS[name];
     if (!tr) return;
-    const m = this.music;
-    m.name = name; m.track = tr; m.step = 0; m.nextT = this.ctx.currentTime + 0.08;
-    m.timer = setInterval(() => this.pump(), 30);
+    const m = this.music, c = this.ctx;
+    m.name = name; m.track = tr; m.step = 0; m.nextT = c.currentTime + 0.08;
+    try { m.bus = c.createGain(); m.bus.connect(this.musG); } catch (e) { m.bus = null; }
+    m.timer = setInterval(() => this.pump(), 40);
   },
   stopMusic() {
     const m = this.music;
     if (m.timer) clearInterval(m.timer);
     m.timer = 0; m.name = null; m.pending = null;
+    const bus = m.bus; m.bus = null;
+    if (bus) {                                                         // notes that were already scheduled fade out with the old track
+      try { bus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.02); } catch (e) { /* ignore */ }
+      setTimeout(() => { try { bus.disconnect(); } catch (e) { /* ignore */ } }, 700);
+    }
   },
   pump() {
     const c = this.ctx, m = this.music, tr = m.track;
     if (!c || !tr) return;
-    if (c.state !== 'running') { m.nextT = c.currentTime + 0.1; return; }
+    if (c.state !== 'running') { m.nextT = c.currentTime + 0.1; this.resume(); return; }
+    if (m.nextT < c.currentTime - 0.25) m.nextT = c.currentTime + 0.05;      // the page stalled: skip what was missed instead of playing it all at once
     const sd = 60 / tr.bpm / 4;
-    while (m.nextT < c.currentTime + 0.14) {
+    while (m.nextT < c.currentTime + 0.45) {
       tr.step(this, m.step, m.nextT, sd);
       m.nextT += sd; m.step++;
     }
   },
+  mdst() { return this.music.bus || this.musG; },
 
   // instruments (absolute time scheduling)
   kick(t, v = 0.7) {
     const c = this.ctx, o = c.createOscillator(), g = c.createGain();
     o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-    o.connect(g); g.connect(this.musG); o.start(t); o.stop(t + 0.22);
+    o.connect(g); g.connect(this.mdst()); o.start(t); o.stop(t + 0.22);
   },
   snare(t, v = 0.35) {
     const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noiseBuf;
     const f = c.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 0.7;
     const g = c.createGain(); g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
-    s.connect(f); f.connect(g); g.connect(this.musG); s.start(t, Math.random() * 0.5); s.stop(t + 0.2);
+    s.connect(f); f.connect(g); g.connect(this.mdst()); s.start(t, Math.random() * 0.5); s.stop(t + 0.2);
     const o = c.createOscillator(), og = c.createGain(); o.type = 'triangle'; o.frequency.setValueAtTime(220, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.08);
-    og.gain.setValueAtTime(v * 0.6, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1); o.connect(og); og.connect(this.musG); o.start(t); o.stop(t + 0.12);
+    og.gain.setValueAtTime(v * 0.6, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1); o.connect(og); og.connect(this.mdst()); o.start(t); o.stop(t + 0.12);
   },
   hat(t, v = 0.12, open = false) {
     const c = this.ctx, s = c.createBufferSource(); s.buffer = this.noiseBuf;
     const f = c.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 7500;
     const g = c.createGain(); const d = open ? 0.16 : 0.04;
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
-    s.connect(f); f.connect(g); g.connect(this.musG); s.start(t, Math.random() * 0.5); s.stop(t + d + 0.02);
+    s.connect(f); f.connect(g); g.connect(this.mdst()); s.start(t, Math.random() * 0.5); s.stop(t + d + 0.02);
   },
   note(t, freq, dur, o = {}) {
     const c = this.ctx, osc = c.createOscillator(), g = c.createGain(), f = c.createBiquadFilter();
@@ -141,7 +198,7 @@ const Snd = {
     f.type = 'lowpass'; f.frequency.setValueAtTime(o.lp || 1200, t); if (o.lp2) f.frequency.exponentialRampToValueAtTime(o.lp2, t + dur);
     const v = o.vol || 0.15;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + (o.attack || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(f); f.connect(g); g.connect(this.musG); osc.start(t); osc.stop(t + dur + 0.05);
+    osc.connect(f); f.connect(g); g.connect(this.mdst()); osc.start(t); osc.stop(t + dur + 0.05);
   },
 };
 

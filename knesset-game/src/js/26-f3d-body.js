@@ -299,6 +299,18 @@ function skelPoints(S) {
   return pts;
 }
 
+// A face turned 3/4 to the camera (either way) gets this much diffuse light in each colour channel; dividing by it makes a well-lit face
+// show the colour the look specifies, whatever the stage lighting (20% of the stage's tint is kept for atmosphere).
+function faceNorm(LG, KEY, FILL) {
+  const wrapF = (n) => { let w = Math.max(0, Math.min(1, (V3.dot(n, KEY) + 0.3) / 1.3)); return w * (w * (3 - 2 * w) * 0.6 + w * 0.4); };
+  const D = [0, 0, 0];
+  for (const nx of [0.58, -0.58]) {
+    const n = V3.norm([nx, 0, 0.81]), w = wrapF(n), f = Math.max(0, V3.dot(n, FILL));
+    for (let c = 0; c < 3; c++) D[c] += 0.5 * (LG.key[c] * 1.3 * w + LG.fill[c] * 0.42 * f + (LG.bot[c] * 0.8 + LG.top[c] * 0.85) * 0.5);
+  }
+  return D.map((d) => 0.2 + 0.8 / Math.max(0.2, d));
+}
+
 // The GL pass: draw the figures into the top-left pw x ph pixels of the GL canvas, seen through the world window (X0,Y0,W_,H_).
 function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
   const gl = G3.gl;
@@ -311,9 +323,11 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
   gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   const U = G3.U, LG = F3D.light;
-  gl.uniform3f(U.uKeyDir, ...V3.norm([-0.42, 0.78, 0.5])); gl.uniform3fv(U.uKeyCol, LG.key.map((v) => v * 1.3));
-  gl.uniform3f(U.uFillDir, ...V3.norm([0.7, 0.1, 0.55])); gl.uniform3fv(U.uFillCol, LG.fill.map((v) => v * 0.42));
+  const KEY = V3.norm([-0.22, 0.66, 0.72]), FILL = V3.norm([0.7, 0.1, 0.55]);
+  gl.uniform3f(U.uKeyDir, ...KEY); gl.uniform3fv(U.uKeyCol, LG.key.map((v) => v * 1.3));
+  gl.uniform3f(U.uFillDir, ...FILL); gl.uniform3fv(U.uFillCol, LG.fill.map((v) => v * 0.42));
   gl.uniform3fv(U.uTop, LG.top.map((v) => v * 0.85)); gl.uniform3fv(U.uBot, LG.bot.map((v) => v * 0.8)); gl.uniform3fv(U.uRim, LG.rim.map((v) => v * 1.1));
+  gl.uniform3fv(U.uNorm, faceNorm(LG, KEY, FILL));
   gl.uniform1i(U.uTex, 0);
   const zr = 260;
   // world (y down) -> clip

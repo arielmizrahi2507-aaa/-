@@ -102,12 +102,13 @@ function buildHeadMeshes(look, pal) {
   if (style !== 'none' && style !== 'sides') {
     const kn = HAIRLINE[style === 'curly' ? 'crop' : style];
     shell(hairMesh, (th, ph, base) => {
-      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at);
+      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at) + (look.hair.hl || 0) * sstep(2.2, 0.4, at);      // hl > 0: receding hairline
       let cov = sstep(Hl - 0.08, Hl + 0.08, ph);
-      let t = 0.5 + (style === 'swoop' ? 1.5 : style === 'wavy' ? 1.6 : style === 'part' ? 1.4 : 1.0) * sstep(Hl, Hl + 0.7, ph);
-      if (style === 'swoop') t += 2.4 * bump(ph, 1.0, 0.34) * bump(at, 0.55, 0.85);
-      if (style === 'part') t += 2.0 * bump(ph, 1.0, 0.32) * bump(at, 0.45, 0.8) * (th > 0 ? 1 : 0.55);
-      if (style === 'wavy') t += 1.6 * bump(ph, 1.05, 0.4) * bump(at, 0.3, 0.8);
+      const vol = look.hair.vol || 1;
+      let t = 0.5 + vol * (style === 'swoop' ? 1.5 : style === 'wavy' ? 1.6 : style === 'part' ? 1.4 : 1.0) * sstep(Hl, Hl + 0.7, ph);
+      if (style === 'swoop') t += vol * 2.4 * bump(ph, 1.0, 0.34) * bump(at, 0.55, 0.85);
+      if (style === 'part') t += vol * 2.0 * bump(ph, 1.0, 0.32) * bump(at, 0.45, 0.8) * (th > 0 ? 1 : 0.55);
+      if (style === 'wavy') t += vol * 1.6 * bump(ph, 1.05, 0.4) * bump(at, 0.3, 0.8);
       if (ph > 1.4) cov = 1;
       return { cov, t, shade: 0.7 + 0.3 * sstep(Hl, Hl + 0.45, ph) };
     }, hairMat, (i, j) => [(i / (NU - 1)) * 3, (j / (NV - 1)) * 1.6]);
@@ -127,7 +128,7 @@ function buildHeadMeshes(look, pal) {
       const t = j / (rows - 1);
       for (let i = 0; i < cols; i++) {
         const a = -2.05 + (i / (cols - 1)) * 4.1 + Math.PI, th = wrapPi(a), edge = Math.abs(i / (cols - 1) - 0.5) * 2;
-        const yy = 8 - t * 42, wob = Math.sin(t * 5 + i * 0.7) * 1.4 * t;
+        const yy = 8 - t * (look.hair.len || 42), wob = Math.sin(t * 5 + i * 0.7) * 1.4 * t;
         const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t) * (1 - 0.1 * edge * t);
         PS.push([Math.cos(th) * HD.Rf * rad - 3 * t + wob, yy, Math.sin(th) * HD.Rl * 1.03 * rad]);
       }
@@ -163,9 +164,10 @@ function buildHeadMeshes(look, pal) {
   } else if (look.stache) {
     shell(hairMesh, (th, ph, base) => {
       const f = base[0], y = base[1], l = base[2];
-      const m = 1 - (Math.pow(l / 8.2, 2) + Math.pow((y + 8.9) / 2.0, 2));
-      const cov = (f > 4 ? 1 : 0) * sstep(-0.05, 0.2, m) * (y > -7.4 && Math.abs(l) < 1.2 ? 0.5 : 1);
-      return { cov: y > -6.8 ? 0 : cov, t: 0.9, shade: 0.9 };
+      const yc = -8.55 - 0.05 * l * l, w = look.stacheW || 1;                                   // sits under the nose, ends drop towards the mouth corners
+      const m = 1 - (Math.pow(l / (7.2 * w), 2) + Math.pow((y - yc) / (1.75 - 0.12 * Math.abs(l) / 3), 2));
+      const cov = (f > 4 ? 1 : 0) * sstep(-0.05, 0.25, m) * (y > -7.4 && Math.abs(l) < 1.0 ? 0.6 : 1);
+      return { cov: y > -6.8 ? 0 : cov, t: 1.0, shade: 0.9 };
     }, bMat, (i, j, k) => [H.P[k][2] * 0.05, H.P[k][1] * 0.05]);
   }
 
