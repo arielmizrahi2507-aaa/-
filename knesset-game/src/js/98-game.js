@@ -13,29 +13,49 @@ const Game = {
   // ------------------------------------------------------------------ boot / loop
   init() {
     this.cv = $('#cv'); this.ctx = this.cv.getContext('2d');
-    try { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); } catch (e) { /* optional */ }
+    // only what the title screen needs is allowed to stop the boot; everything else is logged and skipped
+    const soft = (name, fn) => { try { fn(); } catch (e) { console.error('boot: ' + name, e); } };
+    soft('fonts', () => { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); });
     Save.load();
     const s = Save.d.settings;
-    Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
-    Inp.init();
-    if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs');
+    this.bootChecks(s);
+    soft('audio', () => { Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted; });
+    soft('input', () => Inp.init());
+    soft('fullscreen', () => { if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs'); });
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
-    TouchUI.init();
-    FightUI.init();
-    // when embedded in another page (preview panes, iframes) keys only arrive once the frame has focus
-    ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
-    this.applySettings();
-    window.addEventListener('resize', () => this.layout());
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
-    window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
-    window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
-    window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
+    soft('touch', () => TouchUI.init());
+    soft('fightui', () => FightUI.init());
+    soft('listeners', () => {
+      // when embedded in another page (preview panes, iframes) keys only arrive once the frame has focus
+      ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
+      window.addEventListener('resize', () => this.layout());
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
+      window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
+      window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
+      window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
+      window.addEventListener('pagehide', () => this.clear3dFlag());
+      document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
+    });
+    soft('settings', () => this.applySettings());
     this.last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
     UI.show('title');
+    if (this.bootNote) setTimeout(() => UI.toast('שינינו הגדרה', this.bootNote, 'unlock'), 900);
+    try { if (window.__ks) window.__ks.ready(); } catch (e) { /* the boot guard is optional */ }
   },
+
+  // Safe mode (?safe) and crash recovery: if the last run died while it was starting the 3D renderer, start without it this time.
+  bootChecks(s) {
+    let note = '';
+    if (/[?&]safe\b/.test(location.search)) { s.gfx3d = false; Battle.lowFx = true; note = 'מצב בטוח: בלי דמויות תלת־ממדיות ועם פחות אפקטים. אפשר להדליק בהגדרות.'; }
+    try {
+      if (localStorage.getItem('ks_3d') === '1') { s.gfx3d = false; note = note || 'הפעם הקודמת נתקעה בזמן שהדמויות התלת־ממדיות עלו, אז כיבינו אותן. אפשר להדליק בהגדרות.'; }
+      localStorage.setItem('ks_3d', '0');
+    } catch (e) { /* storage blocked */ }
+    if (note) { Save.save(); this.bootNote = note; }
+  },
+  clear3dFlag() { try { localStorage.setItem('ks_3d', '0'); } catch (e) { /* ignore */ } },
 
   applySettings() {
     const s = Save.d.settings;
@@ -55,7 +75,7 @@ const Game = {
     const B = sc.B;
     if (!B) return;
     if (!this.paused) {
-      if (sc.kind === 'fight') this.perf(dt);
+      if (sc.kind === 'fight' || sc.kind === 'attract') this.perf(dt, sc.kind);
       const speed = (B.cfg.speed || 1) * B.timeScale;
       this.acc += dt * speed;
       let steps = 0;
@@ -70,21 +90,24 @@ const Game = {
     B.render(c);
     if (sc.kind !== 'preview') Stages.vignette(c);
     if (sc.kind === 'fight') { TouchUI.updateHints(B); FightUI.tick(B); }
+    if (!this.f3ok && (F3D.good >= 60 || F3D.failed)) { this.f3ok = true; this.clear3dFlag(); }
   },
 
   // Screen geometry. With "landscape mode" on, a phone that the host keeps in portrait gets the whole UI turned by 90 degrees,
   // so it can be held sideways: everything below works in the rotated ("logical") size, and CSS uses --u-vw / --u-vh instead of vw / vh.
   // Slow phones: if the first seconds of a fight run well below 60 fps, drop to a cheaper mode (lower resolution, no reflections) for the session.
-  perf(dt) {
-    const q = this.q || (this.q = { n: 0, sum: 0, done: false });
+  perf(dt, kind) {
+    const Q = this.qs || (this.qs = {});
+    const q = Q[kind] || (Q[kind] = { n: 0, sum: 0, done: false });
     if (q.done) return;
+    if (kind === 'attract' && !(F3D.ok && !F3D.off)) return;      // the menu backdrop only matters while it is drawn in 3D
     if (++q.n <= 40) return;                  // skip the warm-up (stage bitmaps are painted on the first frames)
     q.sum += Math.min(dt, 80);
     if (q.n >= 190) {
       q.done = true;
       if (q.sum / (q.n - 40) > 27) {
         if (F3D.ok && !F3D.off) { F3D.off = true; q.done = false; q.n = 0; q.sum = 0; UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו כדי לשמור על חלקות. אפשר להדליק בהגדרות', 'unlock'); }
-        else if (!Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+        else if (kind === 'fight' && !Battle.lowFx) { Battle.lowFx = true; this.layout(); }
       }
     }
   },
@@ -227,6 +250,7 @@ const Game = {
     switch (mode) {
       case 'arcade': this.startArcade(picks[0], o.diff); break;
       case 'survival': this.startSurvival(picks[0]); break;
+      case 'quick': this.startQuick(picks[0], picks[1], o.diff, stage); break;
       case 'versus': this.startFight({ mode: 'versus', p1: { id: picks[0], human: true }, p2: { id: picks[1], human: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer }); break;
       case 'training': this.dummy = 'stand'; this.infMeter = false; this.showBoxes = false; this.showInputs = true; this.startFight({ mode: 'training', p1: { id: picks[0], human: true }, p2: { id: picks[1], dummy: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: 2, time: 99, training: true, noSplash: true }); break;
       default: break;
@@ -403,6 +427,7 @@ const Game = {
       case 'dummy-meter': this.toggleMeter(); this.pauseOpen(); break;
       case 'daily-start': this.startDaily(); break;
       case 'reselect': UI.show('select', { mode: this.spec.mode }); break;
+      case 'change-opp': UI.show('select', { mode: 'quick', step: 1, picks: [this.spec.p1.id] }); break;
       case 'again': this.startSurvival(this.surv.fighter); break;
       default: break;
     }
@@ -455,7 +480,7 @@ const Game = {
     else { $('#s-pause').classList.remove('on'); Inp.capture = true; document.body.dataset.screen = 'fight'; Snd.resume(); }
   },
   modeName(spec) {
-    return { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', daily: 'האתגר היומי', versus: 'קרב חברים', training: 'מצב אימון' }[spec.mode] || '';
+    return { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', daily: 'האתגר היומי', versus: 'קרב חברים', quick: 'קרב רגיל', training: 'מצב אימון' }[spec.mode] || '';
   },
   pauseOpen() {
     const spec = this.spec || {};
@@ -497,6 +522,31 @@ const Game = {
     this.card(`${this.winnerBanner(res)}${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="rematch">עוד סיבוב</button><button class="btn nav" data-act="reselect">בחירת לוחמים</button><button class="btn nav" data-act="menu">חזרה לתפריט</button></div>`);
   },
 
+  // How strong the CPU is at each difficulty (0 easy, 1 medium, 2 hard): brain level plus a health/damage multiplier.
+  // i is the fight number in a ladder (later fights are a little tougher).
+  cpuTier(diff, i = 0, boss = false) {
+    const d = clamp(diff | 0, 0, 2);
+    return {
+      level: clamp([0.10, 0.30, 0.66][d] + i * [0.035, 0.04, 0.045][d] + (boss ? 0.06 : 0), 0.1, 0.98),
+      hpMul: (1 + [-0.04, 0.02, 0.12][d] + i * 0.02) * (boss ? [0.8, 0.9, 1][d] : 1),
+      dmgMul: [0.78, 0.9, 1.1][d] * (boss ? [0.85, 0.95, 1][d] : 1),
+    };
+  },
+
+  // ------------------------------------------------------------------ QUICK FIGHT (one ordinary fight against the CPU)
+  startQuick(myId, oppId, diff, stage) {
+    const tier = this.cpuTier(diff, 0, oppId === 'threshold');
+    this.startFight({
+      mode: 'quick', p1: { id: myId, human: true }, p2: Object.assign({ id: oppId }, tier),
+      stage: stage === 'random' ? pick(STAGES).id : stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer,
+      label: 'קרב רגיל · ' + ['קל', 'בינוני', 'קשה'][clamp(diff | 0, 0, 2)],
+      onDone: (res) => this.quickDone(res),
+    });
+  },
+  quickDone(res) {
+    this.card(`${this.winnerBanner(res)}${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="rematch">${res.won ? 'עוד סיבוב מול אותו יריב' : 'נסו שוב'}</button><button class="btn nav" data-act="change-opp">יריב אחר</button><button class="btn nav" data-act="reselect">בחירת לוחם</button><button class="btn nav" data-act="menu">חזרה לתפריט</button></div>`);
+  },
+
   // ------------------------------------------------------------------ ARCADE
   startArcade(id, diff) {
     const others = shuffle(ROSTER.map((d) => d.id).filter((x) => x !== id));
@@ -506,12 +556,10 @@ const Game = {
   },
   nextArcadeFight() {
     const A = this.arc, i = A.idx, oid = A.ladder[i], boss = oid === 'threshold';
-    const base = [0.15, 0.4, 0.66][A.diff];
-    const level = clamp(base + i * 0.045 + (boss ? 0.06 : 0), 0.1, 0.98);
     const stage = STAGES[(hashStr(A.id + i) + i) % STAGES.length].id;
     this.startFight({
       mode: 'arcade', p1: { id: A.id, human: true },
-      p2: { id: oid, level, hpMul: (1 + [0, 0.05, 0.12][A.diff] + i * 0.02) * (boss ? [0.8, 0.9, 1][A.diff] : 1), dmgMul: [0.85, 1, 1.1][A.diff] * (boss ? [0.85, 0.95, 1][A.diff] : 1) },
+      p2: Object.assign({ id: oid }, this.cpuTier(A.diff, i, boss)),
       stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer, label: `קרב ${i + 1} מתוך ${A.ladder.length}` + (boss ? ' · הבוס הסודי' : ''),
       onDone: (res) => this.arcadeDone(res),
     });

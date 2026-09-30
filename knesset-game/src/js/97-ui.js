@@ -149,9 +149,11 @@ const UI = {
           <div class="l2">בכנסת</div>
           <div class="l3">KNESSET SMACKDOWN</div>
           <p class="tag">משחק לחימה סאטירי · ${ROSTER.length} לוחמים · ${new Set(ROSTER.map((d) => d.party)).size} מפלגות · יכולת מיוחדת לכל אחד</p>
+          <p class="rothint">📱 סובבו את הטלפון על הצד, והמשחק יתיישר</p>
         </div>
         <nav class="menu">
           <button class="btn primary big nav autofocus" data-act="arcade"><b>מסע לראשות הממשלה</b><small>סדרת קרבות + בוס סודי</small></button>
+          <button class="btn big nav" data-act="quick"><b>קרב רגיל</b><small>קרב אחד נגד המחשב: בוחרים יריב, קושי וזירה</small></button>
           <button class="btn pink big nav" data-act="survival"><b>מרתון חקיקה</b><small>גלים אינסופיים, חוקים ושדרוגים</small></button>
           <button class="btn cyan big nav" data-act="daily"><b>האתגר היומי</b><small id="daily-sub">חוק חדש כל יום</small></button>
           <button class="btn big nav" data-act="versus"><b>קרב חברים</b><small>שניים על מקלדת אחת</small></button>
@@ -330,10 +332,10 @@ const UI = {
   enter_select(p) {
     Game.setScene('none');
     const S = this.sel = { mode: p.mode, step: p.step || 0, picks: p.picks || [], hover: null, diff: (this.sel && this.sel.diff !== undefined) ? this.sel.diff : 1, stage: (this.sel && this.sel.stage) || 'random', view: p.mode === 'roster' };
-    const titles = { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', versus: 'קרב חברים', training: 'אימון', roster: 'הדמויות והמכות' };
+    const titles = { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', quick: 'קרב רגיל נגד המחשב', versus: 'קרב חברים', training: 'אימון', roster: 'הדמויות והמכות' };
     $('#sel-mode').textContent = titles[p.mode] || '';
     const steps = {
-      arcade: ['בחרו לוחם'], survival: ['בחרו לוחם'], roster: ['הדמויות והמכות'],
+      arcade: ['בחרו לוחם'], survival: ['בחרו לוחם'], roster: ['הדמויות והמכות'], quick: ['בחרו לוחם', 'בחרו יריב'],
       versus: ['שחקן 1: בחרו לוחם', 'שחקן 2: בחרו לוחם'], training: ['בחרו לוחם', 'בחרו יריב לאימון'],
     };
     $('#sel-step').textContent = steps[p.mode][S.step];
@@ -346,7 +348,9 @@ const UI = {
     }).join('');
     // extras (difficulty / stage)
     let extra = '';
-    if (p.mode === 'arcade') extra = `<div class="seg" id="diff-seg">${['קל', 'רגיל', 'קשה'].map((t, i) => `<button class="nav ${S.diff === i ? 'on' : ''}" data-act="diff" data-v="${i}">${t}</button>`).join('')}</div>`;
+    const diffSeg = `<div class="seg" id="diff-seg">${['קל', 'בינוני', 'קשה'].map((t, i) => `<button class="nav ${S.diff === i ? 'on' : ''}" data-act="diff" data-v="${i}">${t}</button>`).join('')}</div>`;
+    if (p.mode === 'arcade') extra = diffSeg;
+    if (p.mode === 'quick') extra = diffSeg + `<div class="seg stg"><button class="nav" data-act="stage-prev">▶</button><b id="stage-name"></b><button class="nav" data-act="stage-next">◀</button></div>` + (S.step === 1 ? `<button class="btn nav" data-act="rand-opp">🎲 יריב אקראי</button>` : '');
     if (p.mode === 'versus' || p.mode === 'training') extra = `<div class="seg stg"><button class="nav" data-act="stage-prev">▶</button><b id="stage-name"></b><button class="nav" data-act="stage-next">◀</button></div>`;
     $('#sel-extra').innerHTML = extra;
     this.updateStageName();
@@ -370,7 +374,7 @@ const UI = {
     $$('#grid .card').forEach((c) => { c.classList.toggle('sel', c.dataset.id === id); c.classList.toggle('autofocus', c.dataset.id === id); });
     const locked = !Save.isUnlocked(def);
     $('#btn-confirm').disabled = locked;
-    $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : (S.mode === 'training' && S.step === 0 ? 'הלאה: בחירת יריב' : 'בחירה')));
+    $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : ((S.mode === 'training' || S.mode === 'quick') && S.step === 0 ? 'הלאה: בחירת יריב' : (S.mode === 'quick' ? 'לקרב!' : 'בחירה'))));
     $('#dinfo').innerHTML = this.detailHTML(def, locked);
     Game.setScene('preview', { id });
   },
@@ -435,7 +439,7 @@ const UI = {
   act(name, el) {
     const S = this.sel;
     switch (name) {
-      case 'arcade': case 'survival': case 'versus': case 'training': case 'roster':
+      case 'arcade': case 'survival': case 'quick': case 'versus': case 'training': case 'roster':
         Snd.play('confirm'); this.show('select', { mode: name }); break;
       case 'daily': Snd.play('confirm'); Game.dailyIntro(); break;
       case 'settings': case 'help': case 'achv': Snd.play('confirm'); this.show(name); break;
@@ -452,6 +456,11 @@ const UI = {
         let i = ids.indexOf(S.stage) + (name === 'stage-next' ? 1 : -1);
         i = (i + ids.length) % ids.length; S.stage = ids[i]; this.updateStageName(); Snd.play('move'); break;
       }
+      case 'rand-opp': {
+        const pool = ROSTER.filter((d) => Save.isUnlocked(d) && d.id !== S.picks[0] && d.id !== S.hover);
+        if (pool.length) { Snd.play('select'); this.preview(pool[(Math.random() * pool.length) | 0].id); }
+        break;
+      }
       case 'confirm': this.confirmPick(); break;
       case 'reset':
         if (confirm('לאפס את כל ההתקדמות, ההישגים והסטטיסטיקה?')) { localStorage.removeItem(Save.key); Save.load(); Game.applySettings(); this.show('title'); Snd.play('back'); }
@@ -462,7 +471,7 @@ const UI = {
   back() {
     if (Game.paused && this.cur === 'settings') { Game.pauseOpen(); return; }
     const S = this.sel;
-    if (this.cur === 'select' && S && S.step > 0 && (S.mode === 'versus' || S.mode === 'training')) { this.show('select', { mode: S.mode, step: S.step - 1, picks: S.picks.slice(0, S.step - 1) }); return; }
+    if (this.cur === 'select' && S && S.step > 0 && (S.mode === 'versus' || S.mode === 'training' || S.mode === 'quick')) { this.show('select', { mode: S.mode, step: S.step - 1, picks: S.picks.slice(0, S.step - 1) }); return; }
     Game.setScene('attract');
     this.show('title');
   },
@@ -474,7 +483,7 @@ const UI = {
     Snd.play('confirm');
     Save.d.lastPick = S.step === 0 ? id : Save.d.lastPick;
     const picks = S.picks.slice(0, S.step); picks[S.step] = id;
-    if ((S.mode === 'versus' || S.mode === 'training') && S.step === 0) { this.show('select', { mode: S.mode, step: 1, picks }); return; }
+    if ((S.mode === 'versus' || S.mode === 'training' || S.mode === 'quick') && S.step === 0) { this.show('select', { mode: S.mode, step: 1, picks }); return; }
     Game.beginMode(S.mode, picks, { diff: S.diff, stage: S.stage });
   },
 };

@@ -30,6 +30,7 @@ function look3D(look) {
   paintStrands(c, look.hair ? look.hair.color : '#333333', 11, 700); F3D.uploadLayer(L.tex, LAYER.HAIR, tc, false);
   paintStrands(c, look.beard ? look.beard.color : (look.stache || '#333333'), 29, 900); F3D.uploadLayer(L.tex, LAYER.BEARD, tc, false);
   paintKnit(c, look.kippah); F3D.uploadLayer(L.tex, LAYER.KNIT, tc, false);
+  F3D.uploadLayer(L.tex, LAYER.CLOTH, clothCanvas(), false);
   setFace3D(L, 'open', 'closed');
   if (!look.robot) {
     const m = buildHeadMeshes(look, pal);
@@ -44,11 +45,21 @@ function look3D(look) {
   G3.cache.set(look, L);
   return L;
 }
+let CLOTH_CV = null;
+function clothCanvas() {
+  if (!CLOTH_CV) { CLOTH_CV = texCanvas(); paintCloth(CLOTH_CV.getContext('2d')); }
+  return CLOTH_CV;
+}
 function setFace3D(L, eyes, mouth) {
   const key = eyes + '|' + mouth;
   if (L.faceKey === key) return;
   L.faceKey = key;
-  if (L.look.robot) paintRobotFace(L.faceCtx, L.look, eyes, mouth); else paintFace(L.faceCtx, L.look, L.pal, eyes, mouth, 0);
+  if (L.look.robot) paintRobotFace(L.faceCtx, L.look, eyes, mouth);
+  else {
+    if (!L.faceBase) { L.faceBase = texCanvas(); paintFaceBase(L.faceBase.getContext('2d', { willReadFrequently: true }), L.look, L.pal); }
+    L.faceCtx.clearRect(0, 0, TEXN, TEXN); L.faceCtx.drawImage(L.faceBase, 0, 0);
+    paintFaceExpr(L.faceCtx, L.look, L.pal, eyes, mouth);
+  }
   F3D.uploadLayer(L.tex, LAYER.FACE, L.face, true);
 }
 
@@ -72,7 +83,7 @@ function skeleton3D(f, p, look) {
   // arms
   const arm = (target, near) => {
     const sgn = near ? 1 : -1;
-    const sh = at(43, sgn * (23.6 * bw - 5.2), 0.4);
+    const sh = at(43, sgn * (23.6 * bw - 6.2), 0.4);
     const r = ik(sh[0], -sh[1], target[0], target[1], ARM_L, ARM_L, 1);
     const zs = sh[2];
     const wr = [r.ex, -r.ey, zs + sgn * 3.5], el = [r.jx, -r.jy, zs + sgn * 5.2];
@@ -103,10 +114,11 @@ function skeleton3D(f, p, look) {
 // ---------------------------------------------------------------------------------------------------------------
 // body meshes
 // ---------------------------------------------------------------------------------------------------------------
-const MAT_CLOTH = packMat(0.07, 0.08, 0.45, LAYER.WHITE);
-const MAT_SKIN = packMat(0.2, 0.28, 0.45, LAYER.WHITE);
-const MAT_SHOE = packMat(0.75, 0.45, 0.35, LAYER.WHITE);
-const MAT_TORSO = packMat(0.1, 0.1, 0.4, LAYER.TORSO);
+const MAT_CLOTH = packMat(0.07, 0.08, 0.45, LAYER.WHITE, CLS.CLOTH);
+const MAT_SKIN = packMat(0.2, 0.28, 0.45, LAYER.WHITE, CLS.SKIN);
+const MAT_SHOE = packMat(0.75, 0.45, 0.35, LAYER.WHITE, CLS.SHOE);
+const MAT_TORSO = packMat(0.1, 0.1, 0.4, LAYER.TORSO, CLS.CLOTH);
+const TILE = [4, 11];                    // fabric weave on tubes: repeats around, world units per repeat along
 const c3 = (hex, k = 1) => { const v = hexRGB(hex); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
 const c3s = (css, k = 1) => { const v = hexRGB(css); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
 
@@ -198,8 +210,8 @@ function emitBody(mesh, S, L, opt) {
   // legs
   for (const lg of [S.legF, S.legN]) {
     const far = !lg.near, pc = far ? pantsFar : pants;
-    emitTube(mesh, lg.hp, lg.kn, 9.6 * bw, 7.9, pc, MAT_CLOTH, { sides: 10, rings: 4 });
-    emitTube(mesh, lg.kn, lg.an, 7.8, 6.0, pc, MAT_CLOTH, { sides: 10, rings: 4 });
+    emitTube(mesh, lg.hp, lg.kn, 9.6 * bw, 7.9, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    emitTube(mesh, lg.kn, lg.an, 7.8, 6.0, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
     sphere(mesh, lg.hp, 9.9 * bw, pc, MAT_CLOTH, { nu: 10, nv: 7 });
     sphere(mesh, lg.kn, 7.9, pc, MAT_CLOTH, { nu: 10, nv: 7 });
     const dl = V3.norm(V3.sub(lg.an, lg.kn));
@@ -230,7 +242,7 @@ function emitBody(mesh, S, L, opt) {
         const lat = A * bw * Math.sin(th);
         return { uv: [(27 - lat) / 54, (56 - u) / 64], col: packRGBA(1, 1, 1, 1), mat: MAT_TORSO };
       }
-      return { uv: [0.5, 0.5], col: suit, mat: MAT_CLOTH };
+      return { uv: [3.5 * (27 - A * bw * Math.sin(th)) / 54, 3.5 * (56 - u) / 64], col: suit, mat: MAT_CLOTH };
     }, [0, frontMax, nA - 1]);
     // caps: hem (dark inside) and neck hole
     const topC = S.at(54.2, 0, -0.3), hemC = S.at(-7.5, 0, -0.4);
@@ -249,9 +261,9 @@ function emitBody(mesh, S, L, opt) {
   // arms
   for (const ar of [S.armF, S.armN]) {
     const far = !ar.near, sc = far ? suitFar : suit;
-    sphere(mesh, ar.sh, 8.3, sc, MAT_CLOTH, { nu: 10, nv: 7 });
-    emitTube(mesh, ar.sh, ar.el, 7.6, 6.4, sc, MAT_CLOTH, { sides: 10, rings: 4 });
-    emitTube(mesh, ar.el, ar.wr, 6.4, 5.3, sc, MAT_CLOTH, { sides: 10, rings: 4 });
+    sphere(mesh, ar.sh, 7.7, sc, MAT_CLOTH, { nu: 12, nv: 8 });
+    emitTube(mesh, ar.sh, ar.el, 7.6, 6.4, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    emitTube(mesh, ar.el, ar.wr, 6.4, 5.3, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
     sphere(mesh, ar.el, 6.5, sc, MAT_CLOTH, { nu: 10, nv: 7 });
     const d = ar.dir;
     emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35, 6.05, far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
@@ -324,7 +336,7 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     // view-space normals: flip y (canvas -> y up)
     const NM = new Float32Array([nmat[0], -nmat[1], nmat[2], nmat[3], -nmat[4], nmat[5], nmat[6], -nmat[7], nmat[8]]);
     gl.frontFace(fg.face < 0 ? gl.CW : gl.CCW);
-    gl.uniformMatrix4fv(U.uMVP, false, MVP); gl.uniformMatrix3fv(U.uNM, false, NM);
+    gl.uniformMatrix4fv(U.uMVP, false, MVP); gl.uniformMatrix4fv(U.uM, false, M); gl.uniformMatrix3fv(U.uNM, false, NM);
     gl.uniform4f(U.uTint, ...(fg.tint || [0, 0, 0, 0])); gl.uniform1f(U.uFlash, fg.flash || 0); gl.uniform1f(U.uAlpha, fg.alpha === undefined ? 1 : fg.alpha); gl.uniform1f(U.uCover, 0);
     gl.drawElements(gl.TRIANGLES, G3.dyn.ni, gl.UNSIGNED_SHORT, 0);
     F3D.stats.verts += G3.dyn.nv;
@@ -332,7 +344,7 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     if (L.gpu) {
       const HM = M4.mul(M, S.headM), HP = M4.mul(P, HM), hn = M4.normalMat(HM);
       const HN = new Float32Array([hn[0], -hn[1], hn[2], hn[3], -hn[4], hn[5], hn[6], -hn[7], hn[8]]);
-      gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix3fv(U.uNM, false, HN);
+      gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix4fv(U.uM, false, HM); gl.uniformMatrix3fv(U.uNM, false, HN);
       gl.bindVertexArray(L.gpu.skin.vao); gl.drawElements(gl.TRIANGLES, L.gpu.skin.n, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(L.gpu.acc.vao); gl.drawElements(gl.TRIANGLES, L.gpu.acc.n, gl.UNSIGNED_SHORT, 0);
       if (G3.a2c) { gl.disable(gl.BLEND); gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE); }
@@ -378,6 +390,16 @@ F3D.render = function (ctx, f, opt, figs) {
   spr.ctx.drawImage(cvs, 0, G3.size - ph, pw, ph, 0, 0, pw, ph);
   spr.x = X0; spr.y = Y0; spr.w = W_; spr.h = H_;
   F3D.stats.renders++;
+  if (F3D.good < 3) {                         // some GPUs / browsers hand back an empty canvas: catch that at the start and use the 2D renderer instead
+    const pr = G3.probe || (G3.probe = (() => { const c = document.createElement('canvas'); c.width = c.height = 48; return { c, x: c.getContext('2d', { willReadFrequently: true }) }; })());
+    const cw = Math.min(pw, 160), ch = Math.min(ph, 160);
+    pr.x.clearRect(0, 0, 48, 48); pr.x.drawImage(spr.canvas, (pw - cw) >> 1, (ph - ch) >> 1, cw, ch, 0, 0, 48, 48);
+    const px = pr.x.getImageData(0, 0, 48, 48).data;
+    let solid = 0;
+    for (let i = 3; i < px.length; i += 4) if (px[i] > 40) solid++;
+    if (solid < 40) throw new Error('the 3D renderer produced an empty picture');
+  }
+  F3D.good++;
   return spr;
 };
 

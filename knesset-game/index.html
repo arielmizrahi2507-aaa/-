@@ -6,9 +6,42 @@
 <meta name="theme-color" content="#140b2e">
 <meta name="description" content="מכות בכנסת: משחק לחימה סאטירי עם חברי כנסת קריקטוריים, יכולת מיוחדת ומכות ייחודיות לכל אחד.">
 <title>מכות בכנסת</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script>
+/* Boot guard: if the game cannot start (an error, or a very slow device) the player sees why instead of an empty purple screen. */
+(function () {
+  var W = window, errs = [], ready = false, box = null, t0 = new Date().getTime(), timer = 0;
+  function txt(e) { try { return String((e && (e.message || (e.reason && (e.reason.message || e.reason)))) || e); } catch (x) { return 'error'; } }
+  function home() { return String(location.href).split('#')[0].split('?')[0]; }
+  function render() {
+    if (ready || !document.body) return;
+    var waited = new Date().getTime() - t0, bad = errs.length > 0;
+    if (!bad && waited < 7000) return;
+    if (!box) {
+      box = document.createElement('div'); box.id = 'bootguard';
+      box.setAttribute('style', 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;background:#140b2e;color:#fff;font:16px/1.5 system-ui,Arial,sans-serif;text-align:center;direction:rtl;overflow:auto');
+      document.body.appendChild(box);
+    }
+    var b = 'display:block;width:100%;margin:8px 0 0;padding:12px 14px;font:700 16px system-ui,Arial,sans-serif;border:0;border-radius:12px;color:#2b1400;background:#ffc21a';
+    box.innerHTML = '<div style="max-width:440px;width:100%"><h2 style="margin:0 0 6px;font-size:22px">' + (bad ? 'המשחק לא הצליח להיטען' : 'המשחק עדיין נטען…') + '</h2>' +
+      '<p style="margin:0 0 8px;opacity:.85">' + (bad ? 'משהו בטלפון או בדפדפן חסם את ההפעלה.' : 'זה לוקח יותר מהרגיל. אפשר להמתין, או לנסות מצב בטוח.') + ' מומלץ לפתוח בכרום או בספארי מעודכנים, ולהחזיק את הטלפון לרוחב.</p>' +
+      '<button id="kb-safe" style="' + b + '">הפעלה במצב בטוח (בלי תלת־ממד)</button>' +
+      '<button id="kb-retry" style="' + b + ';background:#8b6cff;color:#fff">נסו שוב</button>' +
+      (bad ? '<pre dir="ltr" style="text-align:left;white-space:pre-wrap;word-break:break-word;font:12px/1.4 monospace;opacity:.75;margin:12px 0 0"></pre>' : '') + '</div>';
+    if (bad) box.getElementsByTagName('pre')[0].textContent = errs.slice(0, 3).join('\n');
+    document.getElementById('kb-safe').onclick = function () { location.href = home() + '?safe'; };
+    document.getElementById('kb-retry').onclick = function () { location.reload(); };
+  }
+  W.addEventListener('error', function (e) {
+    if (!e || !e.message) return;                                   // failed resource loads (fonts, ...) are not game errors
+    errs.push(txt(e) + (e.lineno ? '  (line ' + e.lineno + ')' : '')); render();
+  }, true);
+  W.addEventListener('unhandledrejection', function (e) { errs.push(txt(e)); render(); });
+  timer = setInterval(render, 1000);
+  W.__ks = { errs: errs, ready: function () { ready = true; clearInterval(timer); if (box && box.parentNode) box.parentNode.removeChild(box); var m = document.getElementById('bootmsg'); if (m && m.parentNode) m.parentNode.removeChild(m); } };
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Secular+One&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Secular+One&display=swap" rel="stylesheet"></noscript>
 <style>:root {
   --u-vw: 1vw; --u-vh: 1vh; --lw: 100vw; --lh: 100vh; --vpw: 100vw; --vph: 100vh;
   --bg: #140b2e; --line: #0d0720; --ink: #fff; --muted: #c2b5e6; --gold: #ffd23d; --pink: #ff4f8b; --cyan: #4ff0ff;
@@ -21,6 +54,7 @@
 html, body { margin: 0; height: 100%; background: #0d0720; color: var(--ink); font-family: var(--f-ui); overflow: hidden; overscroll-behavior: none; font-size: clamp(13px, 1.9vmin + 4px, 22px); }
 button, input, select { font-family: inherit; }
 html, body { touch-action: manipulation; }
+#bootmsg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 700 clamp(18px, 5vmin, 36px) system-ui, Arial, sans-serif; color: #fff; opacity: .85; z-index: 1; pointer-events: none; }
 #app { position: fixed; inset: 0; overflow: hidden; background: radial-gradient(120% 90% at 50% 0%, #3d1c85 0%, #140b2e 68%); }
 /* landscape mode: the whole app is turned 90 degrees for a phone that stays in portrait (see Game.layout) */
 body.rot #app { inset: auto; left: 0; top: 0; width: var(--lw); height: var(--lh); transform-origin: 0 0; }
@@ -48,7 +82,7 @@ body[data-view=attract] #view, body[data-view=fight] #view { display: block; }
 .bar .ttl { text-align: center; flex: 1; }
 .bar h2 { margin: 0; font: 400 clamp(22px, 4.2vmin, 40px)/1.1 var(--f-disp); text-shadow: 0 3px 0 var(--line); }
 .bar small { color: var(--muted); font-weight: 500; }
-.extra { min-width: 90px; display: flex; justify-content: flex-end; }
+.extra { min-width: 90px; display: flex; justify-content: flex-end; flex-wrap: wrap; align-items: center; gap: .8vmin 1.4vmin; }
 .foot-bar { justify-content: center; position: sticky; bottom: 0; background: linear-gradient(rgba(15,8,40,0), #0f0828 45%); padding-top: 3vmin; z-index: 5; }
 
 /* ------------------------------------------------------------ buttons */
@@ -369,10 +403,14 @@ body.portrait #trainbar { top: calc(calc(56.25 * var(--u-vw)) + 24px + 104px); m
   body.ls .bar h2 { font-size: 20px; }
 
 @media (prefers-reduced-motion: reduce) { .logo .l1, .logo .l2, .screen.on { animation: none; } }
+
+.rothint { display: none; margin: .6em auto 0; padding: .35em .9em; width: fit-content; border-radius: 999px; background: rgba(255, 210, 61, .16); border: 1px solid rgba(255, 210, 61, .5); color: var(--gold); font-weight: 700; font-size: .85em; }
+body.phys-portrait .rothint { display: block; }
 </style>
 </head>
 <body data-view="none" data-screen="title">
 <div id="app">
+  <div id="bootmsg">טוען את המשחק…</div>
   <div id="view"><canvas id="cv" width="960" height="540"></canvas></div>
   <div id="touch"></div>
   <button id="fmenu" type="button" tabindex="-1" aria-label="תפריט והפסקה"></button>
@@ -2172,6 +2210,7 @@ const F3D = {
   failed: false,          // could not start, or the context was lost: stay on the 2D renderer
   off: false,             // switched off by the player / by the adaptive quality
   stamp: 0,               // bumped once per rendered frame
+  good: 0,                // sprites rendered so far (the first few are checked for blank output)
   stats: { renders: 0, sprites: 0, ms: 0, verts: 0 },
   light: { key: [1, 0.93, 0.84], fill: [0.42, 0.5, 0.7], top: [0.5, 0.5, 0.56], bot: [0.24, 0.2, 0.24], rim: [0.55, 0.62, 0.9] },
 };
@@ -2309,7 +2348,8 @@ const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), 
 F3D.init = function () {
   if (G3.gl || F3D.failed) return F3D.ok;
   try {
-    if (/[?&]flat\b/.test(location.search)) throw new Error('flat requested');
+    if (/[?&](flat|safe)\b/.test(location.search)) throw new Error('flat requested');
+    try { localStorage.setItem('ks_3d', '1'); } catch (e) { /* storage blocked */ }     // cleared again once a few frames were drawn fine (see Game.loop)
     const cv = document.createElement('canvas');
     cv.width = cv.height = G3.size;
     const gl = cv.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, depth: true, stencil: false, powerPreference: 'high-performance' });
@@ -3415,6 +3455,16 @@ F3D.render = function (ctx, f, opt, figs) {
   spr.ctx.drawImage(cvs, 0, G3.size - ph, pw, ph, 0, 0, pw, ph);
   spr.x = X0; spr.y = Y0; spr.w = W_; spr.h = H_;
   F3D.stats.renders++;
+  if (F3D.good < 3) {                         // some GPUs / browsers hand back an empty canvas: catch that at the start and use the 2D renderer instead
+    const pr = G3.probe || (G3.probe = (() => { const c = document.createElement('canvas'); c.width = c.height = 48; return { c, x: c.getContext('2d', { willReadFrequently: true }) }; })());
+    const cw = Math.min(pw, 160), ch = Math.min(ph, 160);
+    pr.x.clearRect(0, 0, 48, 48); pr.x.drawImage(spr.canvas, (pw - cw) >> 1, (ph - ch) >> 1, cw, ch, 0, 0, 48, 48);
+    const px = pr.x.getImageData(0, 0, 48, 48).data;
+    let solid = 0;
+    for (let i = 3; i < px.length; i += 4) if (px[i] > 40) solid++;
+    if (solid < 40) throw new Error('the 3D renderer produced an empty picture');
+  }
+  F3D.good++;
   return spr;
 };
 
@@ -8141,9 +8191,11 @@ const UI = {
           <div class="l2">בכנסת</div>
           <div class="l3">KNESSET SMACKDOWN</div>
           <p class="tag">משחק לחימה סאטירי · ${ROSTER.length} לוחמים · ${new Set(ROSTER.map((d) => d.party)).size} מפלגות · יכולת מיוחדת לכל אחד</p>
+          <p class="rothint">📱 סובבו את הטלפון על הצד, והמשחק יתיישר</p>
         </div>
         <nav class="menu">
           <button class="btn primary big nav autofocus" data-act="arcade"><b>מסע לראשות הממשלה</b><small>סדרת קרבות + בוס סודי</small></button>
+          <button class="btn big nav" data-act="quick"><b>קרב רגיל</b><small>קרב אחד נגד המחשב: בוחרים יריב, קושי וזירה</small></button>
           <button class="btn pink big nav" data-act="survival"><b>מרתון חקיקה</b><small>גלים אינסופיים, חוקים ושדרוגים</small></button>
           <button class="btn cyan big nav" data-act="daily"><b>האתגר היומי</b><small id="daily-sub">חוק חדש כל יום</small></button>
           <button class="btn big nav" data-act="versus"><b>קרב חברים</b><small>שניים על מקלדת אחת</small></button>
@@ -8322,10 +8374,10 @@ const UI = {
   enter_select(p) {
     Game.setScene('none');
     const S = this.sel = { mode: p.mode, step: p.step || 0, picks: p.picks || [], hover: null, diff: (this.sel && this.sel.diff !== undefined) ? this.sel.diff : 1, stage: (this.sel && this.sel.stage) || 'random', view: p.mode === 'roster' };
-    const titles = { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', versus: 'קרב חברים', training: 'אימון', roster: 'הדמויות והמכות' };
+    const titles = { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', quick: 'קרב רגיל נגד המחשב', versus: 'קרב חברים', training: 'אימון', roster: 'הדמויות והמכות' };
     $('#sel-mode').textContent = titles[p.mode] || '';
     const steps = {
-      arcade: ['בחרו לוחם'], survival: ['בחרו לוחם'], roster: ['הדמויות והמכות'],
+      arcade: ['בחרו לוחם'], survival: ['בחרו לוחם'], roster: ['הדמויות והמכות'], quick: ['בחרו לוחם', 'בחרו יריב'],
       versus: ['שחקן 1: בחרו לוחם', 'שחקן 2: בחרו לוחם'], training: ['בחרו לוחם', 'בחרו יריב לאימון'],
     };
     $('#sel-step').textContent = steps[p.mode][S.step];
@@ -8338,7 +8390,9 @@ const UI = {
     }).join('');
     // extras (difficulty / stage)
     let extra = '';
-    if (p.mode === 'arcade') extra = `<div class="seg" id="diff-seg">${['קל', 'רגיל', 'קשה'].map((t, i) => `<button class="nav ${S.diff === i ? 'on' : ''}" data-act="diff" data-v="${i}">${t}</button>`).join('')}</div>`;
+    const diffSeg = `<div class="seg" id="diff-seg">${['קל', 'בינוני', 'קשה'].map((t, i) => `<button class="nav ${S.diff === i ? 'on' : ''}" data-act="diff" data-v="${i}">${t}</button>`).join('')}</div>`;
+    if (p.mode === 'arcade') extra = diffSeg;
+    if (p.mode === 'quick') extra = diffSeg + `<div class="seg stg"><button class="nav" data-act="stage-prev">▶</button><b id="stage-name"></b><button class="nav" data-act="stage-next">◀</button></div>` + (S.step === 1 ? `<button class="btn nav" data-act="rand-opp">🎲 יריב אקראי</button>` : '');
     if (p.mode === 'versus' || p.mode === 'training') extra = `<div class="seg stg"><button class="nav" data-act="stage-prev">▶</button><b id="stage-name"></b><button class="nav" data-act="stage-next">◀</button></div>`;
     $('#sel-extra').innerHTML = extra;
     this.updateStageName();
@@ -8362,7 +8416,7 @@ const UI = {
     $$('#grid .card').forEach((c) => { c.classList.toggle('sel', c.dataset.id === id); c.classList.toggle('autofocus', c.dataset.id === id); });
     const locked = !Save.isUnlocked(def);
     $('#btn-confirm').disabled = locked;
-    $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : (S.mode === 'training' && S.step === 0 ? 'הלאה: בחירת יריב' : 'בחירה')));
+    $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : ((S.mode === 'training' || S.mode === 'quick') && S.step === 0 ? 'הלאה: בחירת יריב' : (S.mode === 'quick' ? 'לקרב!' : 'בחירה'))));
     $('#dinfo').innerHTML = this.detailHTML(def, locked);
     Game.setScene('preview', { id });
   },
@@ -8427,7 +8481,7 @@ const UI = {
   act(name, el) {
     const S = this.sel;
     switch (name) {
-      case 'arcade': case 'survival': case 'versus': case 'training': case 'roster':
+      case 'arcade': case 'survival': case 'quick': case 'versus': case 'training': case 'roster':
         Snd.play('confirm'); this.show('select', { mode: name }); break;
       case 'daily': Snd.play('confirm'); Game.dailyIntro(); break;
       case 'settings': case 'help': case 'achv': Snd.play('confirm'); this.show(name); break;
@@ -8444,6 +8498,11 @@ const UI = {
         let i = ids.indexOf(S.stage) + (name === 'stage-next' ? 1 : -1);
         i = (i + ids.length) % ids.length; S.stage = ids[i]; this.updateStageName(); Snd.play('move'); break;
       }
+      case 'rand-opp': {
+        const pool = ROSTER.filter((d) => Save.isUnlocked(d) && d.id !== S.picks[0] && d.id !== S.hover);
+        if (pool.length) { Snd.play('select'); this.preview(pool[(Math.random() * pool.length) | 0].id); }
+        break;
+      }
       case 'confirm': this.confirmPick(); break;
       case 'reset':
         if (confirm('לאפס את כל ההתקדמות, ההישגים והסטטיסטיקה?')) { localStorage.removeItem(Save.key); Save.load(); Game.applySettings(); this.show('title'); Snd.play('back'); }
@@ -8454,7 +8513,7 @@ const UI = {
   back() {
     if (Game.paused && this.cur === 'settings') { Game.pauseOpen(); return; }
     const S = this.sel;
-    if (this.cur === 'select' && S && S.step > 0 && (S.mode === 'versus' || S.mode === 'training')) { this.show('select', { mode: S.mode, step: S.step - 1, picks: S.picks.slice(0, S.step - 1) }); return; }
+    if (this.cur === 'select' && S && S.step > 0 && (S.mode === 'versus' || S.mode === 'training' || S.mode === 'quick')) { this.show('select', { mode: S.mode, step: S.step - 1, picks: S.picks.slice(0, S.step - 1) }); return; }
     Game.setScene('attract');
     this.show('title');
   },
@@ -8466,7 +8525,7 @@ const UI = {
     Snd.play('confirm');
     Save.d.lastPick = S.step === 0 ? id : Save.d.lastPick;
     const picks = S.picks.slice(0, S.step); picks[S.step] = id;
-    if ((S.mode === 'versus' || S.mode === 'training') && S.step === 0) { this.show('select', { mode: S.mode, step: 1, picks }); return; }
+    if ((S.mode === 'versus' || S.mode === 'training' || S.mode === 'quick') && S.step === 0) { this.show('select', { mode: S.mode, step: 1, picks }); return; }
     Game.beginMode(S.mode, picks, { diff: S.diff, stage: S.stage });
   },
 };
@@ -8524,29 +8583,49 @@ const Game = {
   // ------------------------------------------------------------------ boot / loop
   init() {
     this.cv = $('#cv'); this.ctx = this.cv.getContext('2d');
-    try { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); } catch (e) { /* optional */ }
+    // only what the title screen needs is allowed to stop the boot; everything else is logged and skipped
+    const soft = (name, fn) => { try { fn(); } catch (e) { console.error('boot: ' + name, e); } };
+    soft('fonts', () => { document.fonts.load('400 24px "Secular One"'); document.fonts.load('700 20px Rubik'); });
     Save.load();
     const s = Save.d.settings;
-    Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted;
-    Inp.init();
-    if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs');
+    this.bootChecks(s);
+    soft('audio', () => { Snd.vol.sfx = s.sfx; Snd.vol.music = s.music; Snd.muted = s.muted; });
+    soft('input', () => Inp.init());
+    soft('fullscreen', () => { if (document.fullscreenEnabled || document.webkitFullscreenEnabled) document.body.classList.add('canfs'); });
     UI.init();
     this.pv = $('#pv'); this.pvctx = this.pv.getContext('2d');
-    TouchUI.init();
-    FightUI.init();
-    // when embedded in another page (preview panes, iframes) keys only arrive once the frame has focus
-    ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
-    this.applySettings();
-    window.addEventListener('resize', () => this.layout());
-    if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
-    window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
-    window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
-    window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
-    document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
+    soft('touch', () => TouchUI.init());
+    soft('fightui', () => FightUI.init());
+    soft('listeners', () => {
+      // when embedded in another page (preview panes, iframes) keys only arrive once the frame has focus
+      ['pointerdown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { try { window.focus(); } catch (e) { /* ignore */ } }, { passive: true }));
+      window.addEventListener('resize', () => this.layout());
+      if (window.visualViewport) window.visualViewport.addEventListener('resize', () => this.layout());
+      window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
+      window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
+      window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
+      window.addEventListener('pagehide', () => this.clear3dFlag());
+      document.addEventListener('visibilitychange', () => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); });
+    });
+    soft('settings', () => this.applySettings());
     this.last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
     UI.show('title');
+    if (this.bootNote) setTimeout(() => UI.toast('שינינו הגדרה', this.bootNote, 'unlock'), 900);
+    try { if (window.__ks) window.__ks.ready(); } catch (e) { /* the boot guard is optional */ }
   },
+
+  // Safe mode (?safe) and crash recovery: if the last run died while it was starting the 3D renderer, start without it this time.
+  bootChecks(s) {
+    let note = '';
+    if (/[?&]safe\b/.test(location.search)) { s.gfx3d = false; Battle.lowFx = true; note = 'מצב בטוח: בלי דמויות תלת־ממדיות ועם פחות אפקטים. אפשר להדליק בהגדרות.'; }
+    try {
+      if (localStorage.getItem('ks_3d') === '1') { s.gfx3d = false; note = note || 'הפעם הקודמת נתקעה בזמן שהדמויות התלת־ממדיות עלו, אז כיבינו אותן. אפשר להדליק בהגדרות.'; }
+      localStorage.setItem('ks_3d', '0');
+    } catch (e) { /* storage blocked */ }
+    if (note) { Save.save(); this.bootNote = note; }
+  },
+  clear3dFlag() { try { localStorage.setItem('ks_3d', '0'); } catch (e) { /* ignore */ } },
 
   applySettings() {
     const s = Save.d.settings;
@@ -8566,7 +8645,7 @@ const Game = {
     const B = sc.B;
     if (!B) return;
     if (!this.paused) {
-      if (sc.kind === 'fight') this.perf(dt);
+      if (sc.kind === 'fight' || sc.kind === 'attract') this.perf(dt, sc.kind);
       const speed = (B.cfg.speed || 1) * B.timeScale;
       this.acc += dt * speed;
       let steps = 0;
@@ -8581,21 +8660,24 @@ const Game = {
     B.render(c);
     if (sc.kind !== 'preview') Stages.vignette(c);
     if (sc.kind === 'fight') { TouchUI.updateHints(B); FightUI.tick(B); }
+    if (!this.f3ok && (F3D.good >= 60 || F3D.failed)) { this.f3ok = true; this.clear3dFlag(); }
   },
 
   // Screen geometry. With "landscape mode" on, a phone that the host keeps in portrait gets the whole UI turned by 90 degrees,
   // so it can be held sideways: everything below works in the rotated ("logical") size, and CSS uses --u-vw / --u-vh instead of vw / vh.
   // Slow phones: if the first seconds of a fight run well below 60 fps, drop to a cheaper mode (lower resolution, no reflections) for the session.
-  perf(dt) {
-    const q = this.q || (this.q = { n: 0, sum: 0, done: false });
+  perf(dt, kind) {
+    const Q = this.qs || (this.qs = {});
+    const q = Q[kind] || (Q[kind] = { n: 0, sum: 0, done: false });
     if (q.done) return;
+    if (kind === 'attract' && !(F3D.ok && !F3D.off)) return;      // the menu backdrop only matters while it is drawn in 3D
     if (++q.n <= 40) return;                  // skip the warm-up (stage bitmaps are painted on the first frames)
     q.sum += Math.min(dt, 80);
     if (q.n >= 190) {
       q.done = true;
       if (q.sum / (q.n - 40) > 27) {
         if (F3D.ok && !F3D.off) { F3D.off = true; q.done = false; q.n = 0; q.sum = 0; UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו כדי לשמור על חלקות. אפשר להדליק בהגדרות', 'unlock'); }
-        else if (!Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+        else if (kind === 'fight' && !Battle.lowFx) { Battle.lowFx = true; this.layout(); }
       }
     }
   },
@@ -8738,6 +8820,7 @@ const Game = {
     switch (mode) {
       case 'arcade': this.startArcade(picks[0], o.diff); break;
       case 'survival': this.startSurvival(picks[0]); break;
+      case 'quick': this.startQuick(picks[0], picks[1], o.diff, stage); break;
       case 'versus': this.startFight({ mode: 'versus', p1: { id: picks[0], human: true }, p2: { id: picks[1], human: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer }); break;
       case 'training': this.dummy = 'stand'; this.infMeter = false; this.showBoxes = false; this.showInputs = true; this.startFight({ mode: 'training', p1: { id: picks[0], human: true }, p2: { id: picks[1], dummy: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: 2, time: 99, training: true, noSplash: true }); break;
       default: break;
@@ -8914,6 +8997,7 @@ const Game = {
       case 'dummy-meter': this.toggleMeter(); this.pauseOpen(); break;
       case 'daily-start': this.startDaily(); break;
       case 'reselect': UI.show('select', { mode: this.spec.mode }); break;
+      case 'change-opp': UI.show('select', { mode: 'quick', step: 1, picks: [this.spec.p1.id] }); break;
       case 'again': this.startSurvival(this.surv.fighter); break;
       default: break;
     }
@@ -8966,7 +9050,7 @@ const Game = {
     else { $('#s-pause').classList.remove('on'); Inp.capture = true; document.body.dataset.screen = 'fight'; Snd.resume(); }
   },
   modeName(spec) {
-    return { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', daily: 'האתגר היומי', versus: 'קרב חברים', training: 'מצב אימון' }[spec.mode] || '';
+    return { arcade: 'מסע לראשות הממשלה', survival: 'מרתון חקיקה', daily: 'האתגר היומי', versus: 'קרב חברים', quick: 'קרב רגיל', training: 'מצב אימון' }[spec.mode] || '';
   },
   pauseOpen() {
     const spec = this.spec || {};
@@ -9008,6 +9092,31 @@ const Game = {
     this.card(`${this.winnerBanner(res)}${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="rematch">עוד סיבוב</button><button class="btn nav" data-act="reselect">בחירת לוחמים</button><button class="btn nav" data-act="menu">חזרה לתפריט</button></div>`);
   },
 
+  // How strong the CPU is at each difficulty (0 easy, 1 medium, 2 hard): brain level plus a health/damage multiplier.
+  // i is the fight number in a ladder (later fights are a little tougher).
+  cpuTier(diff, i = 0, boss = false) {
+    const d = clamp(diff | 0, 0, 2);
+    return {
+      level: clamp([0.10, 0.30, 0.66][d] + i * [0.035, 0.04, 0.045][d] + (boss ? 0.06 : 0), 0.1, 0.98),
+      hpMul: (1 + [-0.04, 0.02, 0.12][d] + i * 0.02) * (boss ? [0.8, 0.9, 1][d] : 1),
+      dmgMul: [0.78, 0.9, 1.1][d] * (boss ? [0.85, 0.95, 1][d] : 1),
+    };
+  },
+
+  // ------------------------------------------------------------------ QUICK FIGHT (one ordinary fight against the CPU)
+  startQuick(myId, oppId, diff, stage) {
+    const tier = this.cpuTier(diff, 0, oppId === 'threshold');
+    this.startFight({
+      mode: 'quick', p1: { id: myId, human: true }, p2: Object.assign({ id: oppId }, tier),
+      stage: stage === 'random' ? pick(STAGES).id : stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer,
+      label: 'קרב רגיל · ' + ['קל', 'בינוני', 'קשה'][clamp(diff | 0, 0, 2)],
+      onDone: (res) => this.quickDone(res),
+    });
+  },
+  quickDone(res) {
+    this.card(`${this.winnerBanner(res)}${this.statsLine(res)}<div class="stack"><button class="btn primary big nav autofocus" data-act="rematch">${res.won ? 'עוד סיבוב מול אותו יריב' : 'נסו שוב'}</button><button class="btn nav" data-act="change-opp">יריב אחר</button><button class="btn nav" data-act="reselect">בחירת לוחם</button><button class="btn nav" data-act="menu">חזרה לתפריט</button></div>`);
+  },
+
   // ------------------------------------------------------------------ ARCADE
   startArcade(id, diff) {
     const others = shuffle(ROSTER.map((d) => d.id).filter((x) => x !== id));
@@ -9017,12 +9126,10 @@ const Game = {
   },
   nextArcadeFight() {
     const A = this.arc, i = A.idx, oid = A.ladder[i], boss = oid === 'threshold';
-    const base = [0.15, 0.4, 0.66][A.diff];
-    const level = clamp(base + i * 0.045 + (boss ? 0.06 : 0), 0.1, 0.98);
     const stage = STAGES[(hashStr(A.id + i) + i) % STAGES.length].id;
     this.startFight({
       mode: 'arcade', p1: { id: A.id, human: true },
-      p2: { id: oid, level, hpMul: (1 + [0, 0.05, 0.12][A.diff] + i * 0.02) * (boss ? [0.8, 0.9, 1][A.diff] : 1), dmgMul: [0.85, 1, 1.1][A.diff] * (boss ? [0.85, 0.95, 1][A.diff] : 1) },
+      p2: Object.assign({ id: oid }, this.cpuTier(A.diff, i, boss)),
       stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer, label: `קרב ${i + 1} מתוך ${A.ladder.length}` + (boss ? ' · הבוס הסודי' : ''),
       onDone: (res) => this.arcadeDone(res),
     });

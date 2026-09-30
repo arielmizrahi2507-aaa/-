@@ -19,5 +19,6 @@ const html = read('index.template.html')
   .replace('/*__CSS__*/', () => css)
   .replace('/*__JS__*/', () => bundle.replace(/<\/script/gi, '<\\/script'));
 
-writeFileSync(join(root, 'index.html'), html);
-console.log(`built index.html  (${(html.length / 1024).toFixed(0)} KB, ${jsFiles.length} js files)`);
+const out = process.argv[2] || join(root, 'index.html');      // optional: node build.mjs /path/to/copy.html
+writeFileSync(out, html);
+console.log(`built ${out.endsWith('index.html') ? 'index.html' : out}  (${(html.length / 1024).toFixed(0)} KB, ${jsFiles.length} js files)`);

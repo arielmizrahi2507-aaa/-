@@ -51,18 +51,19 @@ function emitTube(mesh, a, b, r0, r1, col, mat, o = {}) {
   let ux = wy * rz - wz * ry, uy = wz * rx - wx * rz, uz = wx * ry - wy * rx; const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
   const vx = wy * uz - wz * uy, vy = wz * ux - wx * uz, vz = wx * uy - wy * ux;
   const slope = (r0 - r1) / len, uv = o.uv || WHITE_UV, T = trig(sides), base = mesh.nv;
+  const tile = o.tile, cols = tile ? sides + 1 : sides;         // with a tiled (fabric) texture the seam column is duplicated
   for (let k = 0; k < rings; k++) {
     const t = k / (rings - 1), r = (r0 + (r1 - r0) * t) * (1 + bulge * Math.sin(Math.PI * t));
     const cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, cz = a[2] + (b[2] - a[2]) * t;
-    for (let s = 0; s < sides; s++) {
-      const cp = T.c[s], sp = T.s[s];
+    for (let s = 0; s < cols; s++) {
+      const cp = T.c[s % sides], sp = T.s[s % sides];
       const dx = ux * cp + vx * sp, dy = uy * cp + vy * sp, dz = uz * cp + vz * sp;
       let nx = dx + wx * slope, ny = dy + wy * slope, nz = dz + wz * slope; const nl = Math.hypot(nx, ny, nz) || 1;
-      mesh.vert(cx + dx * r, cy + dy * r, cz + dz * r, nx / nl, ny / nl, nz / nl, uv[0], uv[1], col, mat);
+      mesh.vert(cx + dx * r, cy + dy * r, cz + dz * r, nx / nl, ny / nl, nz / nl, tile ? (s / sides) * tile[0] : uv[0], tile ? (t * len) / tile[1] : uv[1], col, mat);
     }
   }
   for (let k = 0; k < rings - 1; k++) for (let s = 0; s < sides; s++) {
-    const s2 = (s + 1) % sides, i00 = base + k * sides + s, i10 = base + k * sides + s2, i11 = base + (k + 1) * sides + s2, i01 = base + (k + 1) * sides + s;
+    const s2 = tile ? s + 1 : (s + 1) % sides, i00 = base + k * cols + s, i10 = base + k * cols + s2, i11 = base + (k + 1) * cols + s2, i01 = base + (k + 1) * cols + s;
     mesh.tri(i00, i10, i01); mesh.tri(i10, i11, i01);
   }
 }

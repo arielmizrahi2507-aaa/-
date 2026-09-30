@@ -16,17 +16,17 @@ function headPt(th, ph, look) {
   const jk = look.jaw || 1, female = !!look.female;
   const low = sstep(0.1, -1.2, ph);                                   // 0 above the cheeks .. 1 at the chin
   let f = HD.Rf * cp * ct, y = HD.Ry * sp, l = HD.Rl * cp * st;
-  l *= 1 - low * (0.34 - (jk - 1) * 0.55 - (female ? 0.05 : 0));
+  l *= 1 - low * ((female ? 0.32 : 0.25) - (jk - 1) * 0.55);
   f *= 1 - 0.05 * low;
   const at = Math.abs(th);
   f += 0.9 * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                                // forehead
   f += (female ? 0.8 : 1.5) * bump(ph, 0.36, 0.13) * bump(at, 0.38, 0.55);                          // brow ridge
   f -= 1.4 * bump(ph, 0.14, 0.15) * bump(at, 0.36, 0.17);                                            // eye sockets
-  l += Math.sign(st) * 0.8 * bump(ph, -0.1, 0.22) * bump(at, 0.85, 0.3);                             // cheekbones
+  l += Math.sign(st) * 1.1 * bump(ph, -0.1, 0.22) * bump(at, 0.85, 0.3);                             // cheekbones
   f += 1.0 * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                               // upper lip
   f += 1.6 * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                              // lower lip
-  f += (2.0 + (jk - 1) * 3) * bump(ph, -1.12, 0.16) * bump(th, 0, 0.42);                            // chin
-  l += Math.sign(st) * 0.9 * bump(ph, -0.72, 0.2) * bump(at, 1.25, 0.3) * jk;                        // jaw angle
+  f += (2.0 + (jk - 1) * 3) * bump(ph, -1.12, 0.16) * bump(th, 0, female ? 0.42 : 0.52);           // chin
+  l += Math.sign(st) * (female ? 0.9 : 1.5) * bump(ph, -0.72, 0.2) * bump(at, 1.25, 0.3) * jk;      // jaw angle
   f -= 0.8 * bump(ph, 0.1, 0.35) * bump(Math.PI - at, 0, 0.6);                                       // back of the skull
   return [f, y, l];
 }
@@ -53,9 +53,9 @@ const hairline = (k, at) => ipoly(HL_AT, k, at);
 
 function buildHeadMeshes(look, pal) {
   const skinMesh = new Mesh(3200, 15000), hairMesh = new Mesh(14000, 60000), accMesh = new Mesh(2600, 12000);
-  const G = headGrid(look, 49, 33);
+  const G = headGrid(look, 73, 49);
   const skinCol = packRGBA(1, 1, 1, 1);
-  const skinMat = packMat(0.24, 0.3, 0.5, LAYER.FACE);
+  const skinMat = packMat(0.24, 0.3, 0.5, LAYER.FACE, CLS.SKIN);
   const skinRGB = hexRGB(pal.skin), skinTint = packRGBA(skinRGB[0], skinRGB[1], skinRGB[2], 1);
   const O = [0, 0, 0];
   // ---- skull: planar face texture on the front half, plain skin on the back
@@ -82,14 +82,14 @@ function buildHeadMeshes(look, pal) {
 
   // ---- ears
   for (const s of [-1, 1]) {
-    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (HD.Rl - 0.3)], [2.6, 0.7, 0], [1.0, 5.0, 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE), { nu: 10, nv: 7 });
-    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (HD.Rl + 0.5)], [1.4, 0.4, 0], [0.5, 3.0, 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE), { nu: 8, nv: 6 });
+    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (HD.Rl - 0.3)], [2.6, 0.7, 0], [1.0, 5.0, 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE, CLS.SKIN), { nu: 10, nv: 7 });
+    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (HD.Rl + 0.5)], [1.4, 0.4, 0], [0.5, 3.0, 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE, CLS.SKIN), { nu: 8, nv: 6 });
   }
 
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
   const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
   const style = look.hair ? look.hair.style : 'none';
-  const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR);
+  const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR, CLS.HAIR);
   const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
     const PS = [], COV = [], SH = [];
     for (let k = 0; k < H.P.length; k++) {
@@ -136,7 +136,7 @@ function buildHeadMeshes(look, pal) {
   }
 
   // ---- beard / moustache
-  const bMat = packMat(0.3, 0.16, 0.45, LAYER.BEARD);
+  const bMat = packMat(0.3, 0.16, 0.45, LAYER.BEARD, CLS.HAIR);
   if (look.beard) {
     const drop = (look.beard.len || 0) * 7;
     shell(hairMesh, (th, ph, base) => {
@@ -183,12 +183,12 @@ function buildHeadMeshes(look, pal) {
         PS.push([base[0] + n[0] * lift, base[1] + n[1] * lift, base[2] + n[2] * lift]);
       }
     }
-    gridSurface(hairMesh, PS, na, nr, true, O, (i, j) => ({ uv: [(i / na), (j / (nr - 1)) * 0.96], col: packRGBA(1, 1, 1, 1), mat: packMat(0.18, 0.2, 0.4, LAYER.KNIT) }));
+    gridSurface(hairMesh, PS, na, nr, true, O, (i, j) => ({ uv: [(i / na), (j / (nr - 1)) * 0.96], col: packRGBA(1, 1, 1, 1), mat: packMat(0.18, 0.2, 0.4, LAYER.KNIT, CLS.CLOTH) }));
   }
 
   // ---- hat (black brimmed)
   if (look.hat) {
-    const hc = hexRGB(look.hat.color || '#121118'), col = packRGBA(hc[0], hc[1], hc[2], 1), mat = packMat(0.22, 0.3, 0.3, LAYER.WHITE);
+    const hc = hexRGB(look.hat.color || '#121118'), col = packRGBA(hc[0], hc[1], hc[2], 1), mat = packMat(0.22, 0.3, 0.3, LAYER.WHITE, CLS.CLOTH);
     const y0 = 14.6, tilt = -0.04, nA = 32;
     const ringsTop = [[15.8, 0], [19, 0.1], [23, 0.5], [27, 1.5], [28.2, 1.2]];
     const brim = (rs, dy, hint) => {
@@ -210,7 +210,7 @@ function buildHeadMeshes(look, pal) {
 
   // ---- glasses
   if (look.glasses) {
-    const gl = look.glasses, gc = hexRGB(gl.color || '#222'), col = packRGBA(gc[0] * 1.3, gc[1] * 1.3, gc[2] * 1.3, 1), mat = packMat(0.85, 0.7, 0.4, LAYER.WHITE);
+    const gl = look.glasses, gc = hexRGB(gl.color || '#222'), col = packRGBA(gc[0] * 1.3, gc[1] * 1.3, gc[2] * 1.3, 1), mat = packMat(0.85, 0.7, 0.4, LAYER.WHITE, CLS.METAL);
     const round = gl.shape === 'round', rx = round ? 5.0 : 5.5, ry = round ? 4.7 : 4.1;
     const surf = (l, y) => HD.Rf * Math.sqrt(Math.max(0.04, 1 - (y / HD.Ry) ** 2 - (l / HD.Rl) ** 2)) + 1.5;
     for (const s of [-1, 1]) {
@@ -229,7 +229,7 @@ function buildHeadMeshes(look, pal) {
   // ---- earring
   if (look.earring) {
     const ec = hexRGB(look.earring);
-    for (const s of [-1, 1]) sphere(accMesh, [-1.6, -6.5, s * (HD.Rl + 0.5)], 1.25, packRGBA(ec[0], ec[1], ec[2], 1), packMat(0.9, 0.8, 0.5, LAYER.WHITE), { nu: 8, nv: 6 });
+    for (const s of [-1, 1]) sphere(accMesh, [-1.6, -6.5, s * (HD.Rl + 0.5)], 1.25, packRGBA(ec[0], ec[1], ec[2], 1), packMat(0.9, 0.8, 0.5, LAYER.WHITE, CLS.METAL), { nu: 8, nv: 6 });
   }
   return { skin: skinMesh, hair: hairMesh, acc: accMesh };
 }

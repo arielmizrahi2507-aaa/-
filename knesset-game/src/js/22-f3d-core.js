@@ -11,6 +11,7 @@ const F3D = {
   failed: false,          // could not start, or the context was lost: stay on the 2D renderer
   off: false,             // switched off by the player / by the adaptive quality
   stamp: 0,               // bumped once per rendered frame
+  good: 0,                // sprites rendered so far (the first few are checked for blank output)
   stats: { renders: 0, sprites: 0, ms: 0, verts: 0 },
   light: { key: [1, 0.93, 0.84], fill: [0.42, 0.5, 0.7], top: [0.5, 0.5, 0.56], bot: [0.24, 0.2, 0.24], rim: [0.55, 0.62, 0.9] },
 };
@@ -64,7 +65,8 @@ const V3 = {
 const VW = 10;                               // 32-bit words per vertex
 const q8 = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
 const packRGBA = (r, g, b, a) => ((q8(a) << 24) | (q8(b) << 16) | (q8(g) << 8) | q8(r)) >>> 0;
-const packMat = (spec, shine, rim, layer) => ((layer & 255) << 24 | q8(rim) << 16 | q8(shine) << 8 | q8(spec)) >>> 0;
+const CLS = { GEN: 0, SKIN: 1, CLOTH: 2, HAIR: 3, SHOE: 4, METAL: 5 };      // material class: picks the shading model in the fragment shader
+const packMat = (spec, shine, rim, layer, cls = 0) => ((((cls & 7) << 5) | (layer & 31)) << 24 | q8(rim) << 16 | q8(shine) << 8 | q8(spec)) >>> 0;
 function hexRGB(c) {                          // '#rrggbb' or 'rgb(...)' -> [0..1]x3
   if (c[0] === '#') { const v = rgb(c); return [v[0] / 255, v[1] / 255, v[2] / 255]; }
   const m = c.match(/[\d.]+/g); return [m[0] / 255, m[1] / 255, m[2] / 255];
@@ -101,43 +103,113 @@ layout(location=2) in vec2 aUV;
 layout(location=3) in vec4 aCol;
 layout(location=4) in vec4 aMat;
 uniform mat4 uMVP;
+uniform mat4 uM;
 uniform mat3 uNM;
-out vec3 vN; out vec2 vUV; out vec4 vCol; out vec4 vMat;
+out vec3 vN; out vec3 vP; out vec2 vUV; out vec4 vCol; out vec4 vMat;
 void main() {
   gl_Position = uMVP * vec4(aPos, 1.0);
+  vec4 w = uM * vec4(aPos, 1.0);
+  vP = vec3(w.x, -w.y, w.z);                                     // view space like the normals: x right, y up, z to the camera
   vN = uNM * aNrm; vUV = aUV; vCol = aCol; vMat = aMat;
 }`;
 
+// Lighting: wrapped diffuse from a warm key + cool fill + hemispheric ambient. On top of that, per material class:
+//  skin  - light scattering near the shadow line, two-lobe oily highlight, pore relief
+//  cloth - woven fabric relief + soft sheen at grazing angles
+//  hair  - strand relief + anisotropic (Kajiya-Kay) highlights
+// Relief comes from screen-space bump mapping of a height taken from the texture (its brightness) plus procedural noise.
 const F3D_FS = `#version 300 es
-precision mediump float;
-precision mediump sampler2DArray;
+precision highp float;
+precision highp sampler2DArray;
 uniform sampler2DArray uTex;
 uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim;
 uniform vec4 uTint;
 uniform float uFlash, uAlpha, uCover;
-in vec3 vN; in vec2 vUV; in vec4 vCol; in vec4 vMat;
+in vec3 vN; in vec3 vP; in vec2 vUV; in vec4 vCol; in vec4 vMat;
 out vec4 outColor;
+
+float hash21(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
 void main() {
-  float layer = floor(vMat.w * 255.0 + 0.5);
+  float lw = floor(vMat.w * 255.0 + 0.5);
+  float cls = floor(lw / 32.0);
+  float layer = lw - cls * 32.0;
+  vec3 dpx = dFdx(vP), dpy = dFdy(vP);
+  vec2 dux = dFdx(vUV), duy = dFdy(vUV);
+  float px = max(length(dpx), length(dpy));                         // world units per pixel
+  float near = 1.0 - smoothstep(0.10, 0.42, px);                    // fine detail only when the character is big on screen
+  bool skin = cls > 0.5 && cls < 1.5, cloth = cls > 1.5 && cls < 2.5, hair = cls > 2.5 && cls < 3.5;
+
   vec4 t = texture(uTex, vec3(vUV, layer));
-  vec3 alb = t.rgb * vCol.rgb; alb *= alb;                       // sRGB-ish -> linear-ish
-  vec3 N = normalize(vN);
+  float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
+  float h = 0.0, amp = 0.0;
+  vec3 mul = vec3(1.0);
+  float face = 1.0 - step(0.5, layer);                              // 1 on the painted face layer
+  if (skin) {
+    float pore = vnoise(vUV * 300.0) * 0.6 + vnoise(vUV * 120.0) * 0.4;
+    h = lum + pore * 0.16 * near * face; amp = 0.7;
+    mul = vec3(1.0 + (pore - 0.5) * 0.04 * near * face);
+  } else if (cloth) {
+    vec2 cuv = vUV * ((layer == 1.0 || layer == 6.0) ? 3.5 : 1.0);
+    float w = texture(uTex, vec3(cuv, 7.0)).r;
+    h = w + lum * 0.15; amp = 0.28 * (0.25 + 0.75 * near);
+    mul = vec3(0.86 + 0.3 * w);
+  } else if (hair) {
+    h = lum; amp = 0.4;
+  }
+  float dhx = dFdx(h), dhy = dFdy(h);
+  vec3 Ng = normalize(vN), N = Ng;
+  if (amp > 0.0) {
+    vec3 r1 = cross(dpy, N), r2 = cross(N, dpx);
+    float det = dot(dpx, r1);
+    vec3 pert = amp * (sign(det) * (dhx * r1 + dhy * r2)) / max(abs(det), 1e-7);
+    float pl = length(pert); if (pl > 0.6) pert *= 0.6 / pl;
+    N = normalize(N - pert);
+  }
+  vec3 alb = t.rgb * vCol.rgb * mul; alb *= alb;                      // sRGB-ish -> linear-ish
   float spec = vMat.x, shin = 2.0 + vMat.y * 126.0, rim = vMat.z;
+  vec3 V = vec3(0.0, 0.0, 1.0), H = normalize(uKeyDir + V);
   float ndl = dot(N, uKeyDir);
   float wrap = clamp((ndl + 0.3) / 1.3, 0.0, 1.0); wrap *= wrap * (3.0 - 2.0 * wrap) * 0.6 + wrap * 0.4;
   vec3 diff = uKeyCol * wrap + uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5);
-  vec3 H = normalize(uKeyDir + vec3(0.0, 0.0, 1.0));
-  float sp = pow(max(dot(N, H), 0.0), shin) * spec * smoothstep(-0.05, 0.25, ndl);
-  float nz = clamp(N.z, -1.0, 1.0);
+  float ndh = max(dot(N, H), 0.0), lit = smoothstep(-0.05, 0.25, ndl);
+  vec3 add = vec3(0.0), spc;
+  if (skin) {
+    float band = exp(-pow((ndl - 0.0) * 4.2, 2.0));
+    add = uKeyCol * vec3(0.5, 0.13, 0.06) * band * 0.3;                // light scattering under the skin near the shadow line
+    float oil = 0.55 + 0.45 * vnoise(vUV * 34.0);
+    spc = uKeyCol * (pow(ndh, 9.0) * 0.06 + pow(ndh, 60.0) * 0.32 * oil) * (0.5 + spec * 2.0) * lit;
+  } else if (hair) {
+    float dd = dux.x * duy.y - dux.y * duy.x;
+    vec3 T = abs(dd) > 1e-10 ? (dpy * dux.x - dpx * duy.x) / dd : vec3(0.0, 1.0, 0.0);
+    T = normalize(T + vec3(0.0, 1e-4, 0.0));                        // strand direction on the surface
+    vec3 T1 = normalize(T + N * 0.12), T2 = normalize(T - N * 0.3);
+    float d1 = dot(T1, H), d2 = dot(T2, H);
+    float s1 = pow(sqrt(max(1.0 - d1 * d1, 0.0)), 80.0), s2 = pow(sqrt(max(1.0 - d2 * d2, 0.0)), 36.0);
+    spc = uKeyCol * (vec3(s1 * 0.22) + s2 * 0.09 * (vec3(0.3) + alb * 2.0)) * (0.5 + spec) * lit;
+  } else if (cloth) {
+    float fr = 1.0 - clamp(N.z, 0.0, 1.0);
+    add = (uFillCol * 0.9 + uKeyCol * 0.25) * pow(fr, 3.0) * 0.35;     // soft sheen where the fabric turns away
+    spc = uKeyCol * pow(ndh, shin) * spec * lit;
+  } else {
+    spc = uKeyCol * pow(ndh, shin) * spec * lit;
+  }
+  float nz = clamp(Ng.z, -1.0, 1.0);
   float fres = pow(1.0 - clamp(abs(nz), 0.0, 1.0), 3.0);
-  vec3 col = alb * diff + uKeyCol * sp + uRim * fres * rim * (0.4 + 0.6 * clamp(-dot(N, uKeyDir) * 0.5 + 0.6, 0.0, 1.0));
-  col *= 1.0 - 0.38 * pow(1.0 - clamp(abs(nz), 0.0, 1.0), 5.0);   // soft dark contour
+  vec3 col = alb * (diff + add) + spc + uRim * fres * rim * (0.4 + 0.6 * clamp(-dot(N, uKeyDir) * 0.5 + 0.6, 0.0, 1.0));
+  col *= 1.0 - 0.38 * pow(1.0 - clamp(abs(nz), 0.0, 1.0), 5.0);       // soft dark contour
+  col = 1.0 - exp(-col * 1.4);                                        // gentle highlight roll-off
   col = sqrt(max(col, 0.0));
   col = mix(col, uTint.rgb, uTint.a);
   col = mix(col, vec3(1.0), uFlash);
   float a = vCol.a * uAlpha;
+  if (hair) a += (vnoise(vUV * 210.0) - 0.5) * 0.36;                  // ragged, hairy edges instead of the mesh's straight steps
   if (uCover > 0.5) outColor = vec4(col, smoothstep(0.44, 0.56, a));   // alpha-to-coverage pass (hair, beard): straight colour, crisp edge
-  else outColor = vec4(col * a, a);                             // premultiplied
+  else outColor = vec4(col * a, a);                                   // premultiplied
 }`;
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -148,7 +220,8 @@ const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), 
 F3D.init = function () {
   if (G3.gl || F3D.failed) return F3D.ok;
   try {
-    if (/[?&]flat\b/.test(location.search)) throw new Error('flat requested');
+    if (/[?&](flat|safe)\b/.test(location.search)) throw new Error('flat requested');
+    try { localStorage.setItem('ks_3d', '1'); } catch (e) { /* storage blocked */ }     // cleared again once a few frames were drawn fine (see Game.loop)
     const cv = document.createElement('canvas');
     cv.width = cv.height = G3.size;
     const gl = cv.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, depth: true, stencil: false, powerPreference: 'high-performance' });
@@ -160,7 +233,7 @@ F3D.init = function () {
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
     G3.gl = gl; G3.cv = cv; G3.prog = prog;
-    for (const n of ['uMVP', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
     G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
     G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
     F3D.ok = true;
@@ -198,7 +271,7 @@ function uploadStatic(gl, mesh) {
 // texture array (one per look): FACE, TORSO, HAIR, BEARD, KNIT, WHITE ... each layer TEXN x TEXN
 // ---------------------------------------------------------------------------------------------------------------
 const TEXN = 256;
-const LAYER = { FACE: 0, TORSO: 1, HAIR: 2, BEARD: 3, KNIT: 4, WHITE: 5, TORSO2: 6, N: 7 };
+const LAYER = { FACE: 0, TORSO: 1, HAIR: 2, BEARD: 3, KNIT: 4, WHITE: 5, TORSO2: 6, CLOTH: 7, N: 8 };
 function makeTexArray(gl) {
   const t = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
