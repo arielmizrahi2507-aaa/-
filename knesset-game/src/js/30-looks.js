@@ -1,55 +1,57 @@
-// ===== Character looks (cartoon caricatures: generic proportions, identified by hair / accessories / colours) =====
+// ===== Character looks: semi-realistic caricatures. Everyone is identified by hair, build, clothes and a few facial traits. =====
+// Optional face fields (all subtle, 0.9 - 1.15 is the useful range): jaw width, nose size, brow thickness, age (lines), stubble (0-1),
+// beard {color}, stache, glasses, kippah, female (lips + lashes), iris colour.
 const LOOKS = {
   bibi: {
-    skin: '#f3c9a3', hair: { style: 'swoop', color: '#dfe3ea' }, browColor: '#8d95a3',
-    suit: '#1f2a44', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.0, w: 1.0,
+    skin: '#f0c7a3', hair: { style: 'swoop', color: '#dfe3ea' }, browColor: '#7f8797', brow: 2.7, age: 0.7, iris: '#5b5648',
+    suit: '#1f2a44', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.0, w: 1.0, jaw: 1.0,
   },
   bengvir: {
-    skin: '#e9b98f', hair: { style: 'crop', color: '#2a2320' }, kippah: { color: '#2b3a8f', knit: '#f2d24a' },
-    beard: { color: '#5a4a40' }, suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.98, w: 1.1, brow: 4.2,
+    skin: '#e3b48b', hair: { style: 'crop', color: '#241d1a' }, kippah: { color: '#2b3a8f', knit: '#f2d24a' }, stubble: 0.7, age: 0.25, brow: 3.3, iris: '#3b2a1e',
+    suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.98, w: 1.1, jaw: 1.08,
   },
   smotrich: {
-    skin: '#efc39b', hair: { style: 'crop', color: '#3b2a20' }, kippah: { color: '#f28a1e', knit: '#ffffff' },
-    beard: { color: '#2c2320' }, suit: '#2a2f4a', shirt: '#ffffff', tie: '#f28a1e', pin: '#f28a1e', h: 1.0, w: 1.0,
+    skin: '#eec39b', hair: { style: 'crop', color: '#33261d' }, kippah: { color: '#f28a1e', knit: '#ffffff' }, beard: { color: '#2a211c' }, age: 0.3, brow: 2.9, iris: '#3d2c1e',
+    suit: '#2a2f4a', shirt: '#ffffff', tie: '#f28a1e', pin: '#f28a1e', h: 1.0, w: 1.0, jaw: 1.02,
   },
   deri: {
-    skin: '#e3b48c', hair: { style: 'sides', color: '#8a8f9a' }, kippah: { color: '#15141d' }, browColor: '#4a4a55',
-    suit: '#191922', shirt: '#ffffff', tie: '#f4c81d', pin: '#f4c81d', h: 0.96, w: 1.14, brow: 4.4,
+    skin: '#e0b088', hair: { style: 'sides', color: '#8a8f9a' }, kippah: { color: '#15141d' }, browColor: '#4a4a55', brow: 3.4, age: 0.55, iris: '#3b2a1e',
+    suit: '#191922', shirt: '#ffffff', tie: '#f4c81d', pin: '#f4c81d', h: 0.96, w: 1.14, jaw: 1.12,
   },
   liberman: {
-    skin: '#f0c7a6', hair: { style: 'sides', color: '#b8bcc6' }, browColor: '#5b5f6b', brow: 4.6,
-    suit: '#2d3542', shirt: '#ffffff', tie: '#b3562a', pin: '#b3562a', h: 1.0, w: 1.14, nose: 1.15,
+    skin: '#efc4a2', hair: { style: 'sides', color: '#b8bcc6' }, browColor: '#5b5f6b', brow: 3.6, age: 0.6, iris: '#4a5560',
+    suit: '#2d3542', shirt: '#ffffff', tie: '#b3562a', pin: '#b3562a', h: 1.0, w: 1.14, nose: 1.08, jaw: 1.1,
   },
   lapid: {
-    skin: '#f2cba8', hair: { style: 'part', color: '#a9a59d' }, browColor: '#6f6b64',
-    suit: '#20242e', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.03, w: 0.96,
+    skin: '#f0caa7', hair: { style: 'part', color: '#a9a59d' }, browColor: '#6f6b64', stubble: 0.35, age: 0.5, iris: '#55605a',
+    suit: '#20242e', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.03, w: 0.96, jaw: 0.98,
   },
   gantz: {
-    skin: '#eabf98', hair: { style: 'crop', color: '#c5c9d2' }, browColor: '#7a7f8a',
-    suit: '#22355a', shirt: '#ffffff', tie: '#6ec6ff', pin: '#6ec6ff', h: 1.09, w: 1.02,
+    skin: '#e8bd96', hair: { style: 'crop', color: '#c5c9d2' }, browColor: '#7a7f8a', brow: 3.0, age: 0.5, iris: '#4f5a63',
+    suit: '#22355a', shirt: '#ffffff', tie: '#6ec6ff', pin: '#6ec6ff', h: 1.09, w: 1.02, jaw: 1.08,
   },
   golan: {
-    skin: '#e6b78f', hair: { style: 'none', color: '#aab0ba' }, beard: { color: '#b4bac4' }, browColor: '#8b919c',
-    suit: '#1f3a2c', shirt: '#e8efe6', open: true, pin: '#38b56a', h: 1.0, w: 1.06,
+    skin: '#e4b48c', hair: { style: 'none', color: '#aab0ba' }, beard: { color: '#b4bac4' }, browColor: '#8b919c', brow: 3.0, age: 0.6, iris: '#4a3a2c',
+    suit: '#1f3a2c', shirt: '#e8efe6', open: true, pin: '#38b56a', h: 1.0, w: 1.06, jaw: 1.08,
   },
   odeh: {
-    skin: '#c99870', hair: { style: 'part', color: '#1f1a1a' }, stache: '#1f1a1a',
+    skin: '#c79770', hair: { style: 'part', color: '#1f1a1a' }, stache: '#1f1a1a', age: 0.3, brow: 3.0, iris: '#2e2119',
     suit: '#2b2e3b', shirt: '#cfe3ff', tie: '#e23b52', pin: '#e23b52', h: 1.02, w: 0.98,
   },
   abbas: {
-    skin: '#c79a72', hair: { style: 'crop', color: '#2a2320' }, beard: { color: '#40352e' },
+    skin: '#c39670', hair: { style: 'crop', color: '#241d1a' }, beard: { color: '#3a2f28' }, age: 0.3, iris: '#2e2119',
     suit: '#233a34', shirt: '#f0f4ef', tie: '#a5d63c', pin: '#a5d63c', h: 1.0, w: 1.03,
   },
   tibi: {
-    skin: '#c99870', hair: { style: 'part', color: '#3a3a44' }, stache: '#2a2320', glasses: { shape: 'rect', color: '#2a2a33' },
+    skin: '#c79770', hair: { style: 'part', color: '#3a3a44' }, stache: '#2a2320', glasses: { shape: 'rect', color: '#2a2a33' }, age: 0.55, iris: '#2e2119',
     suit: '#3a2f4a', shirt: '#ffffff', tie: '#e05fb4', pin: '#e05fb4', h: 0.98, w: 1.0,
   },
   regev: {
-    skin: '#f2c6a0', hair: { style: 'wavy', color: '#c9a26a' }, browColor: '#7a5a30', earring: '#ffd24a',
+    skin: '#f0c5a0', hair: { style: 'wavy', color: '#c49a62' }, browColor: '#7a5a30', earring: '#ffd24a', female: true, age: 0.3, jaw: 0.92, nose: 0.95, iris: '#5a4028',
     suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.97, w: 0.92, open: true, head: 1.0,
   },
   edelstein: {
-    skin: '#eec2a0', hair: { style: 'sides', color: '#b7bcc7' }, glasses: { shape: 'round', color: '#3a3a44' }, browColor: '#7d828d',
+    skin: '#ecc19f', hair: { style: 'sides', color: '#b7bcc7' }, glasses: { shape: 'round', color: '#3a3a44' }, browColor: '#7d828d', age: 0.6, iris: '#4a5560',
     suit: '#2b3f66', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 0.98, w: 1.0,
   },
 };

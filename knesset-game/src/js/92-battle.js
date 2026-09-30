@@ -384,7 +384,7 @@ class Battle {
     if (dmg >= 8) Fx.paper(cx, cy, big ? 8 : 4, pushDir);
     Fx.text(cx + pushDir * 10, cy - 46, String(Math.ceil(dmg)), { size: 18 + Math.min(dmg, 22) * 0.7, col: counter ? '#ff8a8a' : '#ffe14a', life: 34, vy: -1.3 });
     if (counter) Fx.text(cx, cy - 78, '!קאונטר', { size: 22, col: '#ff8a8a', life: 30 });
-    if (dmg >= 10) Fx.comic(cx, cy);
+    if (dmg >= 14) Fx.comic(cx, cy);
     Fx.shake(Math.min(14, 2 + dmg * 0.55)); if (big) { Fx.punch = 3; Fx.flash('#ffffff', 0.25); }
     Snd.play(info.isSuper ? 'superHit' : dmg < 5 ? 'hitL' : dmg < 10 ? 'hitM' : 'hitH');
     if (!this.cfg.attract && info.key === 'DH' && this.rng() < 0.1) { this.toasty = 70; Snd.play('toasty'); }
@@ -585,6 +585,15 @@ class Battle {
       ctx.fillStyle = `rgba(10,5,30,${0.38 * (1 - air * 0.6)})`;
       ctx.beginPath(); ctx.ellipse(f.x, GROUND + 3, 52 * (1 - air * 0.4) * f.scale, 11 * (1 - air * 0.4), 0, 0, TAU); ctx.fill();
     }
+    // glossy floors mirror the fighters (a short, faint reflection right under the feet)
+    const refl = this.stage.refl || 0;
+    if (refl >= 0.06 && !this.cfg.attract) {
+      ctx.save();
+      ctx.beginPath(); ctx.rect(this.cam.x - 900, GROUND + 2, 1800, 84); ctx.clip();
+      ctx.translate(0, (GROUND + 2) * 2); ctx.scale(1, -1);
+      for (const f of this.f) if (f.y > GROUND - 60) drawFighter(ctx, f, { alpha: refl });
+      ctx.restore();
+    }
     // trails (afterimages)
     for (const f of this.f) {
       f.trail.forEach((tr, i) => {
@@ -606,6 +615,7 @@ class Battle {
       }
     }
     for (const e of this.ents) if (e.z >= 0 && e.delay <= 0) this.drawEntity(ctx, e);
+    if (this.cfg.showBoxes && this.training) this.drawBoxes(ctx);
     for (const p of this.pk) {
       if (p.life < 150 && Math.floor(p.life / 6) % 2) continue;
       const bob = Math.sin(p.t * 0.12) * 4, col = p.kind === 'heart' ? '#ff5a7a' : p.kind === 'bolt' ? '#7ce8ff' : '#ff8a3d';
@@ -616,6 +626,19 @@ class Battle {
     }
     Fx.draw(ctx);
     this.drawBubbles(ctx);
+  }
+
+  // Training aid: body boxes (blue) and the boxes of attacks that are live right now (red)
+  drawBoxes(ctx) {
+    ctx.save(); ctx.lineWidth = 1.6;
+    const rect = (b, col) => { ctx.fillStyle = rgba(col, 0.14); ctx.strokeStyle = rgba(col, 0.95); ctx.fillRect(b.x, b.y, b.w, b.h); ctx.strokeRect(b.x, b.y, b.w, b.h); };
+    for (const f of this.f) {
+      rect(f.hurtbox(), '#50beff');
+      const m = f.mv;
+      if (f.st === 'attack' && m && m.kind === 'melee' && m.hb && f.mt >= m.startup && f.mt < m.startup + m.active) rect(f.box(m.hb), '#ff465a');
+    }
+    for (const e of this.ents) if (!e.dead && e.dmg > 0 && e.delay <= 0) rect({ x: e.x - e.w / 2, y: e.y - e.h / 2, w: e.w, h: e.h }, '#ff465a');
+    ctx.restore();
   }
 
   // Character catch-phrases: at the very start of the match and when it ends.

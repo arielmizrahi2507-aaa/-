@@ -8,6 +8,30 @@ const Hud = {
     this.combos(ctx, B);
     if (!cine) this.announce(ctx, B);
     this.hint(ctx, B);
+    this.inputs(ctx, B);
+  },
+
+  // Training: the last inputs of player 1 (directions are shown relative to where the fighter faces)
+  inputs(ctx, B) {
+    if (!B.training || !B.cfg.showInputs || B.phase !== 'fight') return;
+    const f = B.f[0], m = f.in | 0, log = B.inputLog || (B.inputLog = []);
+    if (m !== B.inputPrev) { B.inputPrev = m; if (m) { log.unshift({ m, t: B.frame }); if (log.length > 9) log.pop(); } }
+    const BTN = [[IN.A, 'א', '#e84848'], [IN.B, 'ב', '#f09628'], [IN.C, '1', '#3c96ff'], [IN.E, '2', '#8260ff'], [IN.K, 'ח', '#32c882'], [IN.S, 'ס', '#ffd23d'], [IN.G, 'ז', '#ff823c']];
+    const ARROWS = { '-1,-1': '↖', '0,-1': '↑', '1,-1': '↗', '-1,0': '←', '1,0': '→', '-1,1': '↙', '0,1': '↓', '1,1': '↘' };
+    ctx.save();
+    log.forEach((e, i) => {
+      const age = B.frame - e.t; if (age > 60 * 7) return;
+      const y = 250 + i * 22;
+      ctx.globalAlpha = clamp(1 - age / (60 * 7), 0.22, 1) * 0.92;
+      rr(ctx, 12, y - 10, 122, 20, 10); ctx.fillStyle = 'rgba(8,5,24,.6)'; ctx.fill();
+      let dx = ((e.m & IN.R) ? 1 : 0) - ((e.m & IN.L) ? 1 : 0), dy = ((e.m & IN.D) ? 1 : 0) - ((e.m & IN.U) ? 1 : 0);
+      dx *= f.face;
+      const ar = ARROWS[dx + ',' + dy];
+      if (ar) T(ctx, ar, 28, y, { size: 16, fill: '#ffffff', weight: 800 });
+      let bx = 52;
+      for (const [bit, label, col] of BTN) if (e.m & bit) { ctx.beginPath(); ctx.arc(bx, y, 8, 0, TAU); ctx.fillStyle = col; ctx.fill(); T(ctx, label, bx, y + 0.5, { size: 10, fill: '#160c28', weight: 900 }); bx += 19; }
+    });
+    ctx.restore();
   },
 
   bar(ctx, B, f, s) {
@@ -24,38 +48,44 @@ const Hud = {
       ctx.beginPath();
       ctx.moveTo(x0, y); ctx.lineTo(x0 + dir * L, y); ctx.lineTo(x0 + dir * (L - sl * Math.min(1, frac * 6)), y + h); ctx.lineTo(x0, y + h); ctx.closePath();
     };
-    poly(1); ctx.fillStyle = 'rgba(12,6,32,.78)'; ctx.fill();
+    poly(1); ctx.fillStyle = 'rgba(8,6,22,.82)'; ctx.fill();
     ctx.save(); poly(1); ctx.clip();
-    poly(ghost); ctx.fillStyle = '#ffffff'; ctx.fill();
+    poly(ghost); ctx.fillStyle = 'rgba(255,240,230,.9)'; ctx.fill();
     const hue = 8 + 112 * Math.pow(pct, 0.85);
     const g = ctx.createLinearGradient(0, y, 0, y + h);
-    g.addColorStop(0, `hsl(${hue},95%,68%)`); g.addColorStop(1, `hsl(${hue},85%,42%)`);
+    g.addColorStop(0, `hsl(${hue},78%,62%)`); g.addColorStop(0.55, `hsl(${hue},80%,46%)`); g.addColorStop(1, `hsl(${hue},85%,32%)`);
     poly(pct); ctx.fillStyle = g; ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(Math.min(x0, x0 + dir * len), y + 2, len, 5);
+    // glass sheen + segment ticks
+    const sh = ctx.createLinearGradient(0, y, 0, y + h * 0.55); sh.addColorStop(0, 'rgba(255,255,255,.34)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = sh; ctx.fillRect(Math.min(x0, x0 + dir * len), y, len, h * 0.55);
+    ctx.fillStyle = 'rgba(0,0,0,.28)';
+    for (let i = 1; i < 10; i++) ctx.fillRect(x0 + dir * len * i / 10 - 0.5, y, 1, h);
     ctx.restore();
-    poly(1); ctx.lineWidth = 4; ctx.strokeStyle = OUT; ctx.stroke();
-    poly(1); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.stroke();
+    poly(1); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(10,6,26,.9)'; ctx.stroke();
+    poly(1); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(255,255,255,.72)'; ctx.stroke();
+    ctx.fillStyle = col; ctx.globalAlpha = 0.9;
+    ctx.fillRect(Math.min(x0, x0 + dir * (len - sl)), y + h + 1.5, len - sl, 2.5); ctx.globalAlpha = 1;
     // numeric mandates
-    T(ctx, String(Math.ceil(f.hp)), x0 + dir * 22, y + h / 2 + 1, { size: 16, fill: '#fff', stroke: OUT, lw: 4, align: s === 0 ? 'left' : 'right', font: 'disp' });
-    T(ctx, 'מנדטים', x0 + dir * (len - 34), y + h / 2 + 1, { size: 11, fill: 'rgba(255,255,255,.75)', align: s === 0 ? 'right' : 'left', weight: 800 });
+    T(ctx, String(Math.ceil(f.hp)), x0 + dir * 22, y + h / 2 + 1, { size: 16, fill: '#fff', stroke: 'rgba(8,4,20,.85)', lw: 3, align: s === 0 ? 'left' : 'right', font: 'disp' });
+    T(ctx, 'מנדטים', x0 + dir * (len - 34), y + h / 2 + 1, { size: 11, fill: 'rgba(255,255,255,.8)', stroke: 'rgba(8,4,20,.6)', lw: 2, align: s === 0 ? 'right' : 'left', weight: 800 });
     ctx.restore();
 
     // portrait
     const px = s === 0 ? 46 : W - 46;
     const low = f.hurtPct < 0.3;
-    drawPortrait(ctx, f.def, px, 46, 34, { bg: darken(col, 0.5), ring: col, lw: 5, eyes: f.st === 'ko' ? 'ko' : low ? 'hurt' : (f.st === 'hit' || f.st === 'airhit' ? 'hurt' : 'open'), mouth: f.st === 'hit' || f.st === 'airhit' ? 'shout' : (low ? 'sad' : 'smile'), flip: s === 1, zoom: 1.05 });
+    drawPortrait(ctx, f.def, px, 46, 34, { bg: darken(col, 0.5), ring: col, lw: 4, eyes: f.st === 'ko' ? 'ko' : low ? 'hurt' : (f.st === 'hit' || f.st === 'airhit' ? 'hurt' : 'open'), mouth: f.st === 'hit' || f.st === 'airhit' ? 'shout' : (low ? 'sad' : 'smile'), flip: s === 1, zoom: 1.05, cache: true });
 
     // name + party
     const nx = x0, ny = y + h + 16;
     const align = s === 0 ? 'left' : 'right';
-    T(ctx, f.def.name, nx, ny, { size: 17, fill: '#fff', stroke: OUT, lw: 5, align, font: 'disp' });
+    T(ctx, f.def.name, nx, ny, { size: 17, fill: '#fff', stroke: 'rgba(8,4,20,.85)', lw: 3.6, align, font: 'disp' });
     ctx.font = `700 17px ${FONT.disp}`;
     ctx.direction = 'rtl';
     const nameW = ctx.measureText(f.def.name).width;
     const cxp = nx + dir * (nameW + 14);
     rr(ctx, s === 0 ? cxp : cxp - 76, ny - 10, 76, 18, 9);
-    ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = OUT; ctx.stroke();
-    T(ctx, f.def.partyName, s === 0 ? cxp + 38 : cxp - 38, ny - 1, { size: 11, fill: '#fff', stroke: OUT, lw: 3, weight: 800 });
+    ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = 'rgba(8,4,20,.85)'; ctx.stroke();
+    T(ctx, f.def.partyName, s === 0 ? cxp + 38 : cxp - 38, ny - 1, { size: 11, fill: '#fff', stroke: 'rgba(8,4,20,.75)', lw: 2.4, weight: 800 });
 
     // hype meter
     const my = ny + 14, mw = 230, mh = 11;
@@ -117,13 +147,13 @@ const Hud = {
     ctx.save(); ctx.translate(cx, cy); ctx.scale(p, p);
     ctx.beginPath(); ctx.arc(0, 0, 32, 0, TAU);
     const g = ctx.createRadialGradient(0, -8, 4, 0, 0, 34); g.addColorStop(0, '#3a2a7a'); g.addColorStop(1, '#150c38');
-    ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 6; ctx.strokeStyle = OUT; ctx.stroke();
-    ctx.lineWidth = 3; ctx.strokeStyle = low ? '#ff5a5a' : '#ffd23d'; ctx.beginPath(); ctx.arc(0, 0, 28, 0, TAU); ctx.stroke();
+    ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,4,22,.92)'; ctx.stroke();
+    ctx.lineWidth = 2; ctx.strokeStyle = low ? '#ff5a5a' : '#e8c25a'; ctx.beginPath(); ctx.arc(0, 0, 28, 0, TAU); ctx.stroke();
     if (!B.training) {
       const fr = B.timeLeft / B.timeMax;
       ctx.lineWidth = 4; ctx.strokeStyle = low ? '#ff5a5a' : '#fff'; ctx.beginPath(); ctx.arc(0, 0, 28, -Math.PI / 2, -Math.PI / 2 + TAU * fr); ctx.stroke();
     }
-    T(ctx, secs, 0, 2, { size: 30, font: 'disp', fill: low ? '#ff8a8a' : '#fff', stroke: OUT, lw: 6 });
+    T(ctx, secs, 0, 2, { size: 30, font: 'disp', fill: low ? '#ff8a8a' : '#fff', stroke: 'rgba(8,4,22,.8)', lw: 4 });
     ctx.restore();
     // round pips
     for (let s = 0; s < 2; s++) {
@@ -145,22 +175,23 @@ const Hud = {
       const col = c.hits >= 8 ? '#ff5a5a' : c.hits >= 5 ? '#ffa03d' : '#ffe14a';
       const a = c.show < 20 ? c.show / 20 : 1;
       ctx.save(); ctx.globalAlpha = a;
-      T(ctx, String(c.hits), x, y, { size: 74, font: 'disp', fill: col, stroke: OUT, lw: 14, scale: sc, rot: left ? -0.08 : 0.08 });
-      T(ctx, 'קומבו', x, y + 42, { size: 26, font: 'disp', fill: '#fff', stroke: OUT, lw: 8, rot: left ? -0.08 : 0.08 });
-      T(ctx, 'נזק ' + Math.ceil(c.dmg), x, y + 68, { size: 16, fill: '#fff', stroke: OUT, lw: 5 });
+      T(ctx, String(c.hits), x, y, { size: 70, font: 'disp', fill: col, stroke: 'rgba(8,4,22,.9)', lw: 9, scale: sc, rot: left ? -0.06 : 0.06 });
+      T(ctx, 'קומבו', x, y + 40, { size: 24, font: 'disp', fill: '#fff', stroke: 'rgba(8,4,22,.9)', lw: 5, rot: left ? -0.06 : 0.06 });
+      T(ctx, 'נזק ' + Math.ceil(c.dmg), x, y + 64, { size: 15, fill: '#fff', stroke: 'rgba(8,4,22,.85)', lw: 3.6 });
       ctx.restore();
     });
   },
 
   // First-run key reminder (keyboard players only)
   hint(ctx, B) {
-    if (!B.cfg.hint || B.phase !== 'fight' || B.phaseT > 60 * 16) return;
-    const a = Math.min(1, (60 * 16 - B.phaseT) / 40);
+    if (!B.cfg.hint || B.phase !== 'fight' || B.phaseT > 60 * 12) return;
+    const a = Math.min(1, (60 * 12 - B.phaseT) / 40);
     ctx.save();
-    ctx.globalAlpha = 0.92 * a;
-    rr(ctx, W / 2 - 390, H - 86, 780, 64, 14); ctx.fillStyle = 'rgba(10,5,30,.78)'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.stroke();
-    T(ctx, 'תנועה: A D · קפיצה: W · התכופפות: S · חסימה: I', W / 2, H - 66, { size: 16, fill: '#ffffff', weight: 700 });
-    T(ctx, 'אגרוף: J · בעיטה: K · מיוחד 1: L · מיוחד 2: U · סופר: O · זריקה: E', W / 2, H - 42, { size: 16, fill: '#ffe14a', weight: 700 });
+    ctx.globalAlpha = 0.9 * a;
+    // above the fighters' heads, clear of the feet
+    rr(ctx, W / 2 - 330, 196, 660, 50, 12); ctx.fillStyle = 'rgba(8,5,24,.72)'; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke();
+    T(ctx, 'תנועה: A D · קפיצה: W · התכופפות: S · חסימה: I · תפריט: Esc', W / 2, 212, { size: 14, fill: '#ffffff', weight: 700 });
+    T(ctx, 'אגרוף: J · בעיטה: K · מיוחד 1: L · מיוחד 2: U · סופר: O · זריקה: E', W / 2, 233, { size: 14, fill: '#ffe14a', weight: 700 });
     ctx.restore();
   },
 
@@ -170,6 +201,6 @@ const Hud = {
     const k = a.t / a.max;
     const sc = a.t < 8 ? 1.7 - 0.7 * Ease.outBack(a.t / 8) : 1;
     const al = k > 0.85 ? (1 - k) / 0.15 : 1;
-    T(ctx, a.text, W / 2, 152, { size: a.size, font: 'disp', fill: a.col, stroke: OUT, lw: a.size * 0.2, alpha: al, scale: sc, shadow: 'rgba(0,0,0,.35)', shadowY: a.size * 0.1 });
+    T(ctx, a.text, W / 2, 152, { size: a.size * 0.86, font: 'disp', fill: a.col, stroke: 'rgba(8,4,22,.9)', lw: a.size * 0.12, alpha: al, scale: sc, shadow: 'rgba(0,0,0,.35)', shadowY: a.size * 0.07 });
   },
 };

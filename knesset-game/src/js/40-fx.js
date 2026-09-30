@@ -74,7 +74,7 @@ const Fx = {
     this.texts.push({ x, y, str, t: 0, max: o.life || 46, vy: o.vy === undefined ? -1.1 : o.vy, size: o.size || 26, col: o.col || '#fff', stroke: o.stroke || '#1b1330', rot: o.rot || 0, pop: o.pop === undefined ? 1 : o.pop, font: o.font || 'disp' });
   },
   comic(x, y, col) {
-    this.text(x + rnd(-20, 20), y - 30, pick(COMIC), { size: rnd(30, 40), col: col || '#ffe14a', rot: rnd(-0.3, 0.3), life: 30, vy: -0.6 });
+    this.text(x + rnd(-20, 20), y - 30, pick(COMIC), { size: rnd(26, 34), col: col || '#ffe14a', rot: rnd(-0.3, 0.3), life: 30, vy: -0.6 });
   },
   speedLines(x, y, dir, n = 6) {
     for (let i = 0; i < n; i++) this.lines.push({ x: x - dir * rnd(0, 60), y: y + rnd(-90, 30), len: rnd(50, 130), dir, t: 0, max: 10 });
@@ -114,9 +114,14 @@ const Fx = {
     ctx.globalAlpha = 1;
     for (const b of this.bursts) {
       const k = b.t / b.max, r = b.r * (0.35 + Ease.outCubic(k) * 0.9);
-      ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(b.rot); ctx.globalAlpha = 1 - k * k;
-      star(ctx, 0, 0, b.spikes, r, r * 0.42); ctx.fillStyle = b.col2; ctx.fill();
-      star(ctx, 0, 0, b.spikes, r * 0.72, r * 0.3); ctx.fillStyle = b.col; ctx.fill();
+      // impact flash: an additive bloom, thin cracks of light and a hot core (no cartoon starburst)
+      ctx.save(); ctx.translate(b.x, b.y);
+      ctx.globalCompositeOperation = 'lighter'; glow(ctx, r * 1.35, b.col2, (1 - k) * 0.85);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.rotate(b.rot); ctx.globalAlpha = 1 - k * k;
+      star(ctx, 0, 0, b.spikes, r * 0.95, r * 0.13); ctx.fillStyle = b.col; ctx.fill();
+      star(ctx, 0, 0, b.spikes, r * 0.55, r * 0.2); ctx.fillStyle = b.col2; ctx.globalAlpha = (1 - k) * 0.8; ctx.fill();
+      ctx.globalAlpha = (1 - k * k); ctx.beginPath(); ctx.arc(0, 0, r * 0.2 * (1 - k * 0.6), 0, TAU); ctx.fillStyle = '#fff'; ctx.fill();
       ctx.restore();
     }
     ctx.globalAlpha = 1;
@@ -151,7 +156,7 @@ const Fx = {
     for (const t of this.texts) {
       const k = t.t / t.max;
       const sc = t.pop ? 1 + Math.max(0, 1 - t.t / 6) * 0.6 : 1;
-      T(ctx, t.str, t.x, t.y, { size: t.size, fill: t.col, stroke: t.stroke, lw: t.size * 0.22, font: t.font, alpha: k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1, rot: t.rot, scale: sc });
+      T(ctx, t.str, t.x, t.y, { size: t.size, fill: t.col, stroke: t.stroke, lw: t.size * 0.16, font: t.font, alpha: k > 0.7 ? 1 - (k - 0.7) / 0.3 : 1, rot: t.rot, scale: sc });
     }
   },
 

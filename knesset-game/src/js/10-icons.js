@@ -2,9 +2,16 @@
 // Every drawer works in local space centred on (0,0), facing +x. `e` carries { t, sc, col, h, n }.
 const OUT = '#1b1330';
 
+let _shade = null;
 function ol(ctx, fill, lw) {
-  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
-  ctx.lineWidth = lw || 3;
+  if (fill) {
+    ctx.fillStyle = fill; ctx.fill();
+    if (typeof fill === 'string') {   // soft form shading (light from the top left) so props sit next to the shaded fighters
+      if (!_shade) { const g = ctx.createRadialGradient(-12, -16, 3, 0, 0, 74); g.addColorStop(0, 'rgba(255,255,255,.24)'); g.addColorStop(0.55, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(6,2,20,.26)'); _shade = g; }
+      ctx.save(); ctx.clip(); ctx.fillStyle = _shade; ctx.fillRect(-140, -140, 280, 280); ctx.restore();
+    }
+  }
+  ctx.lineWidth = (lw || 3) * 0.85;
   ctx.strokeStyle = OUT;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';

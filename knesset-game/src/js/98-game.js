@@ -8,7 +8,7 @@ const MUTATORS = [
 ];
 
 const Game = {
-  scene: null, acc: 0, last: 0, paused: false, spec: null, dummy: 'stand', infMeter: false, seg: 0,
+  scene: null, acc: 0, last: 0, paused: false, spec: null, dummy: 'stand', infMeter: false, showBoxes: false, showInputs: true, seg: 0,
 
   // ------------------------------------------------------------------ boot / loop
   init() {
@@ -181,7 +181,7 @@ const Game = {
       case 'arcade': this.startArcade(picks[0], o.diff); break;
       case 'survival': this.startSurvival(picks[0]); break;
       case 'versus': this.startFight({ mode: 'versus', p1: { id: picks[0], human: true }, p2: { id: picks[1], human: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: Save.d.settings.rounds, time: Save.d.settings.timer }); break;
-      case 'training': this.dummy = 'stand'; this.infMeter = false; this.startFight({ mode: 'training', p1: { id: picks[0], human: true }, p2: { id: picks[1], dummy: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: 2, time: 99, training: true, noSplash: true }); break;
+      case 'training': this.dummy = 'stand'; this.infMeter = false; this.showBoxes = false; this.showInputs = true; this.startFight({ mode: 'training', p1: { id: picks[0], human: true }, p2: { id: picks[1], dummy: true }, stage: stage === 'random' ? pick(STAGES).id : stage, rounds: 2, time: 99, training: true, noSplash: true }); break;
       default: break;
     }
   },
@@ -239,6 +239,7 @@ const Game = {
     $('#vs-info').textContent = spec.label || '';
     Game.setScene('none');
     UI.show('vs');
+    setTimeout(() => Stages.prewarm(stg), 60);          // paint the arena's backdrop while the splash is on screen
     Snd.quiet = false; Snd.play('superStart'); Snd.playMusic('battle');
     clearTimeout(this.vsTimer);
     this.vsTimer = setTimeout(() => this.runBattle(), spec.mode === 'training' ? 0 : 2300);
@@ -250,7 +251,7 @@ const Game = {
     const { f1, f2 } = this.pending; this.pending = null;
     const spec = this.spec;
     const B = new Battle({
-      fighters: [f1, f2], stage: spec.stage, rounds: spec.rounds || 2, time: spec.time || 60, training: !!spec.training, infMeter: this.infMeter,
+      fighters: [f1, f2], stage: spec.stage, rounds: spec.rounds || 2, time: spec.time || 60, training: !!spec.training, infMeter: this.infMeter, showBoxes: this.showBoxes, showInputs: this.showInputs,
       speed: spec.speed || 1, pickups: spec.mode === 'survival' || spec.mode === 'daily', onEvent: (n, a, b, c, d) => this.onEvent(n, a, b, c, d),
     });
     if (spec.training) { B.phase = 'fight'; B.phaseT = 0; }
@@ -349,6 +350,8 @@ const Game = {
       case 'retry': this.startFight(this.spec); break;
       case 'bill': this.pickBill(el.dataset.id); break;
       case 'dummy-mode': this.cycleDummy(); this.pauseOpen(); break;
+      case 'boxes': this.showBoxes = !this.showBoxes; if (this.B) this.B.cfg.showBoxes = this.showBoxes; this.pauseOpen(); break;
+      case 'inputs': this.showInputs = !this.showInputs; if (this.B) this.B.cfg.showInputs = this.showInputs; this.pauseOpen(); break;
       case 'dummy-meter': this.toggleMeter(); this.pauseOpen(); break;
       case 'daily-start': this.startDaily(); break;
       case 'reselect': UI.show('select', { mode: this.spec.mode }); break;
@@ -415,7 +418,8 @@ const Game = {
     if (spec.training) {
       t.innerHTML = `<button class="btn nav" data-act="train-reset">איפוס עמדות ובריאות</button>
         <button class="btn nav" data-act="dummy-mode">התנהגות היריב: ${DUMMY_NAMES[this.dummy]}</button>
-        <button class="btn nav" data-act="dummy-meter">הייפ אינסופי: ${this.infMeter ? 'פועל' : 'כבוי'}</button>`;
+        <button class="btn nav" data-act="dummy-meter">הייפ אינסופי: ${this.infMeter ? 'פועל' : 'כבוי'}</button>
+        <div class="two"><button class="btn nav" data-act="inputs">תצוגת קלט: ${this.showInputs ? 'פועלת' : 'כבויה'}</button><button class="btn nav" data-act="boxes">תיבות פגיעה: ${this.showBoxes ? 'פועלות' : 'כבויות'}</button></div>`;
     } else t.innerHTML = '';
     UI.show('pause');
     $('#s-pause').classList.add('on');
