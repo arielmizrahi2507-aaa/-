@@ -561,6 +561,7 @@ class Battle {
 
   // ----- rendering -----
   render(ctx) {
+    F3D.beginFrame(); F3D.setStage(this.stage.id);
     const z = this.cam.zoom * (1 + Fx.punch * 0.012), cx = this.cam.x;
     ctx.save();
     const sh = Fx.shakeAmt;
@@ -585,17 +586,26 @@ class Battle {
       ctx.fillStyle = `rgba(10,5,30,${0.38 * (1 - air * 0.6)})`;
       ctx.beginPath(); ctx.ellipse(f.x, GROUND + 3, 52 * (1 - air * 0.4) * f.scale, 11 * (1 - air * 0.4), 0, 0, TAU); ctx.fill();
     }
+    // 3D fighters: render each one's sprite now (afterimages included) so the reflection and the body below can reuse it
+    const use3d = F3D.active();
+    const flashOf = (f) => (f.flashT > 0 ? 0.65 : 0);
+    const ghostsOf = (f) => {
+      if (!f.trail.length) return null;
+      const c = hexRGB(f.def.color || '#ffffff');
+      return f.trail.map((tr, i) => ({ f: { def: f.def, x: tr.x, y: tr.y, face: tr.face, pose: tr.pose, clock: f.clock, scale: f.scale }, tint: [c[0], c[1], c[2], 0.5], alpha: 0.35 * (i + 1) / f.trail.length }));
+    };
+    if (use3d) for (const f of this.f) { f._o3 = { flash: flashOf(f), ghosts: ghostsOf(f) }; F3D.prepare(ctx, f, f._o3); }
     // glossy floors mirror the fighters (a short, faint reflection right under the feet)
     const refl = this.stage.refl || 0;
     if (refl >= 0.06 && !this.cfg.attract && !Battle.lowFx) {
       ctx.save();
       ctx.beginPath(); ctx.rect(this.cam.x - 900, GROUND + 2, 1800, 84); ctx.clip();
       ctx.translate(0, (GROUND + 2) * 2); ctx.scale(1, -1);
-      for (const f of this.f) if (f.y > GROUND - 60) drawFighter(ctx, f, { alpha: refl });
+      for (const f of this.f) if (f.y > GROUND - 60) drawFighter(ctx, f, { alpha: refl, reflect: true });
       ctx.restore();
     }
-    // trails (afterimages)
-    for (const f of this.f) {
+    // trails (afterimages) - in 3D they are part of the fighter's sprite
+    if (!use3d) for (const f of this.f) {
       f.trail.forEach((tr, i) => {
         const dummy = { def: f.def, x: tr.x, y: tr.y, face: tr.face, pose: tr.pose, clock: f.clock, scale: f.scale };
         drawFighter(ctx, dummy, { tint: rgba(f.def.color || '#ffffff', 0.5), alpha: 0.35 * (i + 1) / f.trail.length });
@@ -608,9 +618,9 @@ class Battle {
       if (f.val.shield > 0) { ctx.save(); ctx.translate(f.x, f.y - 90); ENT.shield(ctx, { t: this.frame, r: 92, col: '#ffd94a' }); ctx.restore(); }
       const au = f.passive.aura ? f.passive.aura(f) : null;
       if (au) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 120, au, 0.35 + 0.1 * Math.sin(this.frame * 0.2)); ctx.restore(); }
-      const flash = f.flashT > 0 ? 0.65 : 0;
+      const flash = flashOf(f);
       if (f.burnT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 88, '#ff6a1f', 0.28 + 0.1 * Math.sin(this.frame * 0.5)); ctx.restore(); }
-      drawFighter(ctx, f, { flash });
+      drawFighter(ctx, f, use3d ? f._o3 : { flash });
       if (f.hasArmor && f.hasArmor() && f.mi && f.mi.armor > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 110, '#ffd94a', 0.25); ctx.restore();
       }
@@ -717,7 +727,7 @@ class Battle {
     // owner drawn over the dim
     ctx.save();
     ctx.translate(W / 2 + ox, 300 + oy); ctx.scale(z, z); ctx.translate(-cx, -300);
-    drawFighter(ctx, f, {});
+    drawFighter(ctx, f, F3D.active() && f._o3 ? f._o3 : {});
     ctx.restore();
   }
 

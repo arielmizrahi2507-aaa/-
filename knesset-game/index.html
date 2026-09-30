@@ -1913,6 +1913,7 @@ function drawFist(ctx, x, y, ux, uy, skin, ink, tint, back) {
 }
 
 function drawFighter(ctx, f, opt = {}) {
+  if (!opt.tint && F3D.active() && F3D.draw(ctx, f, opt)) return;      // real 3D model (WebGL); falls through to the cartoon renderer otherwise
   const def = f.def, look = def.look;
   const g = geo(look), pal = g.pal;
   const p = f.pose || poseOf(f);
@@ -2102,7 +2103,7 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
   const t = ctx.getTransform ? ctx.getTransform() : null;
   const sc = t ? Math.max(1, Math.hypot(t.a, t.b)) : 1;
   if (opt.cache) {
-    const key = [def.id, Math.round(r * sc), opt.eyes, opt.mouth, opt.flip ? 1 : 0, opt.zoom || 1, opt.bg, opt.ring, opt.lw].join('|');
+    const key = [def.id, Math.round(r * sc), opt.eyes, opt.mouth, opt.flip ? 1 : 0, opt.zoom || 1, opt.bg, opt.ring, opt.lw, opt.flat ? 'f' : '3'].join('|');
     let c = PORT_CACHE.get(key);
     if (!c) {
       const pad = Math.ceil((opt.lw || 4) / 2 + 2), size = Math.ceil((r + pad) * 2 * sc);
@@ -2133,7 +2134,18 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
   ctx.scale(k * (opt.flip ? -1 : 1), k);
   ctx.translate(-2, 0);
   const C = (c) => c;
-  if (look.robot) {
+  const bust3 = !look.robot && !opt.flat && F3D.active() ? F3D.bust(def, p.eyes, p.mouth, r * sc * (opt.zoom || 1) * 2) : null;
+  if (bust3) {
+    ctx.restore(); ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.clip();
+    if (opt.bg) {
+      const bg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r * 1.15);
+      bg.addColorStop(0, flashMix(opt.bg, 0.16)); bg.addColorStop(1, opt.bg);
+      ctx.fillStyle = bg; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+    const z = 1.02 * (opt.zoom || 1);
+    ctx.translate(cx, cy + r * 0.02); ctx.scale(opt.flip ? -z : z, z);
+    ctx.drawImage(bust3, -r, -r, r * 2, r * 2);
+  } else if (look.robot) {
     ctx.translate(0, 6); ctx.scale(0.62, 0.62); drawRobotHead(ctx, dummy, look, p, C);
   } else {
     drawBust(ctx, look, C);
@@ -2145,6 +2157,1410 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
   ctx.lineWidth = opt.lw || 4; ctx.strokeStyle = opt.ring || OUT; ctx.stroke();
   ctx.restore();
 }
+
+/* ---- 22-f3d-core.js ---- */
+// ===== 3D fighters, part 1: WebGL2 context, shader, vertex emitter and the sprite pipeline =====
+// The fighters are real 3D models (procedural meshes, lit in a shader) that are rendered into an off-screen WebGL canvas
+// and copied into a small "sprite" canvas that the normal 2D scene draws with drawImage(). Everything else (arenas, effects,
+// HUD) stays 2D, so hit boxes, camera, reflections and shake behave exactly as before. If WebGL2 is missing or slow, the
+// 2D cartoon renderer (21-fighter-render.js) is used instead.
+//
+// Model space: x forward (the way the fighter faces), y up, z towards the camera. One unit = one "rig unit" of the 2D skeleton.
+
+const F3D = {
+  ok: false,              // WebGL2 is up
+  failed: false,          // could not start, or the context was lost: stay on the 2D renderer
+  off: false,             // switched off by the player / by the adaptive quality
+  stamp: 0,               // bumped once per rendered frame
+  stats: { renders: 0, sprites: 0, ms: 0, verts: 0 },
+  light: { key: [1, 0.93, 0.84], fill: [0.42, 0.5, 0.7], top: [0.5, 0.5, 0.56], bot: [0.24, 0.2, 0.24], rim: [0.55, 0.62, 0.9] },
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// tiny 3D math (column-major mat4 as Float32Array(16), mat3 as Float32Array(9))
+// ---------------------------------------------------------------------------------------------------------------
+const M4 = {
+  ident() { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; },
+  mul(a, b) {          // a * b
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+    return o;
+  },
+  translate(x, y, z) { const m = M4.ident(); m[12] = x; m[13] = y; m[14] = z; return m; },
+  scale(x, y, z) { const m = M4.ident(); m[0] = x; m[5] = y; m[10] = z; return m; },
+  rotZ(a) { const m = M4.ident(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m; },
+  rotY(a) { const m = M4.ident(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; },
+  rotX(a) { const m = M4.ident(), c = Math.cos(a), s = Math.sin(a); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; },
+  // basis (columns = x,y,z axes) + origin
+  basis(ex, ey, ez, o) { const m = M4.ident(); m[0] = ex[0]; m[1] = ex[1]; m[2] = ex[2]; m[4] = ey[0]; m[5] = ey[1]; m[6] = ey[2]; m[8] = ez[0]; m[9] = ez[1]; m[10] = ez[2]; m[12] = o[0]; m[13] = o[1]; m[14] = o[2]; return m; },
+  pt(m, x, y, z) { return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]]; },
+  // inverse-transpose of the upper 3x3 (normal matrix), column-major so it can go straight into uniformMatrix3fv / stamp()
+  normalMat(m) {
+    const a = m[0], b = m[4], c = m[8], d = m[1], e = m[5], f = m[9], g = m[2], h = m[6], i = m[10];
+    const c00 = e * i - f * h, c01 = -(d * i - f * g), c02 = d * h - e * g;
+    const c10 = -(b * i - c * h), c11 = a * i - c * g, c12 = -(a * h - b * g);
+    const c20 = b * f - c * e, c21 = -(a * f - c * d), c22 = a * e - b * d;
+    const det = a * c00 + b * c01 + c * c02 || 1e-9, id = 1 / det;
+    // cofactor matrix / det is the inverse transpose (row-major); store it column-major
+    return new Float32Array([c00 * id, c10 * id, c20 * id, c01 * id, c11 * id, c21 * id, c02 * id, c12 * id, c22 * id]);
+  },
+  det3(m) { return m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]); },
+};
+
+const V3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  norm(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
+  madd: (a, b, k) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k],
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// vertex format (40 bytes): pos.xyz nrm.xyz uv | rgba8 (tint, coverage) | rgba8 (specular, shininess, rim, texture layer)
+// ---------------------------------------------------------------------------------------------------------------
+const VW = 10;                               // 32-bit words per vertex
+const q8 = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+const packRGBA = (r, g, b, a) => ((q8(a) << 24) | (q8(b) << 16) | (q8(g) << 8) | q8(r)) >>> 0;
+const packMat = (spec, shine, rim, layer) => ((layer & 255) << 24 | q8(rim) << 16 | q8(shine) << 8 | q8(spec)) >>> 0;
+function hexRGB(c) {                          // '#rrggbb' or 'rgb(...)' -> [0..1]x3
+  if (c[0] === '#') { const v = rgb(c); return [v[0] / 255, v[1] / 255, v[2] / 255]; }
+  const m = c.match(/[\d.]+/g); return [m[0] / 255, m[1] / 255, m[2] / 255];
+}
+
+// A growable mesh; used both for static meshes (heads: built once and uploaded to the GPU) and for the per-frame body.
+class Mesh {
+  constructor(cap = 2048, icap = 8192) {
+    this.f = new Float32Array(cap * VW); this.u = new Uint32Array(this.f.buffer); this.i = new Uint16Array(icap); this.nv = 0; this.ni = 0;
+  }
+  reset() { this.nv = 0; this.ni = 0; }
+  grow() {
+    const nf = new Float32Array(this.f.length * 2); nf.set(this.f); this.f = nf; this.u = new Uint32Array(nf.buffer);
+  }
+  growI() { const ni = new Uint16Array(this.i.length * 2); ni.set(this.i); this.i = ni; }
+  vert(x, y, z, nx, ny, nz, u, v, col, mat) {
+    if ((this.nv + 1) * VW > this.f.length) this.grow();
+    const o = this.nv * VW, f = this.f;
+    f[o] = x; f[o + 1] = y; f[o + 2] = z; f[o + 3] = nx; f[o + 4] = ny; f[o + 5] = nz; f[o + 6] = u; f[o + 7] = v; this.u[o + 8] = col; this.u[o + 9] = mat;
+    return this.nv++;
+  }
+  tri(a, b, c) { if (this.ni + 3 > this.i.length) this.growI(); this.i[this.ni++] = a; this.i[this.ni++] = b; this.i[this.ni++] = c; }
+  quad(a, b, c, d) { this.tri(a, b, c); this.tri(a, c, d); }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// shaders
+// ---------------------------------------------------------------------------------------------------------------
+const F3D_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in vec2 aUV;
+layout(location=3) in vec4 aCol;
+layout(location=4) in vec4 aMat;
+uniform mat4 uMVP;
+uniform mat3 uNM;
+out vec3 vN; out vec2 vUV; out vec4 vCol; out vec4 vMat;
+void main() {
+  gl_Position = uMVP * vec4(aPos, 1.0);
+  vN = uNM * aNrm; vUV = aUV; vCol = aCol; vMat = aMat;
+}`;
+
+const F3D_FS = `#version 300 es
+precision mediump float;
+precision mediump sampler2DArray;
+uniform sampler2DArray uTex;
+uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim;
+uniform vec4 uTint;
+uniform float uFlash, uAlpha, uCover;
+in vec3 vN; in vec2 vUV; in vec4 vCol; in vec4 vMat;
+out vec4 outColor;
+void main() {
+  float layer = floor(vMat.w * 255.0 + 0.5);
+  vec4 t = texture(uTex, vec3(vUV, layer));
+  vec3 alb = t.rgb * vCol.rgb; alb *= alb;                       // sRGB-ish -> linear-ish
+  vec3 N = normalize(vN);
+  float spec = vMat.x, shin = 2.0 + vMat.y * 126.0, rim = vMat.z;
+  float ndl = dot(N, uKeyDir);
+  float wrap = clamp((ndl + 0.3) / 1.3, 0.0, 1.0); wrap *= wrap * (3.0 - 2.0 * wrap) * 0.6 + wrap * 0.4;
+  vec3 diff = uKeyCol * wrap + uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5);
+  vec3 H = normalize(uKeyDir + vec3(0.0, 0.0, 1.0));
+  float sp = pow(max(dot(N, H), 0.0), shin) * spec * smoothstep(-0.05, 0.25, ndl);
+  float nz = clamp(N.z, -1.0, 1.0);
+  float fres = pow(1.0 - clamp(abs(nz), 0.0, 1.0), 3.0);
+  vec3 col = alb * diff + uKeyCol * sp + uRim * fres * rim * (0.4 + 0.6 * clamp(-dot(N, uKeyDir) * 0.5 + 0.6, 0.0, 1.0));
+  col *= 1.0 - 0.38 * pow(1.0 - clamp(abs(nz), 0.0, 1.0), 5.0);   // soft dark contour
+  col = sqrt(max(col, 0.0));
+  col = mix(col, uTint.rgb, uTint.a);
+  col = mix(col, vec3(1.0), uFlash);
+  float a = vCol.a * uAlpha;
+  if (uCover > 0.5) outColor = vec4(col, smoothstep(0.44, 0.56, a));   // alpha-to-coverage pass (hair, beard): straight colour, crisp edge
+  else outColor = vec4(col * a, a);                             // premultiplied
+}`;
+
+// ---------------------------------------------------------------------------------------------------------------
+// context
+// ---------------------------------------------------------------------------------------------------------------
+const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), vbo: null, ibo: null, vao: null, size: 1024, white: null, cache: new Map(), a2c: false };
+
+F3D.init = function () {
+  if (G3.gl || F3D.failed) return F3D.ok;
+  try {
+    if (/[?&]flat\b/.test(location.search)) throw new Error('flat requested');
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = G3.size;
+    const gl = cv.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, depth: true, stencil: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('no webgl2');
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); F3D.ok = false; F3D.failed = true; G3.gl = null; G3.cache.clear(); });
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, F3D_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, F3D_FS));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    G3.gl = gl; G3.cv = cv; G3.prog = prog;
+    for (const n of ['uMVP', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
+    G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
+    G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
+    F3D.ok = true;
+  } catch (e) {
+    F3D.failed = true; F3D.ok = false; G3.gl = null;
+    F3D.err = String(e && e.message || e);
+  }
+  return F3D.ok;
+};
+
+F3D.active = function () { return !F3D.off && !F3D.failed && (F3D.ok || F3D.init()); };
+F3D.beginFrame = function () { F3D.stamp++; };
+
+// Vertex array for a mesh that lives on the GPU (static heads etc.) or for the streaming body buffer
+function bindLayout(gl, vbo, ibo) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  const S = VW * 4;
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, S, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 24);
+  gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.UNSIGNED_BYTE, true, S, 32);
+  gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, S, 36);
+}
+function uploadStatic(gl, mesh) {
+  const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, mesh.f.subarray(0, mesh.nv * VW), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.i.subarray(0, mesh.ni), gl.STATIC_DRAW);
+  bindLayout(gl, vbo, ibo);
+  gl.bindVertexArray(null);
+  return { vao, vbo, ibo, n: mesh.ni };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// texture array (one per look): FACE, TORSO, HAIR, BEARD, KNIT, WHITE ... each layer TEXN x TEXN
+// ---------------------------------------------------------------------------------------------------------------
+const TEXN = 256;
+const LAYER = { FACE: 0, TORSO: 1, HAIR: 2, BEARD: 3, KNIT: 4, WHITE: 5, TORSO2: 6, N: 7 };
+function makeTexArray(gl) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 6, gl.RGBA8, TEXN, TEXN, LAYER.N);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  const ext = gl.getExtension('EXT_texture_filter_anisotropic');
+  if (ext) gl.texParameterf(gl.TEXTURE_2D_ARRAY, ext.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+  return t;
+}
+F3D.uploadLayer = function (tex, layer, canvas, mips = true) {
+  const gl = G3.gl;
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, TEXN, TEXN, 1, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+  if (mips) gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+};
+F3D.newTexArray = function () { return makeTexArray(G3.gl); };
+
+// ---------------------------------------------------------------------------------------------------------------
+// stage lighting: a warm key from the front-left, cool fill, and a coloured rim from behind
+// ---------------------------------------------------------------------------------------------------------------
+const STAGE_LIGHT = {
+  plenum:   { key: [1.0, 0.92, 0.8], fill: [0.36, 0.44, 0.62], top: [0.5, 0.46, 0.44], bot: [0.26, 0.2, 0.18], rim: [1.0, 0.8, 0.5] },
+  studio:   { key: [0.86, 0.92, 1.0], fill: [0.5, 0.36, 0.62], top: [0.42, 0.48, 0.62], bot: [0.2, 0.16, 0.28], rim: [0.6, 0.72, 1.0] },
+  cafe:     { key: [1.0, 0.94, 0.82], fill: [0.44, 0.4, 0.36], top: [0.55, 0.5, 0.44], bot: [0.3, 0.24, 0.2], rim: [1.0, 0.86, 0.6] },
+  election: { key: [1.0, 0.9, 0.95], fill: [0.34, 0.4, 0.8], top: [0.4, 0.36, 0.56], bot: [0.24, 0.16, 0.3], rim: [0.7, 0.55, 1.0] },
+  office:   { key: [1.0, 0.9, 0.76], fill: [0.4, 0.38, 0.34], top: [0.5, 0.44, 0.38], bot: [0.28, 0.2, 0.16], rim: [1.0, 0.78, 0.5] },
+};
+F3D.setStage = function (id) { F3D.light = STAGE_LIGHT[id] || STAGE_LIGHT.plenum; };
+
+/* ---- 23-f3d-geo.js ---- */
+// ===== 3D fighters, part 2: mesh building blocks (grids, tubes, ellipsoids, lofts) =====
+
+const WHITE_UV = [0.5, 0.5];        // any texel of the all-white layer
+
+// Smooth-shaded surface from a grid of points P[j * nu + i]. Normals come from the grid itself. `wrapU` closes the seam.
+// `hint` is a point inside the shape: normals are flipped to face away from it.
+// vf(i, j, side) -> { uv:[u,v], col, mat }, or a constant object. `cuts` lists columns whose vertices are duplicated so the
+// two sides can differ (side = -1 for the copy used by the quads to the left, +1 for the right); everything else gets side = 0.
+function gridSurface(mesh, P, nu, nv, wrapU, hint, vf, cuts) {
+  const N = new Array(nu * nv);
+  const at = (i, j) => P[Math.max(0, Math.min(nv - 1, j)) * nu + (wrapU ? (i + nu) % nu : Math.max(0, Math.min(nu - 1, i)))];
+  let flip = 0;
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+    const du = V3.sub(at(i + 1, j), at(i - 1, j)), dv = V3.sub(at(i, j + 1), at(i, j - 1));
+    let n = V3.cross(du, dv);
+    let l = V3.len(n);
+    if (l < 1e-6) { n = V3.sub(P[j * nu + i], hint); l = V3.len(n) || 1; }      // pole: fall back to the radial direction
+    n = V3.mul(n, 1 / l);
+    N[j * nu + i] = n;
+    if (!flip && j > 0 && j < nv - 1) flip = V3.dot(n, V3.sub(P[j * nu + i], hint)) < 0 ? -1 : 1;
+  }
+  if (!flip) flip = 1;
+  const L = new Int32Array(nu * nv), R = new Int32Array(nu * nv);
+  const isCut = (i) => !!cuts && cuts.indexOf(i) >= 0;
+  const put = (k, side) => {
+    const p = P[k], n = N[k], d = typeof vf === 'function' ? vf(k % nu, (k / nu) | 0, side) : vf;
+    return mesh.vert(p[0], p[1], p[2], n[0] * flip, n[1] * flip, n[2] * flip, d.uv[0], d.uv[1], d.col, d.mat);
+  };
+  for (let j = 0; j < nv; j++) for (let i = 0; i < nu; i++) {
+    const k = j * nu + i;
+    if (isCut(i)) { L[k] = put(k, -1); R[k] = put(k, 1); } else L[k] = R[k] = put(k, 0);
+  }
+  const nuq = wrapU ? nu : nu - 1;
+  for (let j = 0; j < nv - 1; j++) for (let i = 0; i < nuq; i++) {
+    const i2 = (i + 1) % nu;
+    const a = R[j * nu + i], b = L[j * nu + i2], c = L[(j + 1) * nu + i2], d = R[(j + 1) * nu + i];
+    if (flip > 0) { mesh.tri(a, b, c); mesh.tri(a, c, d); } else { mesh.tri(a, c, b); mesh.tri(a, d, c); }
+  }
+}
+
+// A tapered tube from a to b (radii r0 -> r1) with a slight muscle bulge. Round caps are added by ellipsoids at the joints.
+// (hand-rolled maths, no temporary arrays: this runs for every limb of every fighter every frame)
+const TRIG = {};
+function trig(n) { let t = TRIG[n]; if (!t) { t = TRIG[n] = { c: new Float32Array(n), s: new Float32Array(n) }; for (let i = 0; i < n; i++) { t.c[i] = Math.cos((i / n) * TAU); t.s[i] = Math.sin((i / n) * TAU); } } return t; }
+function emitTube(mesh, a, b, r0, r1, col, mat, o = {}) {
+  const sides = o.sides || 10, rings = o.rings || 4, bulge = o.bulge === undefined ? 0.07 : o.bulge;
+  let wx = b[0] - a[0], wy = b[1] - a[1], wz = b[2] - a[2];
+  const len = Math.hypot(wx, wy, wz) || 1e-3; wx /= len; wy /= len; wz /= len;
+  // u = normalize(w x ref)
+  let rx = 0, ry = 0, rz = 1; if (Math.abs(wz) > 0.85) { rx = 1; rz = 0; }
+  let ux = wy * rz - wz * ry, uy = wz * rx - wx * rz, uz = wx * ry - wy * rx; const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
+  const vx = wy * uz - wz * uy, vy = wz * ux - wx * uz, vz = wx * uy - wy * ux;
+  const slope = (r0 - r1) / len, uv = o.uv || WHITE_UV, T = trig(sides), base = mesh.nv;
+  for (let k = 0; k < rings; k++) {
+    const t = k / (rings - 1), r = (r0 + (r1 - r0) * t) * (1 + bulge * Math.sin(Math.PI * t));
+    const cx = a[0] + (b[0] - a[0]) * t, cy = a[1] + (b[1] - a[1]) * t, cz = a[2] + (b[2] - a[2]) * t;
+    for (let s = 0; s < sides; s++) {
+      const cp = T.c[s], sp = T.s[s];
+      const dx = ux * cp + vx * sp, dy = uy * cp + vy * sp, dz = uz * cp + vz * sp;
+      let nx = dx + wx * slope, ny = dy + wy * slope, nz = dz + wz * slope; const nl = Math.hypot(nx, ny, nz) || 1;
+      mesh.vert(cx + dx * r, cy + dy * r, cz + dz * r, nx / nl, ny / nl, nz / nl, uv[0], uv[1], col, mat);
+    }
+  }
+  for (let k = 0; k < rings - 1; k++) for (let s = 0; s < sides; s++) {
+    const s2 = (s + 1) % sides, i00 = base + k * sides + s, i10 = base + k * sides + s2, i11 = base + (k + 1) * sides + s2, i01 = base + (k + 1) * sides + s;
+    mesh.tri(i00, i10, i01); mesh.tri(i10, i11, i01);
+  }
+}
+
+// Ellipsoid with three (scaled) axis vectors. Good for joints, hands, feet, ears.
+function emitEllipsoid(mesh, c, ax, ay, az, col, mat, o = {}) {
+  const nu = o.nu || 10, nv = o.nv || 7, uv = o.uv || WHITE_UV, T = trig(nu), base = mesh.nv;
+  const la = Math.hypot(ax[0], ax[1], ax[2]) || 1e-3, lb = Math.hypot(ay[0], ay[1], ay[2]) || 1e-3, lc = Math.hypot(az[0], az[1], az[2]) || 1e-3;
+  const hand = (ax[1] * ay[2] - ax[2] * ay[1]) * az[0] + (ax[2] * ay[0] - ax[0] * ay[2]) * az[1] + (ax[0] * ay[1] - ax[1] * ay[0]) * az[2] >= 0;
+  for (let j = 0; j < nv; j++) {
+    const lat = -Math.PI / 2 + (j / (nv - 1)) * Math.PI, cl = Math.cos(lat), sl = Math.sin(lat);
+    for (let i = 0; i < nu; i++) {
+      const x = cl * T.c[i], z = cl * T.s[i];
+      const px = c[0] + ax[0] * x + ay[0] * sl + az[0] * z, py = c[1] + ax[1] * x + ay[1] * sl + az[1] * z, pz = c[2] + ax[2] * x + ay[2] * sl + az[2] * z;
+      const fx = x / la, fy = sl / lb, fz = z / lc;
+      let nx = ax[0] / la * fx + ay[0] / lb * fy + az[0] / lc * fz, ny = ax[1] / la * fx + ay[1] / lb * fy + az[1] / lc * fz, nz = ax[2] / la * fx + ay[2] / lb * fy + az[2] / lc * fz;
+      const nl = Math.hypot(nx, ny, nz) || 1;
+      mesh.vert(px, py, pz, nx / nl, ny / nl, nz / nl, uv[0], uv[1], col, mat);
+    }
+  }
+  for (let j = 0; j < nv - 1; j++) for (let i = 0; i < nu; i++) {
+    const i2 = (i + 1) % nu, a = base + j * nu + i, b = base + j * nu + i2, cc = base + (j + 1) * nu + i2, d = base + (j + 1) * nu + i;
+    if (hand) { mesh.tri(a, cc, b); mesh.tri(a, d, cc); } else { mesh.tri(a, b, cc); mesh.tri(a, cc, d); }
+  }
+}
+const sphere = (mesh, c, r, col, mat, o) => emitEllipsoid(mesh, c, [r, 0, 0], [0, r, 0], [0, 0, r], col, mat, o);
+
+// Cross-section ring parametrisation used by the torso: point(theta) = c + fw * cos(theta) + ax * sin(theta)
+function ringPts(c, fw, ax, n, t0 = 0, t1 = TAU) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const th = t0 + (t1 - t0) * (i / (n - (t1 - t0 >= TAU - 1e-6 ? 0 : 1))), cs = Math.cos(th), sn = Math.sin(th);
+    out.push([c[0] + fw[0] * cs + ax[0] * sn, c[1] + fw[1] * cs + ax[1] * sn, c[2] + fw[2] * cs + ax[2] * sn]);
+  }
+  return out;
+}
+
+// Flat disc / fan closing an open ring. `up` is the outward direction.
+function emitCap(mesh, ring, center, up, col, mat, uv = WHITE_UV) {
+  const b0 = mesh.vert(center[0], center[1], center[2], up[0], up[1], up[2], uv[0], uv[1], col, mat);
+  const base = mesh.nv, n = ring.length;
+  for (const p of ring) mesh.vert(p[0], p[1], p[2], up[0], up[1], up[2], uv[0], uv[1], col, mat);
+  for (let i = 0; i < n; i++) {
+    const a = base + i, b = base + (i + 1) % n;
+    // choose the winding that faces `up`
+    const pa = ring[i], pb = ring[(i + 1) % n];
+    const nn = V3.cross(V3.sub(pa, center), V3.sub(pb, center));
+    if (V3.dot(nn, up) >= 0) mesh.tri(b0, a, b); else mesh.tri(b0, b, a);
+  }
+}
+
+// Transform a static mesh into another mesh (used to stamp shoes, hands, ... with a matrix). Colours can be overridden.
+function stamp(dst, src, m, nm, col, mat) {
+  const base = dst.nv, sf = src.f;
+  for (let k = 0; k < src.nv; k++) {
+    const o = k * VW;
+    const x = sf[o], y = sf[o + 1], z = sf[o + 2], nx = sf[o + 3], ny = sf[o + 4], nz = sf[o + 5];
+    const px = m[0] * x + m[4] * y + m[8] * z + m[12], py = m[1] * x + m[5] * y + m[9] * z + m[13], pz = m[2] * x + m[6] * y + m[10] * z + m[14];
+    let qx = nm[0] * nx + nm[3] * ny + nm[6] * nz, qy = nm[1] * nx + nm[4] * ny + nm[7] * nz, qz = nm[2] * nx + nm[5] * ny + nm[8] * nz;
+    const l = Math.hypot(qx, qy, qz) || 1;
+    dst.vert(px, py, pz, qx / l, qy / l, qz / l, sf[o + 6], sf[o + 7], col === undefined ? src.u[o + 8] : col, mat === undefined ? src.u[o + 9] : mat);
+  }
+  for (let k = 0; k + 2 < src.ni; k += 3) dst.tri(base + src.i[k], base + src.i[k + 1], base + src.i[k + 2]);
+}
+
+// Smoothstep helper
+const sstep = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+/* ---- 24-f3d-paint.js ---- */
+// ===== 3D fighters, part 3: the textures. Each person gets a texture array: face, torso front, hair, beard, kippah knit, white. =====
+// Painted with the 2D canvas in a frontal view; the face is planar-projected onto the head from the front.
+
+const FT = 6.4;                                    // face texture: pixels per head unit (covers l in [-20,20], y in [-22,18])
+const faceX = (l) => 128 + l * FT;
+const faceY = (y) => 115.2 - y * FT;
+const TOR_X = (l) => (l + 27) * (TEXN / 54);       // torso front texture: lateral l in [-27,27], height u in [-8,56]
+const TOR_Y = (u) => (56 - u) * (TEXN / 64);
+const ident = (c) => c;
+
+function texCanvas() {
+  const c = document.createElement('canvas'); c.width = c.height = TEXN;
+  return c;
+}
+function seededRng(seed) { let a = seed >>> 0; return () => { a = (Math.imul(a, 1664525) + 1013904223) >>> 0; return a / 4294967296; }; }
+
+// ---------------------------------------------------------------------------------------------------------------
+// FACE
+// ---------------------------------------------------------------------------------------------------------------
+function paintMouth3(c, m, pal, look) {
+  const female = !!look.female, lip = pal.lip, dark = '#3d1019';
+  c.save(); c.translate(faceX(0), faceY(-12.2)); c.scale(FT, -FT);      // units, y up
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  const line = 'rgba(38,12,14,.85)';
+  const lips = (w, up, lo) => {                                       // closed lips: cupid's bow on top, fuller lower lip
+    c.globalAlpha = female ? 0.92 : 0.55; c.fillStyle = lip;
+    c.beginPath(); c.moveTo(-w, 0); c.bezierCurveTo(-w * 0.5, up * 0.9, -w * 0.18, up * 1.25, 0, up * 0.85); c.bezierCurveTo(w * 0.18, up * 1.25, w * 0.5, up * 0.9, w, 0);
+    c.bezierCurveTo(w * 0.5, 0.35, -w * 0.5, 0.35, -w, 0); c.fill();
+    c.beginPath(); c.moveTo(-w * 0.95, -0.05); c.bezierCurveTo(-w * 0.5, -lo * 1.3, w * 0.5, -lo * 1.3, w * 0.95, -0.05); c.bezierCurveTo(w * 0.5, 0.2, -w * 0.5, 0.2, -w * 0.95, -0.05); c.fill();
+    c.globalAlpha = 1;
+  };
+  c.lineWidth = 0.55; c.strokeStyle = line;
+  if (m === 'closed') { lips(6.6, 1.5, 2.1); c.beginPath(); c.moveTo(-6.6, 0); c.quadraticCurveTo(0, -0.7, 6.6, 0); c.stroke(); }
+  else if (m === 'smile') { lips(6.8, 1.4, 2.1); c.beginPath(); c.moveTo(-7, 0.9); c.quadraticCurveTo(0, -1.5, 7, 0.9); c.stroke(); }
+  else if (m === 'sad') { lips(6.2, 1.3, 1.9); c.beginPath(); c.moveTo(-6.4, -0.8); c.quadraticCurveTo(0, 1.1, 6.4, -0.8); c.stroke(); }
+  else if (m === 'o') {
+    c.fillStyle = dark; c.beginPath(); c.ellipse(0, -1.4, 3.1, 4.1, 0, 0, TAU); c.fill();
+    c.strokeStyle = lip; c.lineWidth = 1.05; c.stroke();
+  } else if (m === 'grin') {
+    c.fillStyle = dark; c.beginPath(); c.moveTo(-7.4, 1.1); c.quadraticCurveTo(0, -1.2, 7.4, 1.1); c.quadraticCurveTo(0, -6.6, -7.4, 1.1); c.fill();
+    c.fillStyle = '#f6f2ea'; c.beginPath(); c.moveTo(-6.6, 0.9); c.quadraticCurveTo(0, -0.9, 6.6, 0.9); c.lineTo(6.2, -0.7); c.quadraticCurveTo(0, -2.4, -6.2, -0.7); c.fill();
+    c.strokeStyle = lip; c.lineWidth = 0.9; c.beginPath(); c.moveTo(-7.4, 1.1); c.quadraticCurveTo(0, -6.6, 7.4, 1.1); c.stroke();
+    c.beginPath(); c.moveTo(-7.4, 1.1); c.quadraticCurveTo(0, -1.2, 7.4, 1.1); c.stroke();
+  } else {   // open / shout
+    const big = m === 'shout' ? 1 : 0.7;
+    c.fillStyle = dark; c.beginPath(); c.moveTo(-6.4, 1); c.quadraticCurveTo(0, 0.1, 6.4, 1); c.quadraticCurveTo(6.2, -6 * big - 1, 0, -7 * big - 1); c.quadraticCurveTo(-6.2, -6 * big - 1, -6.4, 1); c.fill();
+    c.save(); c.clip();
+    c.fillStyle = '#f6f2ea'; c.beginPath(); c.moveTo(-7, 1.4); c.quadraticCurveTo(0, 0.6, 7, 1.4); c.lineTo(7, -1.5); c.quadraticCurveTo(0, -0.6, -7, -1.5); c.fill();
+    c.fillStyle = '#c85a6c'; c.beginPath(); c.ellipse(0, -5.2 * big - 1, 3.8, 2.2 * big + 0.5, 0, 0, TAU); c.fill();
+    c.restore();
+    c.strokeStyle = lip; c.lineWidth = 0.9;
+    c.beginPath(); c.moveTo(-6.4, 1); c.quadraticCurveTo(0, 0.1, 6.4, 1); c.stroke();
+    c.beginPath(); c.moveTo(-6.4, 1); c.quadraticCurveTo(-6.2, -6 * big - 1, 0, -7 * big - 1); c.quadraticCurveTo(6.2, -6 * big - 1, 6.4, 1); c.stroke();
+  }
+  c.restore();
+}
+
+function paintBrow3(c, side, e, look, pal) {
+  const bw = (look.brow || 2.5) * 0.62;
+  let inY = 8.6, midY = 10.6, outY = 8.9;
+  if (e === 'angry') { inY = 7.0; midY = 9.4; outY = 9.6; }
+  else if (e === 'hurt') { inY = 10.4; midY = 10.8; outY = 8.0; }
+  else if (e === 'squint') { inY = 7.8; midY = 9.2; outY = 8.0; }
+  else if (e === 'happy') { inY = 8.8; midY = 11.4; outY = 9.4; }
+  else if (e === 'ko') { inY = 9.6; midY = 10.6; outY = 8.4; }
+  c.save(); c.translate(faceX(side * 6.0), faceY(0)); c.scale(side * FT, -FT);
+  c.lineCap = 'round'; c.strokeStyle = pal.brow;
+  const pts = [[-3.6, inY], [-0.8, midY - 0.2], [2.4, midY], [5.2, outY]];
+  for (let pass = 0; pass < 3; pass++) {
+    c.lineWidth = bw * (1 - pass * 0.28); c.globalAlpha = pass === 0 ? 1 : 0.7;
+    c.beginPath(); c.moveTo(pts[0][0], pts[0][1] - pass * 0.15);
+    c.bezierCurveTo(pts[1][0], pts[1][1] + pass * 0.12, pts[2][0], pts[2][1] + pass * 0.1, pts[3][0], pts[3][1]); c.stroke();
+  }
+  c.globalAlpha = 0.5; c.strokeStyle = pal.hairL || '#fff'; c.lineWidth = bw * 0.18;
+  c.beginPath(); c.moveTo(-3, inY + 0.4); c.bezierCurveTo(-0.5, midY + 0.3, 2.4, midY + 0.4, 5, outY + 0.3); c.stroke();
+  c.restore();
+}
+
+function paintFace(c, look, pal, eyes, mouth, lookX) {
+  const age = look.age || 0, female = !!look.female;
+  c.clearRect(0, 0, TEXN, TEXN);
+  c.fillStyle = pal.skin; c.fillRect(0, 0, TEXN, TEXN);
+  // gentle form shading (keeps the outer margin plain so the seam to the back of the head is invisible)
+  let g = c.createRadialGradient(faceX(0.5), faceY(3), 6, faceX(0), faceY(-2), 96);
+  g.addColorStop(0, rgba(rgbHex(pal.skinL), 0.55)); g.addColorStop(0.55, rgba(rgbHex(pal.skinL), 0.14)); g.addColorStop(1, rgba(rgbHex(pal.skinL), 0));
+  c.fillStyle = g; c.fillRect(0, 0, TEXN, TEXN);
+  const soft = (x, y, rx, ry, col, a, rot = 0) => {
+    c.save(); c.translate(faceX(x), faceY(y)); c.rotate(rot); c.scale(rx * FT, ry * FT);
+    const gg = c.createRadialGradient(0, 0, 0, 0, 0, 1); gg.addColorStop(0, rgba(col, a)); gg.addColorStop(1, rgba(col, 0));
+    c.fillStyle = gg; c.fillRect(-1, -1, 2, 2); c.restore();
+  };
+  const shade = rgbHex(pal.skinDD);
+  soft(0, -19.5, 9, 3.4, shade, 0.34);                 // under the chin
+  soft(-11.6, 4, 3.2, 8.5, shade, 0.22); soft(11.6, 4, 3.2, 8.5, shade, 0.22);        // temples
+  soft(-11.2, -9, 3.4, 8, shade, 0.2); soft(11.2, -9, 3.4, 8, shade, 0.2);            // jaw sides
+  soft(0, -7.8, 4.4, 1.5, shade, 0.34);                // under the nose
+  soft(-5.6, 3.6, 6.4, 4.4, shade, 0.16 + 0.1 * age); soft(5.6, 3.6, 6.4, 4.4, shade, 0.16 + 0.1 * age);   // eye sockets
+  soft(-5.4, 0.2, 5.4, 1.5, shade, 0.1 + 0.16 * age); soft(5.4, 0.2, 5.4, 1.5, shade, 0.1 + 0.16 * age);   // eye bags
+  soft(0, 7.6, 2.4, 3.4, rgbHex(pal.skinL), 0.2);       // nose bridge / glabella highlight
+  soft(-7.8, -3.6, 4.6, 3.6, female ? '#e0687a' : '#e07a6a', female ? 0.2 : 0.13); soft(7.8, -3.6, 4.6, 3.6, female ? '#e0687a' : '#e07a6a', female ? 0.2 : 0.13);   // cheeks
+  soft(0, 14.4, 8, 3.4, rgbHex(pal.skinL), 0.2);        // forehead
+  soft(0, -12.4, 9.4, 4.2, rgbHex(pal.skinDD), 0.07);   // around the mouth
+
+  // stubble / beard base
+  const hc = look.hair ? look.hair.color : '#333333', hcol = HEX.test(hc) ? hc : '#333333';
+  if (look.beard) {
+    soft(0, -14.5, 11, 6.5, look.beard.color, 0.5);
+  } else if (look.stubble) {
+    const st = look.stubble, rng = seededRng(77);
+    c.save(); c.beginPath(); c.ellipse(faceX(0), faceY(-10.5), 12.6 * FT, 11 * FT, 0, 0, TAU); c.clip();
+    c.fillStyle = rgba(hcol, 0.05 + 0.1 * st); c.fillRect(0, faceY(-3), TEXN, TEXN);
+    c.fillStyle = rgba(hcol, 0.32 + 0.35 * st);
+    for (let i = 0; i < 700; i++) { const x = rng() * TEXN, y = faceY(-21) + rng() * (faceY(-4) - faceY(-21)); c.fillRect(x, y, 1.3, 1.3); }
+    c.restore();
+  }
+
+  // eyes
+  const K = 0.9 * FT;
+  for (const side of [-1, 1]) {
+    c.save(); c.translate(faceX(side * 5.7), faceY(3.5)); c.scale(side, 1);
+    drawEye(c, 0, 0, K, eyes, look, ident, 0.3, false);
+    c.restore();
+  }
+  paintBrow3(c, -1, eyes, look, pal); paintBrow3(c, 1, eyes, look, pal);
+
+  // nose shading (the shape itself is geometry)
+  c.fillStyle = 'rgba(46,14,10,.5)';
+  for (const s of [-1, 1]) { c.beginPath(); c.ellipse(faceX(s * 2.1), faceY(-7.2), 1.0 * FT, 0.6 * FT, s * 0.35, 0, TAU); c.fill(); }
+  soft(0, -5.7, 1.8, 1.2, rgbHex(pal.skinL), 0.5);
+
+  // age lines
+  if (age > 0.05) {
+    c.strokeStyle = `rgba(70,30,25,${0.14 + 0.32 * age})`; c.lineWidth = 0.7 * FT / 1.6; c.lineCap = 'round';
+    const L = (x0, y0, x1, y1, qx, qy) => { c.beginPath(); c.moveTo(faceX(x0), faceY(y0)); c.quadraticCurveTo(faceX(qx), faceY(qy), faceX(x1), faceY(y1)); c.stroke(); };
+    for (const s of [-1, 1]) {
+      L(s * 4.6, -5.4, s * 7.8, -11.6, s * 6.9, -7.6);                              // nasolabial fold
+      L(s * 9.4, 4.0, s * 12.4, 5.4, s * 10.9, 4.9); L(s * 9.3, 3.0, s * 12.5, 2.8, s * 10.9, 3.0);   // crow's feet
+      if (age > 0.5) L(s * 3.6, -14.8, s * 6.4, -13.6, s * 5, -14.8);
+    }
+    if (age > 0.3) { L(-6.6, 12.8, 6.6, 12.8, 0, 13.6); L(-7.4, 15.0, 7.4, 15.0, 0, 15.9); }
+    if (age > 0.55) L(-6, 11.0, 6, 11.0, 0, 11.6);
+  }
+  paintMouth3(c, mouth, pal, look);
+  // philtrum + lip corners hint
+  soft(0, -9.2, 1.2, 1.4, rgbHex(pal.skinDD), 0.16);
+  // moustache painted under the geometry (so it still shows if the shell is thin)
+  if (look.stache || (look.beard && look.beard.stache !== false)) {
+    const sc = look.stache || look.beard.color;
+    c.save(); c.translate(faceX(0), faceY(-9.4)); c.scale(FT, -FT);
+    c.fillStyle = rgba(sc, 0.9);
+    c.beginPath(); c.moveTo(-7.6, -0.6); c.bezierCurveTo(-5, 2.6, -1.2, 2.2, 0, 1.2); c.bezierCurveTo(1.2, 2.2, 5, 2.6, 7.6, -0.6); c.bezierCurveTo(4.6, 0.2, 1.6, -0.2, 0, -0.5); c.bezierCurveTo(-1.6, -0.2, -4.6, 0.2, -7.6, -0.6); c.fill();
+    c.restore();
+  }
+}
+const rgbHex = (c) => { const m = String(c).match(/[\d.]+/g); if (c[0] === '#') { const v = rgb(c); return '#' + v.map((x) => x.toString(16).padStart(2, '0')).join(''); } return '#' + [m[0], m[1], m[2]].map((x) => Math.round(x).toString(16).padStart(2, '0')).join(''); };
+
+// ---------------------------------------------------------------------------------------------------------------
+// TORSO FRONT (jacket, shirt, tie, lapels), planar from the front
+// ---------------------------------------------------------------------------------------------------------------
+function paintTorso(c, look, pal) {
+  c.clearRect(0, 0, TEXN, TEXN);
+  c.fillStyle = pal.suit; c.fillRect(0, 0, TEXN, TEXN);
+  const P = (l, u) => [TOR_X(l), TOR_Y(u)];
+  const poly = (pts, fill, stroke, lw) => {
+    c.beginPath(); pts.forEach(([l, u], i) => { const [x, y] = P(l, u); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.closePath();
+    if (fill) { c.fillStyle = fill; c.fill(); }
+    if (stroke) { c.lineWidth = lw || 1.4; c.strokeStyle = stroke; c.lineJoin = 'round'; c.stroke(); }
+  };
+  const open = !!look.open, INKC = 'rgba(15,8,30,.55)';
+  // shirt V
+  poly([[-6.6, 54.5], [6.6, 54.5], [0, 25.5]], pal.shirt, INKC, 1.3);
+  if (open) poly([[-4.6, 54.5], [4.6, 54.5], [0, 39]], pal.skin, 'rgba(60,25,15,.4)', 1);
+  // collar wings
+  poly([[-6.6, 54.5], [-1.4, 49], [-9.6, 46.4]], pal.shirt, INKC, 1.2);
+  poly([[6.6, 54.5], [1.4, 49], [9.6, 46.4]], pal.shirt, INKC, 1.2);
+  // tie
+  if (look.tie && !open) {
+    const tc = look.tie, td = darken(tc, 0.3);
+    const [x0] = P(-3, 0), [x1] = P(3, 0);
+    const g = c.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, td); g.addColorStop(0.5, tc); g.addColorStop(1, td);
+    poly([[-2.6, 49], [2.6, 49], [3.7, 33], [0, 25.2], [-3.7, 33]], g, INKC, 1.2);
+    poly([[-3.4, 53.6], [3.4, 53.6], [3, 49], [-3, 49]], tc, INKC, 1.2);
+  }
+  // lapels
+  const lap = pal.suitL;
+  poly([[-6.6, 54.5], [-14.8, 46.6], [-11.4, 33], [0, 25.5], [-5, 34], [-4.6, 47.8]], lap, INKC, 1.3);
+  poly([[6.6, 54.5], [14.8, 46.6], [11.4, 33], [0, 25.5], [5, 34], [4.6, 47.8]], lap, INKC, 1.3);
+  // centre line + buttons + hem shadow
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1.2; c.beginPath(); const [ax, ay] = P(0, 25.5), [bx, by] = P(0, -8); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke();
+  c.fillStyle = pal.suitDD;
+  for (const u of [20, 8]) { const [x, y] = P(1.2, u); c.beginPath(); c.arc(x, y, 3, 0, TAU); c.fill(); c.lineWidth = 0.8; c.strokeStyle = 'rgba(255,255,255,.25)'; c.stroke(); }
+  // pocket square + pin
+  c.strokeStyle = 'rgba(0,0,0,.3)'; c.lineWidth = 1.1; const [px, py] = P(-16, 33.6), [px2] = P(-9.8, 0); c.beginPath(); c.moveTo(px, py); c.lineTo(px2, py - 1.5); c.stroke();
+  poly([[-15.6, 34], [-13.2, 37.6], [-10.4, 34.4]], look.tie || '#ffffff', INKC, 0.9);
+  if (look.pin) { const [x, y] = P(11.8, 43.4); c.beginPath(); c.arc(x, y, 3.2, 0, TAU); c.fillStyle = look.pin; c.fill(); c.lineWidth = 0.9; c.strokeStyle = INKC; c.stroke(); }
+  // fabric folds
+  c.strokeStyle = 'rgba(0,0,0,.14)'; c.lineWidth = 1.6; c.lineCap = 'round';
+  for (const [l0, u0, l1, u1, ql, qu] of [[-15, 17, -3, 14, -9, 12.5], [4, 15, 15, 17, 9.5, 13], [-14, 30, -9, 22, -12.5, 25], [13.5, 30, 10, 21, 12.6, 25]]) {
+    const [x0, y0] = P(l0, u0), [x1, y1] = P(l1, u1), [xq, yq] = P(ql, qu); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(xq, yq, x1, y1); c.stroke();
+  }
+  c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.2;
+  for (const [l0, u0, l1, u1, ql, qu] of [[-15, 19, -3, 16, -9, 14.5], [4, 17, 15, 19, 9.5, 15]]) {
+    const [x0, y0] = P(l0, u0), [x1, y1] = P(l1, u1), [xq, yq] = P(ql, qu); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(xq, yq, x1, y1); c.stroke();
+  }
+  // plain corner used by the back of the jacket
+  c.fillStyle = pal.suit; c.fillRect(TEXN - 40, TEXN - 40, 40, 40);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// HAIR / BEARD strands, KIPPAH knit, WHITE
+// ---------------------------------------------------------------------------------------------------------------
+function paintStrands(c, color, seed, dense) {
+  const base = HEX.test(color) ? color : '#333333', rng = seededRng(seed);
+  c.fillStyle = base; c.fillRect(0, 0, TEXN, TEXN);
+  const cols = [lighten(base, 0.28), lighten(base, 0.14), darken(base, 0.2), darken(base, 0.36)];
+  c.lineCap = 'round';
+  for (let i = 0; i < (dense || 700); i++) {
+    const x = rng() * TEXN, y0 = rng() * TEXN, len = 26 + rng() * 90, w = 0.6 + rng() * 1.3;
+    c.strokeStyle = cols[(rng() * cols.length) | 0]; c.globalAlpha = 0.12 + rng() * 0.26; c.lineWidth = w;
+    c.beginPath(); c.moveTo(x, y0); c.quadraticCurveTo(x + (rng() - 0.5) * 9, y0 + len * 0.5, x + (rng() - 0.5) * 5, y0 + len); c.stroke();
+    if (y0 + len > TEXN) { c.beginPath(); c.moveTo(x, y0 - TEXN); c.quadraticCurveTo(x + (rng() - 0.5) * 9, y0 + len * 0.5 - TEXN, x + (rng() - 0.5) * 5, y0 + len - TEXN); c.stroke(); }
+  }
+  c.globalAlpha = 1;
+}
+function paintKnit(c, kip) {
+  c.fillStyle = kip ? kip.color : '#222'; c.fillRect(0, 0, TEXN, TEXN);
+  if (!kip || !kip.knit) { c.fillStyle = 'rgba(255,255,255,.06)'; for (let y = 0; y < TEXN; y += 6) c.fillRect(0, y, TEXN, 2); return; }
+  c.fillStyle = kip.knit;
+  for (const [y0, y1] of [[46, 58], [108, 120], [168, 178], [214, 220]]) c.fillRect(0, y0, TEXN, y1 - y0);
+  c.fillStyle = darken(kip.color, 0.25);
+  for (let x = 0; x < TEXN; x += 16) for (const y of [84, 144, 196]) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + 8, y + 10); c.lineTo(x + 16, y); c.closePath(); c.fill(); }
+}
+function paintWhite(c) { c.fillStyle = '#ffffff'; c.fillRect(0, 0, TEXN, TEXN); }
+
+// ---------------------------------------------------------------------------------------------------------------
+// the boss: a walking ballot box (torso label + robot face)
+// ---------------------------------------------------------------------------------------------------------------
+function paintRobotTorso(c, look) {
+  c.fillStyle = look.suit; c.fillRect(0, 0, TEXN, TEXN);
+  const g = c.createLinearGradient(0, 0, TEXN, 0); g.addColorStop(0, 'rgba(0,0,0,.18)'); g.addColorStop(0.5, 'rgba(255,255,255,.1)'); g.addColorStop(1, 'rgba(0,0,0,.2)');
+  c.fillStyle = g; c.fillRect(0, 0, TEXN, TEXN);
+  c.fillStyle = '#ffd23d'; c.fillRect(28, 205, 200, 16);
+  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 3; c.strokeRect(28, 205, 200, 16);
+  c.fillStyle = '#ffffff'; c.strokeStyle = '#1b1330'; c.lineWidth = 4; c.fillRect(104, 40, 48, 40); c.strokeRect(104, 40, 48, 40);   // ballot slip
+  c.font = '900 50px "Secular One", Arial, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+  c.lineWidth = 9; c.strokeStyle = '#1b1330'; c.strokeText('3.25%', 128, 140); c.fillStyle = '#ffffff'; c.fillText('3.25%', 128, 140);
+  c.fillStyle = look.suit; c.fillRect(TEXN - 40, TEXN - 40, 40, 40);
+}
+function paintRobotFace(c, look, eyes, mouth) {
+  c.clearRect(0, 0, TEXN, TEXN);
+  const g = c.createLinearGradient(0, 0, 0, TEXN); g.addColorStop(0, '#e6ebf5'); g.addColorStop(1, '#8d97ab');
+  c.fillStyle = g; c.fillRect(0, 0, TEXN, TEXN);
+  c.fillStyle = '#12163a'; c.beginPath(); c.roundRect ? c.roundRect(faceX(-12.2), faceY(6), 24.4 * FT, 15 * FT, 12) : c.rect(faceX(-12.2), faceY(6), 24.4 * FT, 15 * FT); c.fill();
+  const col = eyes === 'hurt' || eyes === 'ko' ? '#ff5a7a' : eyes === 'happy' ? '#7dff9a' : '#6ff0ff';
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 3.4 * FT / 3; c.lineCap = 'round';
+  for (const s of [-1, 1]) {
+    const ex = faceX(s * 6.6), ey = faceY(-1.2);
+    if (eyes === 'ko') { c.beginPath(); c.moveTo(ex - 15, ey - 14); c.lineTo(ex + 15, ey + 14); c.moveTo(ex + 15, ey - 14); c.lineTo(ex - 15, ey + 14); c.stroke(); }
+    else if (eyes === 'happy') { c.beginPath(); c.arc(ex, ey + 8, 18, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+    else if (eyes === 'angry') { c.beginPath(); c.moveTo(ex - 18, ey - 22 + (s > 0 ? 8 : 0)); c.lineTo(ex + 18, ey - 6 - (s > 0 ? 8 : 0)); c.lineTo(ex + 18, ey + 16); c.lineTo(ex - 18, ey + 16); c.closePath(); c.fill(); }
+    else { c.beginPath(); c.ellipse(ex, ey, 15, eyes === 'squint' ? 7 : 19, 0, 0, TAU); c.fill(); }
+  }
+  const open = mouth === 'shout' || mouth === 'open' || mouth === 'o' ? 34 : 14;
+  c.fillStyle = '#1b1330'; c.fillRect(faceX(-9), faceY(-8.5), 18 * FT, open + 6);
+  c.fillStyle = '#ffffff'; c.fillRect(faceX(-8), faceY(-8.5) + 3, 16 * FT, 6);
+  c.fillStyle = '#5b6478'; for (const [x, y] of [[-14, 14], [14, 14], [-14, -16], [14, -16]]) { c.beginPath(); c.arc(faceX(x), faceY(y), 5, 0, TAU); c.fill(); }
+  c.fillStyle = '#e6ebf5'; c.fillRect(0, 0, TEXN, 6);
+}
+
+/* ---- 25-f3d-head.js ---- */
+// ===== 3D fighters, part 4: the head. A displaced ellipsoid with a nose, ears, hair / beard shells, kippah, hat and glasses. =====
+// Head space: x forward, y up, z lateral (towards the camera). One unit = one head unit (the head is about 44 tall).
+
+const HD = { Rf: 18.2, Ry: 21.4, Rl: 16.0 };
+const bump = (x, c, w) => { const d = (x - c) / w; return Math.exp(-d * d); };
+const wrapPi = (a) => { a = (a + Math.PI) % TAU; if (a < 0) a += TAU; return a - Math.PI; };
+const ipoly = (xs, ys, x) => {                       // piecewise-linear lookup
+  if (x <= xs[0]) return ys[0];
+  for (let i = 0; i < xs.length - 1; i++) if (x <= xs[i + 1]) return ys[i] + (ys[i + 1] - ys[i]) * ((x - xs[i]) / (xs[i + 1] - xs[i]));
+  return ys[ys.length - 1];
+};
+
+// Point on the (displaced) skull for longitude th (0 = straight ahead, +pi/2 = the near side) and latitude ph (-pi/2 chin .. +pi/2 crown)
+function headPt(th, ph, look) {
+  const cp = Math.cos(ph), sp = Math.sin(ph), ct = Math.cos(th), st = Math.sin(th);
+  const jk = look.jaw || 1, female = !!look.female;
+  const low = sstep(0.1, -1.2, ph);                                   // 0 above the cheeks .. 1 at the chin
+  let f = HD.Rf * cp * ct, y = HD.Ry * sp, l = HD.Rl * cp * st;
+  l *= 1 - low * (0.34 - (jk - 1) * 0.55 - (female ? 0.05 : 0));
+  f *= 1 - 0.05 * low;
+  const at = Math.abs(th);
+  f += 0.9 * bump(ph, 0.78, 0.26) * bump(th, 0, 0.6);                                                // forehead
+  f += (female ? 0.8 : 1.5) * bump(ph, 0.36, 0.13) * bump(at, 0.38, 0.55);                          // brow ridge
+  f -= 1.4 * bump(ph, 0.14, 0.15) * bump(at, 0.36, 0.17);                                            // eye sockets
+  l += Math.sign(st) * 0.8 * bump(ph, -0.1, 0.22) * bump(at, 0.85, 0.3);                             // cheekbones
+  f += 1.0 * bump(ph, -0.66, 0.1) * bump(th, 0, 0.28);                                               // upper lip
+  f += 1.6 * bump(ph, -0.88, 0.12) * bump(th, 0, 0.26);                                              // lower lip
+  f += (2.0 + (jk - 1) * 3) * bump(ph, -1.12, 0.16) * bump(th, 0, 0.42);                            // chin
+  l += Math.sign(st) * 0.9 * bump(ph, -0.72, 0.2) * bump(at, 1.25, 0.3) * jk;                        // jaw angle
+  f -= 0.8 * bump(ph, 0.1, 0.35) * bump(Math.PI - at, 0, 0.6);                                       // back of the skull
+  return [f, y, l];
+}
+function ellNormal(p) { return V3.norm([p[0] / (HD.Rf * HD.Rf), p[1] / (HD.Ry * HD.Ry), p[2] / (HD.Rl * HD.Rl)]); }
+
+function headGrid(look, nu, nv) {
+  const P = [], TH = [], PH = [];
+  for (let j = 0; j < nv; j++) {
+    const ph = -Math.PI / 2 + (j / (nv - 1)) * Math.PI;
+    for (let i = 0; i < nu; i++) { const th = -Math.PI + (i / (nu - 1)) * TAU; TH.push(th); PH.push(ph); P.push(headPt(th, ph, look)); }
+  }
+  return { P, TH, PH, nu, nv };
+}
+
+// hairline latitude by style and angle from the front (knots: at = 0, .5, 1, 1.4, 1.9, 2.5, pi)
+const HAIRLINE = {
+  crop:  [0.66, 0.60, 0.40, 0.34, 0.03, -0.32, -0.38],
+  swoop: [0.76, 0.62, 0.52, 0.36, 0.03, -0.30, -0.38],
+  part:  [0.70, 0.62, 0.44, 0.34, 0.04, -0.32, -0.38],
+  wavy:  [0.64, 0.58, 0.42, 0.30, -0.05, -0.5, -0.56],
+};
+const HL_AT = [0, 0.5, 1.0, 1.4, 1.9, 2.5, Math.PI];
+const hairline = (k, at) => ipoly(HL_AT, k, at);
+
+function buildHeadMeshes(look, pal) {
+  const skinMesh = new Mesh(3200, 15000), hairMesh = new Mesh(14000, 60000), accMesh = new Mesh(2600, 12000);
+  const G = headGrid(look, 49, 33);
+  const skinCol = packRGBA(1, 1, 1, 1);
+  const skinMat = packMat(0.24, 0.3, 0.5, LAYER.FACE);
+  const skinRGB = hexRGB(pal.skin), skinTint = packRGBA(skinRGB[0], skinRGB[1], skinRGB[2], 1);
+  const O = [0, 0, 0];
+  // ---- skull: planar face texture on the front half, plain skin on the back
+  const cutA = (G.nu - 1) / 4, cutB = 3 * (G.nu - 1) / 4;                  // th = -pi/2 and +pi/2
+  const front = (i, side) => (i > cutA && i < cutB) || (i === cutA && side >= 0) || (i === cutB && side <= 0);
+  gridSurface(skinMesh, G.P, G.nu, G.nv, false, O, (i, j, side) => {
+    const p = G.P[j * G.nu + i];
+    if (front(i, side)) return { uv: [Math.max(0.02, Math.min(0.98, (20 - p[2]) / 40)), Math.max(0.02, Math.min(0.98, (18 - p[1]) / 40))], col: skinCol, mat: skinMat };
+    return { uv: [0.985, 0.985], col: skinCol, mat: skinMat };
+  }, [cutA, cutB]);
+
+  // ---- nose
+  {
+    const nk = look.nose || 1, female = !!look.female, sc = (female ? 0.9 : 1) * nk;
+    const tipF = 16.6 + 4.2 * (0.55 + 0.45 * sc);
+    const rings = [   // [f, y, half-width, half-depth]
+      [15.6, 5.8, 1.7, 1.3], [16.6, 3.2, 2.0, 2.0], [17.7, 0.2, 2.5, 2.7], [18.9, -3.0, 3.1, 3.2], [tipF - 0.6, -5.4, 3.8, 3.4], [tipF, -6.9, 3.5, 3.0], [tipF - 1.3, -7.7, 3.0, 2.2],
+    ];
+    const P = [], n = 14;
+    for (const [f, y, w, d] of rings) for (let i = 0; i < n; i++) { const a = (i / n) * TAU; P.push([f + d * Math.cos(a) * 0.9, y, w * Math.sin(a)]); }
+    gridSurface(skinMesh, P, n, rings.length, true, [12, -0.5, 0], (i, j) => { const p = P[j * n + i]; return { uv: [(20 - p[2]) / 40, (18 - p[1]) / 40], col: skinCol, mat: skinMat }; });
+    for (const s of [-1, 1]) emitEllipsoid(skinMesh, [tipF - 2.0, -6.3, s * 3.1], [1.9, 0, 0], [0, 1.7, 0], [0, 0, 1.5], skinCol, skinMat, { uv: [(20 - s * 3.1) / 40, (18 + 6.3) / 40], nu: 8, nv: 6 });
+  }
+
+  // ---- ears
+  for (const s of [-1, 1]) {
+    emitEllipsoid(skinMesh, [-1.8, -1.2, s * (HD.Rl - 0.3)], [2.6, 0.7, 0], [1.0, 5.0, 0], [0, 0, 1.3 * s], skinTint, packMat(0.2, 0.25, 0.4, LAYER.WHITE), { nu: 10, nv: 7 });
+    emitEllipsoid(skinMesh, [-1.5, -1.3, s * (HD.Rl + 0.5)], [1.4, 0.4, 0], [0.5, 3.0, 0], [0, 0, 0.6 * s], c3(pal.skin, 0.72), packMat(0.1, 0.2, 0.3, LAYER.WHITE), { nu: 8, nv: 6 });
+  }
+
+  // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
+  const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
+  const style = look.hair ? look.hair.style : 'none';
+  const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR);
+  const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
+    const PS = [], COV = [], SH = [];
+    for (let k = 0; k < H.P.length; k++) {
+      const { cov, t, shade } = fieldFn(H.TH[k], H.PH[k], H.P[k], k);
+      const base = H.P[k], n = ellNormal(base), lift = cov > 0.02 ? Math.max(0.3, t) : 0.25;
+      PS.push([base[0] + n[0] * lift, base[1] + n[1] * lift, base[2] + n[2] * lift]); COV.push(cov); SH.push(shade === undefined ? 1 : shade);
+    }
+    gridSurface(mesh, PS, NU, NV, false, O, (i, j) => { const k = j * NU + i, s = SH[k]; return { uv: uvfn(i, j, k), col: packRGBA(s, s, s, COV[k]), mat: matv }; });
+  };
+  if (style !== 'none' && style !== 'sides') {
+    const kn = HAIRLINE[style === 'curly' ? 'crop' : style];
+    shell(hairMesh, (th, ph, base) => {
+      const at = Math.abs(wrapPi(th)), Hl = hairline(kn, at);
+      let cov = sstep(Hl - 0.08, Hl + 0.08, ph);
+      let t = 0.5 + (style === 'swoop' ? 1.5 : style === 'wavy' ? 1.6 : style === 'part' ? 1.4 : 1.0) * sstep(Hl, Hl + 0.7, ph);
+      if (style === 'swoop') t += 2.4 * bump(ph, 1.0, 0.34) * bump(at, 0.55, 0.85);
+      if (style === 'part') t += 2.0 * bump(ph, 1.0, 0.32) * bump(at, 0.45, 0.8) * (th > 0 ? 1 : 0.55);
+      if (style === 'wavy') t += 1.6 * bump(ph, 1.05, 0.4) * bump(at, 0.3, 0.8);
+      if (ph > 1.4) cov = 1;
+      return { cov, t, shade: 0.7 + 0.3 * sstep(Hl, Hl + 0.45, ph) };
+    }, hairMat, (i, j) => [(i / (NU - 1)) * 3, (j / (NV - 1)) * 1.6]);
+  }
+  if (style === 'sides') {
+    shell(hairMesh, (th, ph) => {
+      const at = Math.abs(wrapPi(th));
+      const top = 0.6 - 0.35 * sstep(1.7, 2.7, at);
+      const cov = sstep(0.75, 1.05, at) * (1 - sstep(top - 0.1, top + 0.1, ph)) * sstep(-0.7, -0.5, ph + (at > 2.3 ? 0.2 : 0));
+      return { cov, t: 1.2, shade: 0.75 + 0.25 * sstep(top, top - 0.4, ph) };
+    }, hairMat, (i, j) => [(i / (NU - 1)) * 3, (j / (NV - 1)) * 1.6]);
+  }
+  // long hair behind the head (women): a curtain hanging from the crown down to the shoulders
+  if (style === 'wavy') {
+    const rows = 12, cols = 25, PS = [];
+    for (let j = 0; j < rows; j++) {
+      const t = j / (rows - 1);
+      for (let i = 0; i < cols; i++) {
+        const a = -2.05 + (i / (cols - 1)) * 4.1 + Math.PI, th = wrapPi(a), edge = Math.abs(i / (cols - 1) - 0.5) * 2;
+        const yy = 8 - t * 42, wob = Math.sin(t * 5 + i * 0.7) * 1.4 * t;
+        const rad = (0.98 - 0.16 * t + 0.06 * Math.sin(t * 3)) * (1 + 0.16 * t) * (1 - 0.1 * edge * t);
+        PS.push([Math.cos(th) * HD.Rf * rad - 3 * t + wob, yy, Math.sin(th) * HD.Rl * 1.03 * rad]);
+      }
+    }
+    gridSurface(hairMesh, PS, cols, rows, false, [0, -14, 0], (i, j) => ({ uv: [(i / (cols - 1)) * 2, (j / (rows - 1)) * 2], col: packRGBA(0.85 + 0.15 * (j / (rows - 1)), 0.85 + 0.15 * (j / (rows - 1)), 0.85 + 0.15 * (j / (rows - 1)), 1), mat: hairMat }));
+  }
+
+  // ---- beard / moustache
+  const bMat = packMat(0.3, 0.16, 0.45, LAYER.BEARD);
+  if (look.beard) {
+    const drop = (look.beard.len || 0) * 7;
+    shell(hairMesh, (th, ph, base) => {
+      const f = base[0], y = base[1], l = Math.abs(base[2]), at = Math.abs(wrapPi(th));
+      const top = ipoly([0, 4, 6.5, 10, 13.5, 16.2], [-7.6, -7.6, -5.4, -2.6, 0.2, 1.4], l);
+      let cov = sstep(-1.7, 1.7, top - y) * sstep(2.4, 1.7, at);
+      const hole = Math.pow(base[2] / 7.4, 2) + Math.pow((y + 12.9) / 4.2, 2);
+      cov *= sstep(0.95, 1.25, hole);
+      if (y > -7.4 && l < 5.5) cov = 0;
+      const t = 1.0 + 1.7 * sstep(-9, -20, y);
+      return { cov, t, shade: 0.8 + 0.2 * sstep(4, -12, y) };
+    }, bMat, (i, j, k) => [H.P[k][2] * 0.05, H.P[k][1] * 0.05]);
+    if (drop > 0) {       // a long beard: a tapered tuft hanging below the chin
+      const rows = 8, cols = 15, PS = [];
+      for (let j = 0; j < rows; j++) {
+        const t = j / (rows - 1);
+        for (let i = 0; i < cols; i++) {
+          const a = -1.25 + (i / (cols - 1)) * 2.5, w = (1 - 0.72 * t) * (0.85 + 0.15 * Math.cos(a));
+          PS.push([HD.Rf * 0.66 * (1 - 0.35 * t) * Math.cos(a) * 0.6 + 6.5 - 3 * t, -18.5 - t * drop, HD.Rl * 0.56 * w * Math.sin(a)]);
+        }
+      }
+      gridSurface(hairMesh, PS, cols, rows, false, [0, -18, 0], (i, j) => ({ uv: [(i / (cols - 1)) * 1.4, (j / (rows - 1)) * 1.4], col: packRGBA(0.92, 0.92, 0.92, 1), mat: bMat }));
+    }
+  } else if (look.stache) {
+    shell(hairMesh, (th, ph, base) => {
+      const f = base[0], y = base[1], l = base[2];
+      const m = 1 - (Math.pow(l / 8.2, 2) + Math.pow((y + 8.9) / 2.0, 2));
+      const cov = (f > 4 ? 1 : 0) * sstep(-0.05, 0.2, m) * (y > -7.4 && Math.abs(l) < 1.2 ? 0.5 : 1);
+      return { cov: y > -6.8 ? 0 : cov, t: 0.9, shade: 0.9 };
+    }, bMat, (i, j, k) => [H.P[k][2] * 0.05, H.P[k][1] * 0.05]);
+  }
+
+  // ---- kippah
+  if (look.kippah) {
+    const axis = V3.norm([-4, 18.5, 1.5]), e1 = V3.norm(V3.cross(axis, [0, 0, 1])), e2 = V3.cross(axis, e1);
+    const nr = 8, na = 28, PS = [], R = 0.62, hasHair = style !== 'none' && style !== 'sides';
+    for (let j = 0; j < nr; j++) {
+      const r = (j / (nr - 1)) * R;
+      for (let i = 0; i < na; i++) {
+        const a = (i / na) * TAU, d = V3.add(V3.mul(axis, Math.cos(r)), V3.mul(V3.add(V3.mul(e1, Math.cos(a)), V3.mul(e2, Math.sin(a))), Math.sin(r)));
+        const ph = Math.asin(Math.max(-1, Math.min(1, d[1]))), th = Math.atan2(d[2], d[0]);
+        const base = headPt(th, ph, look), n = ellNormal(base), fall = j / (nr - 1);
+        const lift = (hasHair ? 2.5 : 1.2) + 0.5 * (1 - fall) - 0.5 * sstep(0.8, 1, fall);
+        PS.push([base[0] + n[0] * lift, base[1] + n[1] * lift, base[2] + n[2] * lift]);
+      }
+    }
+    gridSurface(hairMesh, PS, na, nr, true, O, (i, j) => ({ uv: [(i / na), (j / (nr - 1)) * 0.96], col: packRGBA(1, 1, 1, 1), mat: packMat(0.18, 0.2, 0.4, LAYER.KNIT) }));
+  }
+
+  // ---- hat (black brimmed)
+  if (look.hat) {
+    const hc = hexRGB(look.hat.color || '#121118'), col = packRGBA(hc[0], hc[1], hc[2], 1), mat = packMat(0.22, 0.3, 0.3, LAYER.WHITE);
+    const y0 = 14.6, tilt = -0.04, nA = 32;
+    const ringsTop = [[15.8, 0], [19, 0.1], [23, 0.5], [27, 1.5], [28.2, 1.2]];
+    const brim = (rs, dy, hint) => {
+      const P = [];
+      for (const [r, up] of rs) for (let i = 0; i < nA; i++) { const a = (i / nA) * TAU; P.push([Math.cos(a) * r * 1.02, y0 + up + dy + tilt * Math.cos(a) * r, Math.sin(a) * r * 0.98]); }
+      gridSurface(accMesh, P, nA, rs.length, true, hint, { uv: WHITE_UV, col, mat });
+    };
+    brim(ringsTop, 0, [0, y0 - 6, 0]);
+    brim(ringsTop.slice().reverse(), -0.7, [0, y0 + 8, 0]);
+    const cr = [[y0, 15.6], [y0 + 2.4, 16.0], [y0 + 6.5, 15.7], [y0 + 10.5, 15.0], [y0 + 13, 13.2], [y0 + 14, 8], [y0 + 13.6, 3], [y0 + 12.8, 0.01]];
+    const Pc = [];
+    for (const [yy, r] of cr) for (let i = 0; i < nA; i++) { const a = (i / nA) * TAU; Pc.push([Math.cos(a) * r * 1.03, yy, Math.sin(a) * r * 0.97]); }
+    gridSurface(accMesh, Pc, nA, cr.length, true, [0, y0 + 5, 0], { uv: WHITE_UV, col, mat });
+    const bandCol = packRGBA(Math.min(1, hc[0] * 2.2 + 0.09), Math.min(1, hc[1] * 2.2 + 0.09), Math.min(1, hc[2] * 2.2 + 0.11), 1);
+    const Pn = [];
+    for (const [yy, r] of [[y0 + 1.2, 16.1], [y0 + 4.4, 16.15]]) for (let i = 0; i < nA; i++) { const a = (i / nA) * TAU; Pn.push([Math.cos(a) * r * 1.03, yy, Math.sin(a) * r * 0.97]); }
+    gridSurface(accMesh, Pn, nA, 2, true, [0, y0 + 2, 0], { uv: WHITE_UV, col: bandCol, mat });
+  }
+
+  // ---- glasses
+  if (look.glasses) {
+    const gl = look.glasses, gc = hexRGB(gl.color || '#222'), col = packRGBA(gc[0] * 1.3, gc[1] * 1.3, gc[2] * 1.3, 1), mat = packMat(0.85, 0.7, 0.4, LAYER.WHITE);
+    const round = gl.shape === 'round', rx = round ? 5.0 : 5.5, ry = round ? 4.7 : 4.1;
+    const surf = (l, y) => HD.Rf * Math.sqrt(Math.max(0.04, 1 - (y / HD.Ry) ** 2 - (l / HD.Rl) ** 2)) + 1.5;
+    for (const s of [-1, 1]) {
+      const cx = s * 6.0, cy = 3.3, pts = [];
+      for (let i = 0; i < 28; i++) {
+        const a = (i / 28) * TAU; let ux = Math.cos(a), uy = Math.sin(a);
+        if (!round) { ux = Math.sign(ux) * Math.pow(Math.abs(ux), 0.7); uy = Math.sign(uy) * Math.pow(Math.abs(uy), 0.7); }
+        const l = cx + ux * rx, y = cy + uy * ry; pts.push([surf(l, y), y, l]);
+      }
+      for (let i = 0; i < pts.length; i++) emitTube(accMesh, pts[i], pts[(i + 1) % pts.length], 0.42, 0.42, col, mat, { sides: 5, rings: 2, bulge: 0 });
+      const oL = cx + s * rx, from = [surf(oL, cy), cy, oL];
+      emitTube(accMesh, from, [-1.5, 2.6, s * (HD.Rl - 0.6)], 0.4, 0.4, col, mat, { sides: 5, rings: 3, bulge: 0 });
+    }
+    emitTube(accMesh, [surf(-1, 4.2), 4.2, -1.9], [surf(1, 4.2), 4.2, 1.9], 0.4, 0.4, col, mat, { sides: 5, rings: 2, bulge: 0 });
+  }
+  // ---- earring
+  if (look.earring) {
+    const ec = hexRGB(look.earring);
+    for (const s of [-1, 1]) sphere(accMesh, [-1.6, -6.5, s * (HD.Rl + 0.5)], 1.25, packRGBA(ec[0], ec[1], ec[2], 1), packMat(0.9, 0.8, 0.5, LAYER.WHITE), { nu: 8, nv: 6 });
+  }
+  return { skin: skinMesh, hair: hairMesh, acc: accMesh };
+}
+
+/* ---- 26-f3d-body.js ---- */
+// ===== 3D fighters, part 5: skeleton from the 2D pose, body meshes, rendering into sprites, and the public API =====
+
+let YAW_T = 0.55;                    // torso turned this much towards the camera (3/4 view)
+let YAW_H = 0.95;                     // head turned further, so both eyes show
+const ARM_L = 31, LEG_L = 38;
+
+// Torso cross-sections: [height above the hip pivot, lateral half-width, forward half-depth, forward offset]
+const TORSO_RINGS = [
+  [-7.5, 17.8, 11.8, -0.4], [-3, 19.4, 12.6, 0], [4, 20.0, 13.0, 0], [12, 18.8, 12.2, 0.2], [20, 19.8, 12.8, 0.6], [28, 21.4, 14.0, 1.0], [35, 23.0, 14.8, 1.4],
+  [41, 24.2, 14.2, 1.0], [45.5, 21.2, 12.6, 0.4], [49, 15.4, 10.6, 0], [51.8, 9.8, 8.6, -0.2], [54.2, 7.6, 7.4, -0.3],
+];
+
+// ---------------------------------------------------------------------------------------------------------------
+// per-person assets: textures + head meshes (built once)
+// ---------------------------------------------------------------------------------------------------------------
+function look3D(look) {
+  let L = G3.cache.get(look);
+  if (L) { G3.cache.delete(look); G3.cache.set(look, L); return L; }      // keep the most recently used at the end
+  const gl = G3.gl, g = geo(look), pal = g.pal;
+  L = { look, pal, tex: F3D.newTexArray(), faceKey: '', face: texCanvas(), gpu: null };
+  L.faceCtx = L.face.getContext('2d');
+  const tc = texCanvas(), c = tc.getContext('2d');
+  paintWhite(c); F3D.uploadLayer(L.tex, LAYER.WHITE, tc, false);
+  if (look.robot) paintRobotTorso(c, look); else paintTorso(c, look, pal);
+  F3D.uploadLayer(L.tex, LAYER.TORSO, tc, false);
+  if (look.robot) {            // the same label mirrored, for when the boss faces left (the whole model is mirrored then)
+    const t2 = texCanvas(), c2 = t2.getContext('2d'); c2.translate(TEXN, 0); c2.scale(-1, 1); c2.drawImage(tc, 0, 0);
+    F3D.uploadLayer(L.tex, LAYER.TORSO2, t2, false);
+  }
+  paintStrands(c, look.hair ? look.hair.color : '#333333', 11, 700); F3D.uploadLayer(L.tex, LAYER.HAIR, tc, false);
+  paintStrands(c, look.beard ? look.beard.color : (look.stache || '#333333'), 29, 900); F3D.uploadLayer(L.tex, LAYER.BEARD, tc, false);
+  paintKnit(c, look.kippah); F3D.uploadLayer(L.tex, LAYER.KNIT, tc, false);
+  setFace3D(L, 'open', 'closed');
+  if (!look.robot) {
+    const m = buildHeadMeshes(look, pal);
+    L.gpu = { skin: uploadStatic(gl, m.skin), hair: uploadStatic(gl, m.hair), acc: uploadStatic(gl, m.acc) };
+  }
+  if (G3.cache.size >= 16) {                         // evict the least recently used person (textures + head meshes live on the GPU)
+    const [k, v] = G3.cache.entries().next().value;
+    gl.deleteTexture(v.tex);
+    if (v.gpu) for (const m of [v.gpu.skin, v.gpu.hair, v.gpu.acc]) { gl.deleteVertexArray(m.vao); gl.deleteBuffer(m.vbo); gl.deleteBuffer(m.ibo); }
+    G3.cache.delete(k);
+  }
+  G3.cache.set(look, L);
+  return L;
+}
+function setFace3D(L, eyes, mouth) {
+  const key = eyes + '|' + mouth;
+  if (L.faceKey === key) return;
+  L.faceKey = key;
+  if (L.look.robot) paintRobotFace(L.faceCtx, L.look, eyes, mouth); else paintFace(L.faceCtx, L.look, L.pal, eyes, mouth, 0);
+  F3D.uploadLayer(L.tex, LAYER.FACE, L.face, true);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// skeleton: everything in model space (x forward, y up, z to the camera), derived from the same pose numbers as the 2D rig
+// ---------------------------------------------------------------------------------------------------------------
+function skeleton3D(f, p, look) {
+  const bw = look.w || 1, hs = look.head || 1;
+  const hipX = p.hx, hipY = p.hy, TL = 50;
+  const cl = Math.cos(p.lean), sl = Math.sin(p.lean);
+  const shX = hipX + sl * TL, shY = hipY - cl * TL;
+  const headCX = shX + 2 + p.headX, headCY = shY - 30 + p.headY;
+  const S = { bw, hs, p, faceDir: f.face };
+  S.O = [hipX, -hipY, 0];
+  const eu = [sl, cl, 0], ef = [cl, -sl, 0], ez = [0, 0, 1], cy = Math.cos(YAW_T), sy = Math.sin(YAW_T);
+  S.eu = eu;
+  S.ff = [ef[0] * cy + ez[0] * sy, ef[1] * cy + ez[1] * sy, ef[2] * cy + ez[2] * sy];        // forward, turned to the camera
+  S.ll = [-ef[0] * sy + ez[0] * cy, -ef[1] * sy + ez[1] * cy, -ef[2] * sy + ez[2] * cy];    // lateral, +z = the near side
+  const at = (u, lat, fw) => [S.O[0] + eu[0] * u + S.ll[0] * lat + S.ff[0] * fw, S.O[1] + eu[1] * u + S.ll[1] * lat + S.ff[1] * fw, S.O[2] + eu[2] * u + S.ll[2] * lat + S.ff[2] * fw];
+  S.at = at;
+  // arms
+  const arm = (target, near) => {
+    const sgn = near ? 1 : -1;
+    const sh = at(43, sgn * (23.6 * bw - 5.2), 0.4);
+    const r = ik(sh[0], -sh[1], target[0], target[1], ARM_L, ARM_L, 1);
+    const zs = sh[2];
+    const wr = [r.ex, -r.ey, zs + sgn * 3.5], el = [r.jx, -r.jy, zs + sgn * 5.2];
+    const d = V3.norm(V3.sub(wr, el));
+    return { sh, el, wr, fist: V3.madd(wr, d, 4.6), dir: d, near };
+  };
+  S.armN = arm(p.handF, true); S.armF = arm(p.handB, false);
+  // legs
+  const leg = (target, near) => {
+    const sgn = near ? 1 : -1;
+    const hp = [hipX - sgn * Math.sin(YAW_T) * 7, -(hipY + 3), sgn * Math.cos(YAW_T) * 7];
+    const r = ik(hp[0], -hp[1], target[0], target[1], LEG_L, LEG_L, -1);
+    const zs = hp[2], an = [r.ex, -r.ey, zs + sgn * 2.5], kn = [r.jx, -r.jy, zs + sgn * 1.6];
+    const sa = Math.atan2(r.ey - r.jy, r.ex - r.jx) - Math.PI / 2;
+    return { hp, kn, an, ang: -sa * 0.8, near };
+  };
+  S.legN = leg(p.footF, true); S.legF = leg(p.footB, false);
+  // head
+  const hc = [headCX, -headCY - 2, 0], k = HEAD_K * hs * 1.14;
+  const roll = -p.headRot;
+  S.headM = M4.mul(M4.translate(hc[0], hc[1], hc[2]), M4.mul(M4.rotZ(roll), M4.mul(M4.rotY(-YAW_H), M4.scale(k, k, k))));
+  S.hc = hc; S.hk = k;
+  S.neckTop = M4.pt(S.headM, -2, -13.8, 0);
+  S.neckBase = at(52.5, 0, 0.2);
+  return S;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// body meshes
+// ---------------------------------------------------------------------------------------------------------------
+const MAT_CLOTH = packMat(0.07, 0.08, 0.45, LAYER.WHITE);
+const MAT_SKIN = packMat(0.2, 0.28, 0.45, LAYER.WHITE);
+const MAT_SHOE = packMat(0.75, 0.45, 0.35, LAYER.WHITE);
+const MAT_TORSO = packMat(0.1, 0.1, 0.4, LAYER.TORSO);
+const c3 = (hex, k = 1) => { const v = hexRGB(hex); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
+const c3s = (css, k = 1) => { const v = hexRGB(css); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
+
+let SHOE = null, FIST = null;
+function shoeMesh() {
+  if (SHOE) return SHOE;
+  const m = new Mesh(400, 1500), n = 12, rings = [];
+  // x from heel (-8) to toe (22): [x, half-width, top, bottom]
+  const prof = [[-8.4, 3.6, 4.5, -5.8], [-6.5, 5.4, 6.2, -6], [-2, 6.2, 6.8, -6], [4, 6.0, 4.6, -6], [10, 5.6, 2.6, -5.8], [16, 4.9, 0.6, -5.4], [20.4, 3.4, -1.2, -4.6], [22.2, 1.4, -2.6, -3.8]];
+  const P = [];
+  for (const [x, w, top, bot] of prof) for (let i = 0; i < n; i++) {
+    const a = (i / n) * TAU, cs = Math.cos(a), sn = Math.sin(a), sq = 0.75;
+    const ux = Math.sign(cs) * Math.pow(Math.abs(cs), sq), uy = Math.sign(sn) * Math.pow(Math.abs(sn), sq);
+    P.push([x, (top + bot) / 2 + uy * (top - bot) / 2, ux * w]);
+  }
+  gridSurface(m, P, n, prof.length, true, [7, -1, 0], { uv: WHITE_UV, col: packRGBA(1, 1, 1, 1), mat: MAT_SHOE });
+  return (SHOE = m);
+}
+function fistMesh() {
+  if (FIST) return FIST;
+  const m = new Mesh(500, 2000), col = packRGBA(1, 1, 1, 1), mat = MAT_SKIN;
+  emitEllipsoid(m, [0, 0, 0], [5.9, 0, 0], [0, 5.3, 0], [0, 0, 4.6], col, mat, { nu: 10, nv: 7 });         // palm/fingers
+  for (let k = 0; k < 4; k++) sphere(m, [3.6, 3.2 - k * 2.3, 1.2], 1.9, packRGBA(0.97, 0.92, 0.9, 1), mat, { nu: 6, nv: 5 });   // knuckles
+  emitEllipsoid(m, [-0.8, 2.6, 3.4], [3.4, 0, 0], [0, 1.9, 0], [0, 0, 1.9], col, mat, { nu: 8, nv: 6 });    // thumb
+  return (FIST = m);
+}
+
+
+// The boss: a boxy ballot-box torso with a label, a light lid, and a big robot head with a visor.
+function seVal(v, e) { return Math.sign(v) * Math.pow(Math.abs(v), e); }
+function emitSuper(mesh, c, ax, ay, az, e, vf, nu = 32, nv = 17) {
+  const P = [];
+  for (let j = 0; j < nv; j++) {
+    const la = -Math.PI / 2 + (j / (nv - 1)) * Math.PI, cl = seVal(Math.cos(la), e), sl = seVal(Math.sin(la), e);
+    for (let i = 0; i < nu; i++) {
+      const ph = (i / (nu - 1)) * TAU - Math.PI, x = cl * seVal(Math.cos(ph), e), z = cl * seVal(Math.sin(ph), e);
+      P.push([c[0] + ax[0] * x + ay[0] * sl + az[0] * z, c[1] + ax[1] * x + ay[1] * sl + az[1] * z, c[2] + ax[2] * x + ay[2] * sl + az[2] * z]);
+    }
+  }
+  gridSurface(mesh, P, nu, nv, false, c, vf, [(nu - 1) / 4, 3 * (nu - 1) / 4]);
+}
+function emitRobotCore(mesh, S, L) {
+  const look = L.look, bw = S.bw, suit = c3(look.suit), lid = c3(look.shirt || '#dfe6f5');
+  const A = 25.6 * bw, B = 17, e = 0.3, nA = 33, frontMax = (nA - 1) / 2;
+  const rows = (list, col, mat, front) => {
+    const P = [];
+    for (const [u, a, b] of list) {
+      const c = S.at(u, 0, 0), fw = V3.mul(S.ff, b), ax = V3.mul(S.ll, a);
+      for (let i = 0; i < nA; i++) {
+        const th = -Math.PI / 2 + TAU * (i / (nA - 1)), cs = seVal(Math.cos(th), e), sn = seVal(Math.sin(th), e);
+        P.push([c[0] + fw[0] * cs + ax[0] * sn, c[1] + fw[1] * cs + ax[1] * sn, c[2] + fw[2] * cs + ax[2] * sn]);
+      }
+    }
+    gridSurface(mesh, P, nA, list.length, false, S.at(20, 0, 0), (i, j, side) => {
+      const isFront = front && (i < frontMax || (i === frontMax && side <= 0)), th = -Math.PI / 2 + TAU * (i / (nA - 1));
+      if (isFront) return { uv: [(36 - list[j][1] * Math.sin(th)) / 72, (56 - list[j][0]) / 64], col: packRGBA(1, 1, 1, 1), mat: packMat(0.25, 0.3, 0.5, S.faceDir < 0 ? LAYER.TORSO2 : LAYER.TORSO) };
+      return { uv: [0.5, 0.5], col, mat };
+    }, [0, frontMax, nA - 1]);
+    return P;
+  };
+  const M = packMat(0.3, 0.35, 0.5, LAYER.WHITE);
+  rows([[-8, A * 0.9, B * 0.9], [-5, A * 0.99, B * 0.99], [0, A, B], [44, A, B], [47, A * 0.985, B * 0.985], [48.5, A * 0.93, B * 0.93]], suit, M, true);
+  const lp = rows([[47.5, A + 2.6, B + 2.6], [49, A + 3.2, B + 3.2], [56, A + 3.2, B + 3.2], [58, A + 1.5, B + 1.5], [58.6, A * 0.8, B * 0.8]], lid, packMat(0.35, 0.35, 0.5, LAYER.WHITE), false);
+  emitCap(mesh, lp.slice(4 * nA, 5 * nA - 1), S.at(58.7, 0, 0), S.eu, lid, packMat(0.35, 0.35, 0.5, LAYER.WHITE));
+  // head: a rounded box with a visor, on the lid, and an antenna
+  const hm = S.headM, hc = M4.pt(hm, 0, 0, 0);
+  const ex = M4.pt(hm, 1, 0, 0), ey = M4.pt(hm, 0, 1, 0), ez = M4.pt(hm, 0, 0, 1);
+  const vx = V3.sub(ex, hc), vy = V3.sub(ey, hc), vz = V3.sub(ez, hc);
+  const hcol = packRGBA(1, 1, 1, 1);
+  emitSuper(mesh, hc, V3.mul(vx, 26), V3.mul(vy, 25), V3.mul(vz, 29), 0.32, (i, j, side) => {
+    const nu = 32, front = (i > (nu - 1) / 4 && i < 3 * (nu - 1) / 4) || (i === (nu - 1) / 4 && side >= 0) || (i === 3 * (nu - 1) / 4 && side <= 0);
+    if (!front) return { uv: [0.985, 0.985], col: hcol, mat: packMat(0.5, 0.4, 0.4, LAYER.FACE) };
+    const th = -Math.PI + TAU * (i / (nu - 1)), la = -Math.PI / 2 + Math.PI * (j / 16);
+    const lz = seVal(Math.cos(la), 0.32) * seVal(Math.sin(th), 0.32) * 29, ly = seVal(Math.sin(la), 0.32) * 25;
+    return { uv: [Math.max(0.02, Math.min(0.98, (20 - lz / 1.75) / 40)), Math.max(0.02, Math.min(0.98, (18 - ly / 1.35) / 40))], col: hcol, mat: packMat(0.5, 0.4, 0.4, LAYER.FACE) };
+  });
+  const top = V3.madd(hc, vy, 26);
+  emitTube(mesh, top, V3.madd(top, vy, 15), 1.6, 1.6, c3('#5b6478'), M, { sides: 6, rings: 2, bulge: 0 });
+  sphere(mesh, V3.madd(top, vy, 17), 4.6, c3('#ff4f6a'), packMat(0.7, 0.6, 0.6, LAYER.WHITE), { nu: 10, nv: 7 });
+}
+
+function emitBody(mesh, S, L, opt) {
+  const look = L.look, pal = L.pal, p = S.p, bw = S.bw;
+  const suit = c3(look.suit), suitFar = c3(look.suit, 0.78), pants = c3(look.pants || look.suit), pantsFar = c3(look.pants || look.suit, 0.74);
+  const shirt = c3(look.shirt || '#ffffff'), shirtFar = c3(look.shirt || '#ffffff', 0.8), skin = c3(pal.skin), skinFar = c3(pal.skin, 0.8), shoe = c3(look.shoes || '#1d1b27');
+  const nm = (m) => M4.normalMat(m);
+
+  // ----- back layer first is irrelevant (depth buffer), so just emit everything
+  // legs
+  for (const lg of [S.legF, S.legN]) {
+    const far = !lg.near, pc = far ? pantsFar : pants;
+    emitTube(mesh, lg.hp, lg.kn, 9.6 * bw, 7.9, pc, MAT_CLOTH, { sides: 10, rings: 4 });
+    emitTube(mesh, lg.kn, lg.an, 7.8, 6.0, pc, MAT_CLOTH, { sides: 10, rings: 4 });
+    sphere(mesh, lg.hp, 9.9 * bw, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    sphere(mesh, lg.kn, 7.9, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    const dl = V3.norm(V3.sub(lg.an, lg.kn));
+    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, -1.5), 6.95, 6.75, far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.04 });   // turn-up
+    const M = M4.mul(M4.translate(lg.an[0] + 1, lg.an[1] - 0.6, lg.an[2] + (far ? -0.5 : 0.5)), M4.rotZ(lg.ang));
+    stamp(mesh, shoeMesh(), M, nm(M), far ? c3(look.shoes || '#1d1b27', 0.75) : shoe, MAT_SHOE);
+  }
+  if (look.robot) emitRobotCore(mesh, S, L);
+  else {
+  // torso (front half with the jacket texture, back half plain)
+  {
+    const rows = TORSO_RINGS.length, nA = 21, P = [];
+    for (let j = 0; j < rows; j++) {
+      const [u, A, B, off] = TORSO_RINGS[j];
+      const c = S.at(u, 0, off), fw = V3.mul(S.ff, B), ax = V3.mul(S.ll, A * bw);
+      for (let i = 0; i < nA; i++) {
+        const th = -Math.PI / 2 + Math.PI * (i / (nA - 1)) * 2;    // -90 .. +270 degrees
+        P.push([c[0] + fw[0] * Math.cos(th) + ax[0] * Math.sin(th), c[1] + fw[1] * Math.cos(th) + ax[1] * Math.sin(th), c[2] + fw[2] * Math.cos(th) + ax[2] * Math.sin(th)]);
+      }
+    }
+    const cutA = 5, cutB = 15;      // th = 0 .. hmm: front half is th in [-90, 90] => columns 0..(nA-1)/2
+    const frontMax = (nA - 1) / 2;
+    gridSurface(mesh, P, nA, rows, false, S.at(24, 0, 0), (i, j, side) => {
+      const [u, A] = TORSO_RINGS[j];
+      const th = -Math.PI / 2 + Math.PI * (i / (nA - 1)) * 2, isFront = i < frontMax || (i === frontMax && side <= 0);
+      if (i === 0 && side >= 0) { /* seam start belongs to the front */ }
+      if (isFront) {
+        const lat = A * bw * Math.sin(th);
+        return { uv: [(27 - lat) / 54, (56 - u) / 64], col: packRGBA(1, 1, 1, 1), mat: MAT_TORSO };
+      }
+      return { uv: [0.5, 0.5], col: suit, mat: MAT_CLOTH };
+    }, [0, frontMax, nA - 1]);
+    // caps: hem (dark inside) and neck hole
+    const topC = S.at(54.2, 0, -0.3), hemC = S.at(-7.5, 0, -0.4);
+    const ringTop = P.slice((rows - 1) * nA, rows * nA - 1), ringHem = P.slice(0, nA - 1);
+    emitCap(mesh, ringTop, topC, S.eu, shirt, MAT_CLOTH);
+    emitCap(mesh, ringHem, hemC, V3.mul(S.eu, -1), c3(look.suit, 0.5), MAT_CLOTH);
+  }
+  // neck + collar
+  {
+    const a = S.neckBase, b = S.neckTop;
+    emitTube(mesh, a, b, 7.7, 7.1, skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
+    const d = V3.norm(V3.sub(b, a));
+    emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.5, 8.0, look.open ? skin : shirt, look.open ? MAT_SKIN : MAT_CLOTH, { sides: 12, rings: 3, bulge: 0 });
+  }
+  }
+  // arms
+  for (const ar of [S.armF, S.armN]) {
+    const far = !ar.near, sc = far ? suitFar : suit;
+    sphere(mesh, ar.sh, 8.3, sc, MAT_CLOTH, { nu: 10, nv: 7 });
+    emitTube(mesh, ar.sh, ar.el, 7.6, 6.4, sc, MAT_CLOTH, { sides: 10, rings: 4 });
+    emitTube(mesh, ar.el, ar.wr, 6.4, 5.3, sc, MAT_CLOTH, { sides: 10, rings: 4 });
+    sphere(mesh, ar.el, 6.5, sc, MAT_CLOTH, { nu: 10, nv: 7 });
+    const d = ar.dir;
+    emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35, 6.05, far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
+    // fist
+    const ex = d, ey = V3.norm(V3.cross([0, 0, 1], ex)), ez = V3.cross(ex, ey);
+    const M = M4.basis(ex, V3.mul(ey, 1), ez, ar.fist);
+    stamp(mesh, fistMesh(), M, M4.normalMat(M), far ? skinFar : skin, MAT_SKIN);
+    if (p.finger && ar.near) {
+      const tip = V3.madd(ar.fist, ex, 13.5);
+      emitTube(mesh, V3.madd(ar.fist, ex, 3), tip, 1.75, 1.45, skin, MAT_SKIN, { sides: 6, rings: 3, bulge: 0 });
+      sphere(mesh, tip, 1.5, skin, MAT_SKIN, { nu: 6, nv: 5 });
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// drawing
+// ---------------------------------------------------------------------------------------------------------------
+function modelMatrix(f, p, look) {
+  const gs = (look.h || 1) * BODY_S * (f.scale || 1), face = f.face;
+  // model (y up) -> rig (y down) -> squash -> rotate about the pivot -> scale -> mirror -> world
+  let M = M4.scale(1, -1, 1);
+  M = M4.mul(M4.scale(p.sx, p.sy, 1), M);
+  if (p.rot) M = M4.mul(M4.translate(p.rotX, p.rotY, 0), M4.mul(M4.rotZ(p.rot), M4.mul(M4.translate(-p.rotX, -p.rotY, 0), M)));
+  M = M4.mul(M4.scale(face * gs, gs, gs), M);
+  return M4.mul(M4.translate(f.x, f.y, 0), M);
+}
+
+function skelPoints(S) {
+  const pts = [S.armN.fist, S.armF.fist, S.armN.el, S.armF.el, S.legN.an, S.legF.an, S.legN.kn, S.legF.kn, S.neckTop, S.hc, S.O, S.at(50, 0, 0)];
+  const hh = M4.pt(S.headM, 0, 30, 0), hf = M4.pt(S.headM, 26, 0, 0), hb = M4.pt(S.headM, -26, 0, 0);
+  pts.push(hh, hf, hb, S.at(0, 0, -14), S.at(0, 0, 14));
+  return pts;
+}
+
+// The GL pass: draw the figures into the top-left pw x ph pixels of the GL canvas, seen through the world window (X0,Y0,W_,H_).
+function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
+  const gl = G3.gl;
+  gl.viewport(0, 0, pw, ph);
+  gl.enable(gl.SCISSOR_TEST); gl.scissor(0, 0, pw, ph);
+  gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.disable(gl.SCISSOR_TEST);
+  gl.useProgram(G3.prog);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL);
+  gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
+  const U = G3.U, LG = F3D.light;
+  gl.uniform3f(U.uKeyDir, ...V3.norm([-0.42, 0.78, 0.5])); gl.uniform3fv(U.uKeyCol, LG.key.map((v) => v * 1.3));
+  gl.uniform3f(U.uFillDir, ...V3.norm([0.7, 0.1, 0.55])); gl.uniform3fv(U.uFillCol, LG.fill.map((v) => v * 0.42));
+  gl.uniform3fv(U.uTop, LG.top.map((v) => v * 0.85)); gl.uniform3fv(U.uBot, LG.bot.map((v) => v * 0.8)); gl.uniform3fv(U.uRim, LG.rim.map((v) => v * 1.1));
+  gl.uniform1i(U.uTex, 0);
+  const zr = 260;
+  // world (y down) -> clip
+  const P = new Float32Array(16);
+  P[0] = 2 / W_; P[5] = -2 / H_; P[10] = -1 / zr; P[12] = -2 * X0 / W_ - 1; P[13] = 1 + 2 * Y0 / H_; P[15] = 1;
+  G3.dyn.reset();
+  for (const fg of figs) {
+    const L = fg.L, S = fg.S;
+    G3.dyn.reset();
+    emitBody(G3.dyn, S, L, opt);
+    gl.bindVertexArray(null);
+    // streamed body
+    if (!G3.vao) { G3.vao = gl.createVertexArray(); gl.bindVertexArray(G3.vao); bindLayout(gl, G3.vbo, G3.ibo); gl.bindVertexArray(null); }
+    gl.bindVertexArray(G3.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, G3.vbo); gl.bufferData(gl.ARRAY_BUFFER, G3.dyn.f.subarray(0, G3.dyn.nv * VW), gl.STREAM_DRAW);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, G3.ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, G3.dyn.i.subarray(0, G3.dyn.ni), gl.STREAM_DRAW);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D_ARRAY, L.tex);
+    const M = fg.M, MVP = M4.mul(P, M);
+    const nmat = M4.normalMat(M), det = M4.det3(M);
+    // view-space normals: flip y (canvas -> y up)
+    const NM = new Float32Array([nmat[0], -nmat[1], nmat[2], nmat[3], -nmat[4], nmat[5], nmat[6], -nmat[7], nmat[8]]);
+    gl.frontFace(fg.face < 0 ? gl.CW : gl.CCW);
+    gl.uniformMatrix4fv(U.uMVP, false, MVP); gl.uniformMatrix3fv(U.uNM, false, NM);
+    gl.uniform4f(U.uTint, ...(fg.tint || [0, 0, 0, 0])); gl.uniform1f(U.uFlash, fg.flash || 0); gl.uniform1f(U.uAlpha, fg.alpha === undefined ? 1 : fg.alpha); gl.uniform1f(U.uCover, 0);
+    gl.drawElements(gl.TRIANGLES, G3.dyn.ni, gl.UNSIGNED_SHORT, 0);
+    F3D.stats.verts += G3.dyn.nv;
+    // static head parts
+    if (L.gpu) {
+      const HM = M4.mul(M, S.headM), HP = M4.mul(P, HM), hn = M4.normalMat(HM);
+      const HN = new Float32Array([hn[0], -hn[1], hn[2], hn[3], -hn[4], hn[5], hn[6], -hn[7], hn[8]]);
+      gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix3fv(U.uNM, false, HN);
+      gl.bindVertexArray(L.gpu.skin.vao); gl.drawElements(gl.TRIANGLES, L.gpu.skin.n, gl.UNSIGNED_SHORT, 0);
+      gl.bindVertexArray(L.gpu.acc.vao); gl.drawElements(gl.TRIANGLES, L.gpu.acc.n, gl.UNSIGNED_SHORT, 0);
+      if (G3.a2c) { gl.disable(gl.BLEND); gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE); }
+      gl.uniform1f(U.uCover, G3.a2c ? 1 : 0);
+      gl.bindVertexArray(L.gpu.hair.vao); gl.drawElements(gl.TRIANGLES, L.gpu.hair.n, gl.UNSIGNED_SHORT, 0);
+      if (G3.a2c) { gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE); gl.enable(gl.BLEND); }
+    }
+  }
+  gl.bindVertexArray(null);
+}
+
+// Render one or more figures (ghosts first) into the GL canvas and copy the result to a sprite canvas.
+// Returns { canvas, x, y, w, h } in world units (relative to the ctx passed in).
+F3D.render = function (ctx, f, opt, figs) {
+  const gl = G3.gl, cvs = G3.cv;
+  const T = ctx.getTransform();
+  const sc = Math.hypot(T.a, T.b) || 1;
+  // bounding box of everything that is going to be drawn (world units)
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const fg of figs) {
+    for (const q of fg.pts) { const w = M4.pt(fg.M, q[0], q[1], q[2]); x0 = Math.min(x0, w[0]); y0 = Math.min(y0, w[1]); x1 = Math.max(x1, w[0]); y1 = Math.max(y1, w[1]); }
+    fg.pad = 20 * fg.gs;
+  }
+  const pad = 22 * figs[0].gs;
+  x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+  // snap to the device pixel grid so the sprite is drawn 1:1
+  let X0 = x0, Y0 = y0, W_ = x1 - x0, H_ = y1 - y0, res = sc;
+  const aligned = !opt.noAlign && Math.abs(T.b) < 1e-6 && Math.abs(T.c) < 1e-6 && T.a > 0 && T.d > 0;
+  if (aligned) {
+    const dx0 = Math.floor(T.a * x0 + T.e), dy0 = Math.floor(T.d * y0 + T.f), dx1 = Math.ceil(T.a * x1 + T.e), dy1 = Math.ceil(T.d * y1 + T.f);
+    X0 = (dx0 - T.e) / T.a; Y0 = (dy0 - T.f) / T.d; W_ = (dx1 - dx0) / T.a; H_ = (dy1 - dy0) / T.d;
+  }
+  let pw = Math.max(2, Math.round(W_ * sc)), ph = Math.max(2, Math.round(H_ * sc));
+  const cap = G3.size;
+  let sdown = 1;
+  if (pw > cap || ph > cap) { sdown = Math.min(cap / pw, cap / ph); pw = Math.floor(pw * sdown); ph = Math.floor(ph * sdown); }
+  drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt);
+  // copy out
+  let spr = opt.into || f._spr;
+  if (!spr) { spr = { canvas: document.createElement('canvas'), x: 0, y: 0, w: 0, h: 0 }; spr.ctx = spr.canvas.getContext('2d'); if (!opt.into) f._spr = spr; }
+  if (spr.canvas.width !== pw || spr.canvas.height !== ph) { spr.canvas.width = pw; spr.canvas.height = ph; }
+  spr.ctx.clearRect(0, 0, pw, ph);
+  spr.ctx.drawImage(cvs, 0, G3.size - ph, pw, ph, 0, 0, pw, ph);
+  spr.x = X0; spr.y = Y0; spr.w = W_; spr.h = H_;
+  F3D.stats.renders++;
+  return spr;
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// public API
+// ---------------------------------------------------------------------------------------------------------------
+const LOOK_IDS = new WeakMap();
+let lookIdSeq = 0;
+const lookId = (l) => { let v = LOOK_IDS.get(l); if (!v) LOOK_IDS.set(l, (v = ++lookIdSeq)); return v; };
+const POSE_CACHE = new Map();
+
+function poseKey(p) {
+  const q = (v) => Math.round(v / 1.5);
+  return [p.eyes, p.mouth, q(p.hx), q(p.hy), Math.round(p.lean * 20), Math.round(p.headRot * 20), q(p.headX), q(p.headY), q(p.handF[0]), q(p.handF[1]), q(p.handB[0]), q(p.handB[1]), q(p.footF[0]), q(p.footF[1]), q(p.footB[0]), q(p.footB[1]), Math.round(p.rot * 20), p.finger ? 1 : 0].join(',');
+}
+
+function buildFigs(f, p, look, L, opt) {
+  const figs = [];
+  const push = (fx, pose, extra) => {
+    const S = skeleton3D(fx, pose, look), M = modelMatrix(fx, pose, look);
+    figs.push(Object.assign({ L, S, M, gs: (look.h || 1) * BODY_S * (fx.scale || 1), face: fx.face, pts: skelPoints(S) }, extra));
+  };
+  if (opt.ghosts) for (const g of opt.ghosts) push(g.f, g.f.pose, { tint: g.tint, alpha: g.alpha });
+  push(f, p, { flash: opt.flash || 0, alpha: 1 });
+  return figs;
+}
+
+// Make (or reuse) the sprite for this fighter this frame. Real fighters keep their sprite on themselves for the whole frame
+// (so the floor reflection and the super cinematic reuse it); minions are cached by pose.
+F3D.prepare = function (ctx, f, opt = {}) {
+  if (!F3D.active()) return null;
+  const look = f.def.look;
+  try {
+    const p = f.pose || poseOf(f);
+    const key = (opt.flash || 0) + ':' + (opt.ghosts ? opt.ghosts.length : 0);
+    if (f._spr && f._sprStamp === F3D.stamp && f._sprKey === key) return f._spr;
+    const L = look3D(look);
+    setFace3D(L, p.eyes, p.mouth);
+    const figs = buildFigs(f, p, look, L, opt);
+    const spr = F3D.render(ctx, f, opt, figs);
+    f._sprStamp = F3D.stamp; f._sprKey = key; f._skel = figs[figs.length - 1].S;
+    return spr;
+  } catch (e) { F3D.failed = true; F3D.err = String(e && e.stack || e); return null; }
+};
+
+function overlays3D(ctx, f, p, S) {
+  const look = f.def.look, gs = (look.h || 1) * BODY_S * (f.scale || 1);
+  ctx.save(); ctx.translate(f.x, f.y); ctx.scale(f.face, 1); ctx.scale(gs, gs);
+  if (p.rot) { ctx.translate(p.rotX, p.rotY); ctx.rotate(p.rot); ctx.translate(-p.rotX, -p.rotY); }
+  ctx.scale(p.sx, p.sy);
+  if (p.prop) { const q = S.armN.fist; drawProp(ctx, p.prop, q[0], -q[1], p.propAng); }
+  if (p.dizzy) {
+    const hx = S.hc[0], hy = -S.hc[1];
+    for (let i = 0; i < 3; i++) {
+      const a = (f.clock || 0) * 0.12 + (i * TAU) / 3, sx = hx + Math.cos(a) * 24, sy = hy - 30 + Math.sin(a) * 6;
+      star(ctx, sx, sy, 5, 5.5, 2.4, a); ctx.fillStyle = '#ffe14a'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = INK; ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+// Draw a fighter with the 3D renderer. Returns false if the caller should use the 2D cartoon renderer instead.
+F3D.draw = function (ctx, f, opt = {}) {
+  if (!F3D.active()) return false;
+  const look = f.def.look;
+  try {
+    const t0 = performance.now();
+    const p = f.pose || poseOf(f);
+    let spr;
+    if (opt.reflect) {
+      spr = f._spr && f._sprStamp === F3D.stamp ? f._spr : null;
+      if (spr) { ctx.save(); if (opt.alpha !== undefined) ctx.globalAlpha *= opt.alpha; ctx.drawImage(spr.canvas, spr.x, spr.y, spr.w, spr.h); ctx.restore(); }
+      return true;
+    }
+    if (f.def.id === undefined || opt.cache) {
+      // minion: cached by pose, positioned relative to its feet
+      const T = ctx.getTransform(), sc = Math.hypot(T.a, T.b) || 1, key = lookId(look) + '|' + f.face + '|' + Math.round(sc * 8) + '|' + poseKey(p);
+      let hit = POSE_CACHE.get(key);
+      if (!hit) {
+        const L = look3D(look);
+        setFace3D(L, p.eyes, p.mouth);
+        const g = { x: 0, y: 0, face: f.face, scale: f.scale, pose: p, def: f.def };
+        const figs = buildFigs(g, p, look, L, {});
+        const into = { canvas: document.createElement('canvas'), x: 0, y: 0, w: 0, h: 0 }; into.ctx = into.canvas.getContext('2d');
+        hit = F3D.render(ctx, g, { into, noAlign: true }, figs);
+        hit.skel = figs[0].S;
+        POSE_CACHE.set(key, hit);
+        if (POSE_CACHE.size > 90) POSE_CACHE.delete(POSE_CACHE.keys().next().value);
+      }
+      ctx.drawImage(hit.canvas, f.x + hit.x, f.y + hit.y, hit.w, hit.h);
+      overlays3D(ctx, f, p, hit.skel);
+      F3D.stats.ms += performance.now() - t0;
+      return true;
+    }
+    spr = F3D.prepare(ctx, f, opt);
+    if (!spr) return false;
+    if (p.glow) { ctx.save(); ctx.translate(f.x, f.y); ctx.scale(f.face, 1); const gs = (look.h || 1) * BODY_S * (f.scale || 1); ctx.scale(gs, gs); ctx.translate(p.hx, p.hy - 40); ctx.globalCompositeOperation = 'lighter'; glow(ctx, 130, p.glow, 0.55 + Math.sin(f.clock * 0.3) * 0.15); ctx.restore(); }
+    ctx.drawImage(spr.canvas, spr.x, spr.y, spr.w, spr.h);
+    overlays3D(ctx, f, p, f._skel);
+    F3D.stats.ms += performance.now() - t0;
+    return true;
+  } catch (e) {
+    F3D.failed = true; F3D.err = String(e && e.stack || e);
+    return false;
+  }
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// portraits: head and shoulders of the 3D model, turned a little more towards the viewer, cached per expression
+// ---------------------------------------------------------------------------------------------------------------
+const BUST_CACHE = new Map();
+F3D.bust = function (def, eyes, mouth, px) {
+  if (!F3D.active() || def.look.robot) return null;
+  const n = px > 150 ? 512 : 256, key = def.id + '|' + eyes + '|' + mouth + '|' + n;
+  let c = BUST_CACHE.get(key);
+  if (c) return c;
+  try {
+    const look = def.look, L = look3D(look), t = performance.now();
+    setFace3D(L, eyes, mouth);
+    const oT = YAW_T, oH = YAW_H;
+    YAW_T = 0.8; YAW_H = 1.22;
+    const p = newPose(); p.eyes = eyes; p.mouth = mouth; p.handF = [8, -58]; p.handB = [-8, -58]; p.hy = -71;
+    const f = { def, x: 0, y: 0, face: 1, scale: 1, pose: p };
+    const S = skeleton3D(f, p, look), M = modelMatrix(f, p, look);
+    YAW_T = oT; YAW_H = oH;
+    const hw = M4.pt(M, S.hc[0], S.hc[1], S.hc[2]);
+    const half = 37 * (look.h || 1) * BODY_S * (look.head || 1);
+    const fig = { L, S, M, gs: 1, face: 1, pts: [] };
+    const saveLight = F3D.light; F3D.light = STAGE_LIGHT.studio;
+    const oldSize = G3.size;
+    drawFigs([fig], hw[0] - half, hw[1] - half * 0.86, half * 2, half * 2, n, n, {});
+    F3D.light = saveLight;
+    c = document.createElement('canvas'); c.width = c.height = n;
+    const x = c.getContext('2d'); x.drawImage(G3.cv, 0, G3.size - n, n, n, 0, 0, n, n);
+    if (BUST_CACHE.size > 48) BUST_CACHE.delete(BUST_CACHE.keys().next().value);
+    BUST_CACHE.set(key, c);
+    return c;
+  } catch (e) { F3D.failed = true; F3D.err = String(e && e.stack || e); return null; }
+};
+
+// profiling helper (CPU side only): builds the skeleton and the streamed body mesh without touching the GPU
+F3D.cpuTest = function (f) {
+  const look = f.def.look, L = look3D(look), p = f.pose || poseOf(f), S = skeleton3D(f, p, look);
+  G3.dyn.reset(); emitBody(G3.dyn, S, L, {});
+  return G3.dyn.nv;
+};
 
 /* ---- 30-looks.js ---- */
 // ===== Character looks: semi-realistic caricatures. Everyone is identified by hair, build, clothes and a few facial traits. =====
@@ -5859,6 +7275,7 @@ class Battle {
 
   // ----- rendering -----
   render(ctx) {
+    F3D.beginFrame(); F3D.setStage(this.stage.id);
     const z = this.cam.zoom * (1 + Fx.punch * 0.012), cx = this.cam.x;
     ctx.save();
     const sh = Fx.shakeAmt;
@@ -5883,17 +7300,26 @@ class Battle {
       ctx.fillStyle = `rgba(10,5,30,${0.38 * (1 - air * 0.6)})`;
       ctx.beginPath(); ctx.ellipse(f.x, GROUND + 3, 52 * (1 - air * 0.4) * f.scale, 11 * (1 - air * 0.4), 0, 0, TAU); ctx.fill();
     }
+    // 3D fighters: render each one's sprite now (afterimages included) so the reflection and the body below can reuse it
+    const use3d = F3D.active();
+    const flashOf = (f) => (f.flashT > 0 ? 0.65 : 0);
+    const ghostsOf = (f) => {
+      if (!f.trail.length) return null;
+      const c = hexRGB(f.def.color || '#ffffff');
+      return f.trail.map((tr, i) => ({ f: { def: f.def, x: tr.x, y: tr.y, face: tr.face, pose: tr.pose, clock: f.clock, scale: f.scale }, tint: [c[0], c[1], c[2], 0.5], alpha: 0.35 * (i + 1) / f.trail.length }));
+    };
+    if (use3d) for (const f of this.f) { f._o3 = { flash: flashOf(f), ghosts: ghostsOf(f) }; F3D.prepare(ctx, f, f._o3); }
     // glossy floors mirror the fighters (a short, faint reflection right under the feet)
     const refl = this.stage.refl || 0;
     if (refl >= 0.06 && !this.cfg.attract && !Battle.lowFx) {
       ctx.save();
       ctx.beginPath(); ctx.rect(this.cam.x - 900, GROUND + 2, 1800, 84); ctx.clip();
       ctx.translate(0, (GROUND + 2) * 2); ctx.scale(1, -1);
-      for (const f of this.f) if (f.y > GROUND - 60) drawFighter(ctx, f, { alpha: refl });
+      for (const f of this.f) if (f.y > GROUND - 60) drawFighter(ctx, f, { alpha: refl, reflect: true });
       ctx.restore();
     }
-    // trails (afterimages)
-    for (const f of this.f) {
+    // trails (afterimages) - in 3D they are part of the fighter's sprite
+    if (!use3d) for (const f of this.f) {
       f.trail.forEach((tr, i) => {
         const dummy = { def: f.def, x: tr.x, y: tr.y, face: tr.face, pose: tr.pose, clock: f.clock, scale: f.scale };
         drawFighter(ctx, dummy, { tint: rgba(f.def.color || '#ffffff', 0.5), alpha: 0.35 * (i + 1) / f.trail.length });
@@ -5906,9 +7332,9 @@ class Battle {
       if (f.val.shield > 0) { ctx.save(); ctx.translate(f.x, f.y - 90); ENT.shield(ctx, { t: this.frame, r: 92, col: '#ffd94a' }); ctx.restore(); }
       const au = f.passive.aura ? f.passive.aura(f) : null;
       if (au) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 120, au, 0.35 + 0.1 * Math.sin(this.frame * 0.2)); ctx.restore(); }
-      const flash = f.flashT > 0 ? 0.65 : 0;
+      const flash = flashOf(f);
       if (f.burnT > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 88, '#ff6a1f', 0.28 + 0.1 * Math.sin(this.frame * 0.5)); ctx.restore(); }
-      drawFighter(ctx, f, { flash });
+      drawFighter(ctx, f, use3d ? f._o3 : { flash });
       if (f.hasArmor && f.hasArmor() && f.mi && f.mi.armor > 0) {
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(f.x, f.y - 90); glow(ctx, 110, '#ffd94a', 0.25); ctx.restore();
       }
@@ -6015,7 +7441,7 @@ class Battle {
     // owner drawn over the dim
     ctx.save();
     ctx.translate(W / 2 + ox, 300 + oy); ctx.scale(z, z); ctx.translate(-cx, -300);
-    drawFighter(ctx, f, {});
+    drawFighter(ctx, f, F3D.active() && f._o3 ? f._o3 : {});
     ctx.restore();
   }
 
@@ -6505,7 +7931,7 @@ const Save = {
       v: 1, wins: 0, losses: 0, matches: 0, ko: 0, supers: 0, perfects: 0, throws: 0, bestCombo: 0, flawless: 0, comebacks: 0,
       burekas: 0, hardClear: 0, bossBeaten: 0, winsBy: {}, arcadeClears: {}, survivalBest: 0, unlocked: {}, ach: {},
       daily: { date: '', streak: 0, best: 0, done: {} },
-      settings: { sfx: 0.8, music: 0.5, shake: true, calm: false, touch: 'auto', muted: false, rounds: 2, timer: 60, rotate: 'auto', rotateSet: false },
+      settings: { sfx: 0.8, music: 0.5, shake: true, calm: false, touch: 'auto', muted: false, rounds: 2, timer: 60, rotate: 'auto', rotateSet: false, gfx3d: true },
     };
   },
 
@@ -6582,13 +8008,13 @@ function iconURL(kind, size = 64) {
   return url;
 }
 const portCache = new Map();
-function portraitURL(id, size = 128) {
-  const key = id + ':' + size;
+function portraitURL(id, size = 128, flat = false) {
+  const key = id + ':' + size + (flat ? 'f' : '');
   if (portCache.has(key)) return portCache.get(key);
   const def = ROSTER_BY_ID[id];
   const c = document.createElement('canvas'); c.width = c.height = size;
   const x = c.getContext('2d');
-  drawPortrait(x, def, size / 2, size / 2, size / 2 - 4, { bg: darken(def.color, 0.55), ring: def.color, lw: 6, mouth: 'smile' });
+  drawPortrait(x, def, size / 2, size / 2, size / 2 - 4, { bg: darken(def.color, 0.55), ring: def.color, lw: 6, mouth: 'smile', flat });
   const url = c.toDataURL();
   portCache.set(key, url);
   return url;
@@ -6780,6 +8206,7 @@ const UI = {
         <label class="row">עוצמת מוזיקה<input type="range" min="0" max="100" id="set-music" class="nav"></label>
         <label class="row">רעידות מסך<input type="checkbox" id="set-shake" class="nav"></label>
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
+        <label class="row">דמויות תלת־ממדיות (מכבים אם המשחק איטי)<input type="checkbox" id="set-3d" class="nav"></label>
         <label class="row">כפתורי מגע
           <select id="set-touch" class="nav"><option value="auto">אוטומטי</option><option value="on">תמיד</option><option value="off">כבוי</option></select></label>
         <label class="row touchonly">מצב רוחב (בטלפון שמוחזק לאורך)
@@ -6907,7 +8334,7 @@ const UI = {
     $('#grid').innerHTML = all.map((d) => {
       const locked = !Save.isUnlocked(d);
       return `<button class="card nav ${locked ? 'locked' : ''}" data-act="pick" data-id="${d.id}" style="--pc:${d.color}">
-        <img src="${portraitURL(d.id)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
+        <img src="${portraitURL(d.id, 96, true)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
     }).join('');
     // extras (difficulty / stage)
     let extra = '';
@@ -6979,7 +8406,7 @@ const UI = {
     $('#set-back').textContent = inFight ? 'חזרה להפסקה' : 'חזרה';
     const s = Save.d.settings;
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
-    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
   },
   bindSettings() {
@@ -6989,6 +8416,7 @@ const UI = {
     on('#set-music', 'input', (e) => { s().music = e.target.value / 100; Snd.init(); Snd.setVol('music', s().music); Save.save(); });
     on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
+    on('#set-3d', 'change', (e) => { s().gfx3d = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-touch', 'change', (e) => { s().touch = e.target.value; Save.save(); Game.layout(); });
     on('#set-rotate', 'change', (e) => { Game.setRotate(e.target.value); });
     on('#set-rounds', 'change', (e) => { s().rounds = +e.target.value; Save.save(); });
@@ -7123,6 +8551,7 @@ const Game = {
   applySettings() {
     const s = Save.d.settings;
     Fx.calm = s.calm; Fx.noShake = !s.shake;
+    F3D.off = s.gfx3d === false;
     Snd.setMuted(s.muted);
     Snd.setVol('sfx', s.sfx); Snd.setVol('music', s.music);
     UI.applyMuteIcon();
@@ -7164,7 +8593,10 @@ const Game = {
     q.sum += Math.min(dt, 80);
     if (q.n >= 190) {
       q.done = true;
-      if (q.sum / (q.n - 40) > 27 && !Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+      if (q.sum / (q.n - 40) > 27) {
+        if (F3D.ok && !F3D.off) { F3D.off = true; q.done = false; q.n = 0; q.sum = 0; UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו כדי לשמור על חלקות. אפשר להדליק בהגדרות', 'unlock'); }
+        else if (!Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+      }
     }
   },
 
@@ -7365,6 +8797,7 @@ const Game = {
     $('#vs-info').textContent = spec.label || '';
     Game.setScene('none');
     UI.show('vs');
+    setTimeout(() => { if (F3D.active()) { try { look3D(A.look); look3D(Bd.look); } catch (e) { /* falls back to 2D */ } } }, 40);
     setTimeout(() => Stages.prewarm(stg), 60);          // paint the arena's backdrop while the splash is on screen
     Snd.quiet = false; Snd.play('superStart'); Snd.playMusic('battle');
     clearTimeout(this.vsTimer);
@@ -7896,7 +9329,7 @@ function simMatch(idA, idB, opt = {}) {
 }
 
 if (/[?&]debug/.test(location.search)) {
-  window.KS = { SFX, TRACKS, Brain, ROSTER, EXTRA, ROSTER_BY_ID, Battle, Fighter, makeCtrl, simMatch, STAGES, Stages, Snd, Fx, IN, drawFighter, poseOf, drawPortrait, LOOKS, Game, UI, Save, Inp, TouchUI, FightUI, Hud, W, H };
+  window.KS = { F3D, G3, SFX, TRACKS, Brain, ROSTER, EXTRA, ROSTER_BY_ID, Battle, Fighter, makeCtrl, simMatch, STAGES, Stages, Snd, Fx, IN, drawFighter, poseOf, drawPortrait, LOOKS, Game, UI, Save, Inp, TouchUI, FightUI, Hud, W, H };
   // deterministic screenshot helpers
   KS.mk = (a, b, stage, opt = {}) => {
     const fa = new Fighter(ROSTER_BY_ID[a], 0, { ctrl: opt.ca || makeCtrl(0.7, 11) });

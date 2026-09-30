@@ -1,0 +1,233 @@
+// ===== 3D fighters, part 1: WebGL2 context, shader, vertex emitter and the sprite pipeline =====
+// The fighters are real 3D models (procedural meshes, lit in a shader) that are rendered into an off-screen WebGL canvas
+// and copied into a small "sprite" canvas that the normal 2D scene draws with drawImage(). Everything else (arenas, effects,
+// HUD) stays 2D, so hit boxes, camera, reflections and shake behave exactly as before. If WebGL2 is missing or slow, the
+// 2D cartoon renderer (21-fighter-render.js) is used instead.
+//
+// Model space: x forward (the way the fighter faces), y up, z towards the camera. One unit = one "rig unit" of the 2D skeleton.
+
+const F3D = {
+  ok: false,              // WebGL2 is up
+  failed: false,          // could not start, or the context was lost: stay on the 2D renderer
+  off: false,             // switched off by the player / by the adaptive quality
+  stamp: 0,               // bumped once per rendered frame
+  stats: { renders: 0, sprites: 0, ms: 0, verts: 0 },
+  light: { key: [1, 0.93, 0.84], fill: [0.42, 0.5, 0.7], top: [0.5, 0.5, 0.56], bot: [0.24, 0.2, 0.24], rim: [0.55, 0.62, 0.9] },
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// tiny 3D math (column-major mat4 as Float32Array(16), mat3 as Float32Array(9))
+// ---------------------------------------------------------------------------------------------------------------
+const M4 = {
+  ident() { const m = new Float32Array(16); m[0] = m[5] = m[10] = m[15] = 1; return m; },
+  mul(a, b) {          // a * b
+    const o = new Float32Array(16);
+    for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) o[c * 4 + r] = a[r] * b[c * 4] + a[4 + r] * b[c * 4 + 1] + a[8 + r] * b[c * 4 + 2] + a[12 + r] * b[c * 4 + 3];
+    return o;
+  },
+  translate(x, y, z) { const m = M4.ident(); m[12] = x; m[13] = y; m[14] = z; return m; },
+  scale(x, y, z) { const m = M4.ident(); m[0] = x; m[5] = y; m[10] = z; return m; },
+  rotZ(a) { const m = M4.ident(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[1] = s; m[4] = -s; m[5] = c; return m; },
+  rotY(a) { const m = M4.ident(), c = Math.cos(a), s = Math.sin(a); m[0] = c; m[2] = -s; m[8] = s; m[10] = c; return m; },
+  rotX(a) { const m = M4.ident(), c = Math.cos(a), s = Math.sin(a); m[5] = c; m[6] = s; m[9] = -s; m[10] = c; return m; },
+  // basis (columns = x,y,z axes) + origin
+  basis(ex, ey, ez, o) { const m = M4.ident(); m[0] = ex[0]; m[1] = ex[1]; m[2] = ex[2]; m[4] = ey[0]; m[5] = ey[1]; m[6] = ey[2]; m[8] = ez[0]; m[9] = ez[1]; m[10] = ez[2]; m[12] = o[0]; m[13] = o[1]; m[14] = o[2]; return m; },
+  pt(m, x, y, z) { return [m[0] * x + m[4] * y + m[8] * z + m[12], m[1] * x + m[5] * y + m[9] * z + m[13], m[2] * x + m[6] * y + m[10] * z + m[14]]; },
+  // inverse-transpose of the upper 3x3 (normal matrix), column-major so it can go straight into uniformMatrix3fv / stamp()
+  normalMat(m) {
+    const a = m[0], b = m[4], c = m[8], d = m[1], e = m[5], f = m[9], g = m[2], h = m[6], i = m[10];
+    const c00 = e * i - f * h, c01 = -(d * i - f * g), c02 = d * h - e * g;
+    const c10 = -(b * i - c * h), c11 = a * i - c * g, c12 = -(a * h - b * g);
+    const c20 = b * f - c * e, c21 = -(a * f - c * d), c22 = a * e - b * d;
+    const det = a * c00 + b * c01 + c * c02 || 1e-9, id = 1 / det;
+    // cofactor matrix / det is the inverse transpose (row-major); store it column-major
+    return new Float32Array([c00 * id, c10 * id, c20 * id, c01 * id, c11 * id, c21 * id, c02 * id, c12 * id, c22 * id]);
+  },
+  det3(m) { return m[0] * (m[5] * m[10] - m[9] * m[6]) - m[4] * (m[1] * m[10] - m[9] * m[2]) + m[8] * (m[1] * m[6] - m[5] * m[2]); },
+};
+
+const V3 = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]],
+  sub: (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]],
+  mul: (a, k) => [a[0] * k, a[1] * k, a[2] * k],
+  dot: (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+  cross: (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]],
+  len: (a) => Math.hypot(a[0], a[1], a[2]),
+  norm(a) { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; },
+  lerp: (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t],
+  madd: (a, b, k) => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k],
+};
+
+// ---------------------------------------------------------------------------------------------------------------
+// vertex format (40 bytes): pos.xyz nrm.xyz uv | rgba8 (tint, coverage) | rgba8 (specular, shininess, rim, texture layer)
+// ---------------------------------------------------------------------------------------------------------------
+const VW = 10;                               // 32-bit words per vertex
+const q8 = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
+const packRGBA = (r, g, b, a) => ((q8(a) << 24) | (q8(b) << 16) | (q8(g) << 8) | q8(r)) >>> 0;
+const packMat = (spec, shine, rim, layer) => ((layer & 255) << 24 | q8(rim) << 16 | q8(shine) << 8 | q8(spec)) >>> 0;
+function hexRGB(c) {                          // '#rrggbb' or 'rgb(...)' -> [0..1]x3
+  if (c[0] === '#') { const v = rgb(c); return [v[0] / 255, v[1] / 255, v[2] / 255]; }
+  const m = c.match(/[\d.]+/g); return [m[0] / 255, m[1] / 255, m[2] / 255];
+}
+
+// A growable mesh; used both for static meshes (heads: built once and uploaded to the GPU) and for the per-frame body.
+class Mesh {
+  constructor(cap = 2048, icap = 8192) {
+    this.f = new Float32Array(cap * VW); this.u = new Uint32Array(this.f.buffer); this.i = new Uint16Array(icap); this.nv = 0; this.ni = 0;
+  }
+  reset() { this.nv = 0; this.ni = 0; }
+  grow() {
+    const nf = new Float32Array(this.f.length * 2); nf.set(this.f); this.f = nf; this.u = new Uint32Array(nf.buffer);
+  }
+  growI() { const ni = new Uint16Array(this.i.length * 2); ni.set(this.i); this.i = ni; }
+  vert(x, y, z, nx, ny, nz, u, v, col, mat) {
+    if ((this.nv + 1) * VW > this.f.length) this.grow();
+    const o = this.nv * VW, f = this.f;
+    f[o] = x; f[o + 1] = y; f[o + 2] = z; f[o + 3] = nx; f[o + 4] = ny; f[o + 5] = nz; f[o + 6] = u; f[o + 7] = v; this.u[o + 8] = col; this.u[o + 9] = mat;
+    return this.nv++;
+  }
+  tri(a, b, c) { if (this.ni + 3 > this.i.length) this.growI(); this.i[this.ni++] = a; this.i[this.ni++] = b; this.i[this.ni++] = c; }
+  quad(a, b, c, d) { this.tri(a, b, c); this.tri(a, c, d); }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// shaders
+// ---------------------------------------------------------------------------------------------------------------
+const F3D_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec3 aPos;
+layout(location=1) in vec3 aNrm;
+layout(location=2) in vec2 aUV;
+layout(location=3) in vec4 aCol;
+layout(location=4) in vec4 aMat;
+uniform mat4 uMVP;
+uniform mat3 uNM;
+out vec3 vN; out vec2 vUV; out vec4 vCol; out vec4 vMat;
+void main() {
+  gl_Position = uMVP * vec4(aPos, 1.0);
+  vN = uNM * aNrm; vUV = aUV; vCol = aCol; vMat = aMat;
+}`;
+
+const F3D_FS = `#version 300 es
+precision mediump float;
+precision mediump sampler2DArray;
+uniform sampler2DArray uTex;
+uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim;
+uniform vec4 uTint;
+uniform float uFlash, uAlpha, uCover;
+in vec3 vN; in vec2 vUV; in vec4 vCol; in vec4 vMat;
+out vec4 outColor;
+void main() {
+  float layer = floor(vMat.w * 255.0 + 0.5);
+  vec4 t = texture(uTex, vec3(vUV, layer));
+  vec3 alb = t.rgb * vCol.rgb; alb *= alb;                       // sRGB-ish -> linear-ish
+  vec3 N = normalize(vN);
+  float spec = vMat.x, shin = 2.0 + vMat.y * 126.0, rim = vMat.z;
+  float ndl = dot(N, uKeyDir);
+  float wrap = clamp((ndl + 0.3) / 1.3, 0.0, 1.0); wrap *= wrap * (3.0 - 2.0 * wrap) * 0.6 + wrap * 0.4;
+  vec3 diff = uKeyCol * wrap + uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5);
+  vec3 H = normalize(uKeyDir + vec3(0.0, 0.0, 1.0));
+  float sp = pow(max(dot(N, H), 0.0), shin) * spec * smoothstep(-0.05, 0.25, ndl);
+  float nz = clamp(N.z, -1.0, 1.0);
+  float fres = pow(1.0 - clamp(abs(nz), 0.0, 1.0), 3.0);
+  vec3 col = alb * diff + uKeyCol * sp + uRim * fres * rim * (0.4 + 0.6 * clamp(-dot(N, uKeyDir) * 0.5 + 0.6, 0.0, 1.0));
+  col *= 1.0 - 0.38 * pow(1.0 - clamp(abs(nz), 0.0, 1.0), 5.0);   // soft dark contour
+  col = sqrt(max(col, 0.0));
+  col = mix(col, uTint.rgb, uTint.a);
+  col = mix(col, vec3(1.0), uFlash);
+  float a = vCol.a * uAlpha;
+  if (uCover > 0.5) outColor = vec4(col, smoothstep(0.44, 0.56, a));   // alpha-to-coverage pass (hair, beard): straight colour, crisp edge
+  else outColor = vec4(col * a, a);                             // premultiplied
+}`;
+
+// ---------------------------------------------------------------------------------------------------------------
+// context
+// ---------------------------------------------------------------------------------------------------------------
+const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), vbo: null, ibo: null, vao: null, size: 1024, white: null, cache: new Map(), a2c: false };
+
+F3D.init = function () {
+  if (G3.gl || F3D.failed) return F3D.ok;
+  try {
+    if (/[?&]flat\b/.test(location.search)) throw new Error('flat requested');
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = G3.size;
+    const gl = cv.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, depth: true, stencil: false, powerPreference: 'high-performance' });
+    if (!gl) throw new Error('no webgl2');
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); F3D.ok = false; F3D.failed = true; G3.gl = null; G3.cache.clear(); });
+    const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
+    const prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, F3D_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, F3D_FS));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    G3.gl = gl; G3.cv = cv; G3.prog = prog;
+    for (const n of ['uMVP', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
+    G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
+    G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
+    F3D.ok = true;
+  } catch (e) {
+    F3D.failed = true; F3D.ok = false; G3.gl = null;
+    F3D.err = String(e && e.message || e);
+  }
+  return F3D.ok;
+};
+
+F3D.active = function () { return !F3D.off && !F3D.failed && (F3D.ok || F3D.init()); };
+F3D.beginFrame = function () { F3D.stamp++; };
+
+// Vertex array for a mesh that lives on the GPU (static heads etc.) or for the streaming body buffer
+function bindLayout(gl, vbo, ibo) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  const S = VW * 4;
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, S, 12);
+  gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 2, gl.FLOAT, false, S, 24);
+  gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 4, gl.UNSIGNED_BYTE, true, S, 32);
+  gl.enableVertexAttribArray(4); gl.vertexAttribPointer(4, 4, gl.UNSIGNED_BYTE, true, S, 36);
+}
+function uploadStatic(gl, mesh) {
+  const vao = gl.createVertexArray(), vbo = gl.createBuffer(), ibo = gl.createBuffer();
+  gl.bindVertexArray(vao);
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.bufferData(gl.ARRAY_BUFFER, mesh.f.subarray(0, mesh.nv * VW), gl.STATIC_DRAW);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, mesh.i.subarray(0, mesh.ni), gl.STATIC_DRAW);
+  bindLayout(gl, vbo, ibo);
+  gl.bindVertexArray(null);
+  return { vao, vbo, ibo, n: mesh.ni };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// texture array (one per look): FACE, TORSO, HAIR, BEARD, KNIT, WHITE ... each layer TEXN x TEXN
+// ---------------------------------------------------------------------------------------------------------------
+const TEXN = 256;
+const LAYER = { FACE: 0, TORSO: 1, HAIR: 2, BEARD: 3, KNIT: 4, WHITE: 5, TORSO2: 6, N: 7 };
+function makeTexArray(gl) {
+  const t = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+  gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 6, gl.RGBA8, TEXN, TEXN, LAYER.N);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+  gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+  const ext = gl.getExtension('EXT_texture_filter_anisotropic');
+  if (ext) gl.texParameterf(gl.TEXTURE_2D_ARRAY, ext.TEXTURE_MAX_ANISOTROPY_EXT, 4);
+  return t;
+}
+F3D.uploadLayer = function (tex, layer, canvas, mips = true) {
+  const gl = G3.gl;
+  gl.bindTexture(gl.TEXTURE_2D_ARRAY, tex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, layer, TEXN, TEXN, 1, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+  if (mips) gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+};
+F3D.newTexArray = function () { return makeTexArray(G3.gl); };
+
+// ---------------------------------------------------------------------------------------------------------------
+// stage lighting: a warm key from the front-left, cool fill, and a coloured rim from behind
+// ---------------------------------------------------------------------------------------------------------------
+const STAGE_LIGHT = {
+  plenum:   { key: [1.0, 0.92, 0.8], fill: [0.36, 0.44, 0.62], top: [0.5, 0.46, 0.44], bot: [0.26, 0.2, 0.18], rim: [1.0, 0.8, 0.5] },
+  studio:   { key: [0.86, 0.92, 1.0], fill: [0.5, 0.36, 0.62], top: [0.42, 0.48, 0.62], bot: [0.2, 0.16, 0.28], rim: [0.6, 0.72, 1.0] },
+  cafe:     { key: [1.0, 0.94, 0.82], fill: [0.44, 0.4, 0.36], top: [0.55, 0.5, 0.44], bot: [0.3, 0.24, 0.2], rim: [1.0, 0.86, 0.6] },
+  election: { key: [1.0, 0.9, 0.95], fill: [0.34, 0.4, 0.8], top: [0.4, 0.36, 0.56], bot: [0.24, 0.16, 0.3], rim: [0.7, 0.55, 1.0] },
+  office:   { key: [1.0, 0.9, 0.76], fill: [0.4, 0.38, 0.34], top: [0.5, 0.44, 0.38], bot: [0.28, 0.2, 0.16], rim: [1.0, 0.78, 0.5] },
+};
+F3D.setStage = function (id) { F3D.light = STAGE_LIGHT[id] || STAGE_LIGHT.plenum; };

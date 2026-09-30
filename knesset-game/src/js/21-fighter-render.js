@@ -464,6 +464,7 @@ function drawFist(ctx, x, y, ux, uy, skin, ink, tint, back) {
 }
 
 function drawFighter(ctx, f, opt = {}) {
+  if (!opt.tint && F3D.active() && F3D.draw(ctx, f, opt)) return;      // real 3D model (WebGL); falls through to the cartoon renderer otherwise
   const def = f.def, look = def.look;
   const g = geo(look), pal = g.pal;
   const p = f.pose || poseOf(f);
@@ -653,7 +654,7 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
   const t = ctx.getTransform ? ctx.getTransform() : null;
   const sc = t ? Math.max(1, Math.hypot(t.a, t.b)) : 1;
   if (opt.cache) {
-    const key = [def.id, Math.round(r * sc), opt.eyes, opt.mouth, opt.flip ? 1 : 0, opt.zoom || 1, opt.bg, opt.ring, opt.lw].join('|');
+    const key = [def.id, Math.round(r * sc), opt.eyes, opt.mouth, opt.flip ? 1 : 0, opt.zoom || 1, opt.bg, opt.ring, opt.lw, opt.flat ? 'f' : '3'].join('|');
     let c = PORT_CACHE.get(key);
     if (!c) {
       const pad = Math.ceil((opt.lw || 4) / 2 + 2), size = Math.ceil((r + pad) * 2 * sc);
@@ -684,7 +685,18 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
   ctx.scale(k * (opt.flip ? -1 : 1), k);
   ctx.translate(-2, 0);
   const C = (c) => c;
-  if (look.robot) {
+  const bust3 = !look.robot && !opt.flat && F3D.active() ? F3D.bust(def, p.eyes, p.mouth, r * sc * (opt.zoom || 1) * 2) : null;
+  if (bust3) {
+    ctx.restore(); ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.clip();
+    if (opt.bg) {
+      const bg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r * 1.15);
+      bg.addColorStop(0, flashMix(opt.bg, 0.16)); bg.addColorStop(1, opt.bg);
+      ctx.fillStyle = bg; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    }
+    const z = 1.02 * (opt.zoom || 1);
+    ctx.translate(cx, cy + r * 0.02); ctx.scale(opt.flip ? -z : z, z);
+    ctx.drawImage(bust3, -r, -r, r * 2, r * 2);
+  } else if (look.robot) {
     ctx.translate(0, 6); ctx.scale(0.62, 0.62); drawRobotHead(ctx, dummy, look, p, C);
   } else {
     drawBust(ctx, look, C);

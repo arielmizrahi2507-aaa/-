@@ -40,6 +40,7 @@ const Game = {
   applySettings() {
     const s = Save.d.settings;
     Fx.calm = s.calm; Fx.noShake = !s.shake;
+    F3D.off = s.gfx3d === false;
     Snd.setMuted(s.muted);
     Snd.setVol('sfx', s.sfx); Snd.setVol('music', s.music);
     UI.applyMuteIcon();
@@ -81,7 +82,10 @@ const Game = {
     q.sum += Math.min(dt, 80);
     if (q.n >= 190) {
       q.done = true;
-      if (q.sum / (q.n - 40) > 27 && !Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+      if (q.sum / (q.n - 40) > 27) {
+        if (F3D.ok && !F3D.off) { F3D.off = true; q.done = false; q.n = 0; q.sum = 0; UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו כדי לשמור על חלקות. אפשר להדליק בהגדרות', 'unlock'); }
+        else if (!Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+      }
     }
   },
 
@@ -282,6 +286,7 @@ const Game = {
     $('#vs-info').textContent = spec.label || '';
     Game.setScene('none');
     UI.show('vs');
+    setTimeout(() => { if (F3D.active()) { try { look3D(A.look); look3D(Bd.look); } catch (e) { /* falls back to 2D */ } } }, 40);
     setTimeout(() => Stages.prewarm(stg), 60);          // paint the arena's backdrop while the splash is on screen
     Snd.quiet = false; Snd.play('superStart'); Snd.playMusic('battle');
     clearTimeout(this.vsTimer);

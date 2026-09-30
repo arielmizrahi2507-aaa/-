@@ -16,13 +16,13 @@ function iconURL(kind, size = 64) {
   return url;
 }
 const portCache = new Map();
-function portraitURL(id, size = 128) {
-  const key = id + ':' + size;
+function portraitURL(id, size = 128, flat = false) {
+  const key = id + ':' + size + (flat ? 'f' : '');
   if (portCache.has(key)) return portCache.get(key);
   const def = ROSTER_BY_ID[id];
   const c = document.createElement('canvas'); c.width = c.height = size;
   const x = c.getContext('2d');
-  drawPortrait(x, def, size / 2, size / 2, size / 2 - 4, { bg: darken(def.color, 0.55), ring: def.color, lw: 6, mouth: 'smile' });
+  drawPortrait(x, def, size / 2, size / 2, size / 2 - 4, { bg: darken(def.color, 0.55), ring: def.color, lw: 6, mouth: 'smile', flat });
   const url = c.toDataURL();
   portCache.set(key, url);
   return url;
@@ -214,6 +214,7 @@ const UI = {
         <label class="row">עוצמת מוזיקה<input type="range" min="0" max="100" id="set-music" class="nav"></label>
         <label class="row">רעידות מסך<input type="checkbox" id="set-shake" class="nav"></label>
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
+        <label class="row">דמויות תלת־ממדיות (מכבים אם המשחק איטי)<input type="checkbox" id="set-3d" class="nav"></label>
         <label class="row">כפתורי מגע
           <select id="set-touch" class="nav"><option value="auto">אוטומטי</option><option value="on">תמיד</option><option value="off">כבוי</option></select></label>
         <label class="row touchonly">מצב רוחב (בטלפון שמוחזק לאורך)
@@ -341,7 +342,7 @@ const UI = {
     $('#grid').innerHTML = all.map((d) => {
       const locked = !Save.isUnlocked(d);
       return `<button class="card nav ${locked ? 'locked' : ''}" data-act="pick" data-id="${d.id}" style="--pc:${d.color}">
-        <img src="${portraitURL(d.id)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
+        <img src="${portraitURL(d.id, 96, true)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
     }).join('');
     // extras (difficulty / stage)
     let extra = '';
@@ -413,7 +414,7 @@ const UI = {
     $('#set-back').textContent = inFight ? 'חזרה להפסקה' : 'חזרה';
     const s = Save.d.settings;
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
-    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
   },
   bindSettings() {
@@ -423,6 +424,7 @@ const UI = {
     on('#set-music', 'input', (e) => { s().music = e.target.value / 100; Snd.init(); Snd.setVol('music', s().music); Save.save(); });
     on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
+    on('#set-3d', 'change', (e) => { s().gfx3d = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-touch', 'change', (e) => { s().touch = e.target.value; Save.save(); Game.layout(); });
     on('#set-rotate', 'change', (e) => { Game.setRotate(e.target.value); });
     on('#set-rounds', 'change', (e) => { s().rounds = +e.target.value; Save.save(); });
