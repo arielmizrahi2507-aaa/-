@@ -146,11 +146,15 @@ body[data-screen=settings] #mute, body[data-screen=help] #mute, body[data-screen
 .logo .l1, .logo .l2 { display: block; font: 900 clamp(64px, 20vmin, 230px)/.92 var(--f-disp); letter-spacing: -.01em; transform: skewX(-8deg); -webkit-text-stroke: clamp(4px, 1vmin, 10px) #08080a; paint-order: stroke fill; text-shadow: 0 .05em 0 #000, 0 .1em .18em rgba(0,0,0, .7); }
 .logo .l1 { color: #eceef2; }
 .logo .l2 { color: #e0303a; margin-top: .02em; }
-/* brushed-steel and blood-red letters; the plain colours above stay for browsers without background-clip:text */
+/* brushed-steel and blood-red letters; the plain colours above stay for browsers without background-clip:text.
+   The outline is NOT a text-stroke on the gradient text: the variable fonts from Google Fonts have overlapping outlines, and a stroke with a transparent
+   fill shows them as dark bars inside letters such as ב. So the letters are a dark, outlined copy (a stroke in the same colour as its fill hides every inner line)
+   with the gradient glyph, drawn without a stroke, on top (the copy is the ::after, from data-t). */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .logo .l1, .logo .l2 { -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; filter: drop-shadow(0 .045em 0 #000) drop-shadow(0 .1em .16em rgba(0,0,0, .65)); }
-  .logo .l1 { background-image: linear-gradient(180deg, #ffffff 0%, #d9dce3 30%, #8e93a0 49%, #cdd0d8 53%, #f1f2f5 72%, #9b9fab 100%); }
-  .logo .l2 { background-image: linear-gradient(180deg, #ff7a63 0%, #e8343d 38%, #a5151e 50%, #d22c36 56%, #8a0f17 100%); }
+  .logo .l1, .logo .l2 { position: relative; color: #08080a; -webkit-text-stroke-width: clamp(10px, 2.4vmin, 24px); text-shadow: none; filter: drop-shadow(0 .045em 0 #000) drop-shadow(0 .1em .16em rgba(0,0,0, .65)); }
+  .logo .l1::after, .logo .l2::after { content: attr(data-t); content: attr(data-t) / ""; position: absolute; left: 0; right: 0; top: 0; -webkit-text-stroke: 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: none; pointer-events: none; }
+  .logo .l1::after { background-image: linear-gradient(180deg, #ffffff 0%, #d9dce3 30%, #8e93a0 49%, #cdd0d8 53%, #f1f2f5 72%, #9b9fab 100%); }
+  .logo .l2::after { background-image: linear-gradient(180deg, #ff7a63 0%, #e8343d 38%, #a5151e 50%, #d22c36 56%, #8a0f17 100%); }
 }
 
 .logo .l3 { margin-top: 2.4vmin; display: flex; align-items: center; justify-content: center; gap: .9em; font: 800 clamp(12px, 2.4vmin, 24px) var(--f-ui); letter-spacing: .5em; color: var(--ember); text-shadow: 0 2px 0 #000; direction: ltr; }
@@ -2104,6 +2108,7 @@ function drawFighter(ctx, f, opt = {}) {
   const C = tint ? () => tint : flash > 0 ? (c) => flashMix(c, flash) : (c) => c;
   const s = look.h || 1;
   const bw = look.w || 1;
+  const lk = limbK(look), nkK = 1 + (faceK(look.neck, 'neck') - 1) * 0.7;      // thick or thin arms, legs and neck
   const ink = tint || INK;
 
   ctx.save();
@@ -2126,10 +2131,10 @@ function drawFighter(ctx, f, opt = {}) {
   const drawArm = (target, back) => {
     const [sx, sy] = toW(back ? -9 : 10, -43);
     const r = ik(sx, sy, target[0], target[1], 30, 30, 1);
-    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [13.4, 11.4, 9.6], C(back ? pal.suitD : pal.suit), ink, { noHl: back });
+    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [13.4 * lk, 11.4 * lk, 9.6 * lk], C(back ? pal.suitD : pal.suit), ink, { noHl: back });
     const cl2 = Math.hypot(r.ex - r.jx, r.ey - r.jy) || 1, ux = (r.ex - r.jx) / cl2, uy = (r.ey - r.jy) / cl2;
     if (!tint) {   // shirt cuff
-      tube(ctx, [[r.ex - ux * 8, r.ey - uy * 8], [r.ex - ux * 2.5, r.ey - uy * 2.5]], [10.6, 10.2], C(back ? pal.shirtD : pal.shirt), ink, { flat: true, ow: 1.3 });
+      tube(ctx, [[r.ex - ux * 8, r.ey - uy * 8], [r.ex - ux * 2.5, r.ey - uy * 2.5]], [10.6 * lk, 10.2 * lk], C(back ? pal.shirtD : pal.shirt), ink, { flat: true, ow: 1.3 });
     }
     drawFist(ctx, r.ex, r.ey, ux, uy, C(back ? pal.skinD : skin), ink, tint, back);
     if (p.finger && !back) {
@@ -2142,11 +2147,11 @@ function drawFighter(ctx, f, opt = {}) {
   const drawLeg = (target, back) => {
     const sx = hipX + (back ? -7 : 7), sy = hipY + 3;
     const r = ik(sx, sy, target[0], target[1], 38, 38, -1);
-    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [17.4, 14.2, 10.8], C(back ? pal.pantsD : pal.pants), ink, { noHl: back });
+    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [17.4 * lk, 14.2 * lk, 10.8 * lk], C(back ? pal.pantsD : pal.pants), ink, { noHl: back });
     if (!tint) {   // trouser crease + turn-up
       const dx = r.ex - r.jx, dy = r.ey - r.jy, d = Math.hypot(dx, dy) || 1;
       ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r.jx, r.jy); ctx.lineTo(r.ex - dx / d * 3, r.ey - dy / d * 3); ctx.stroke();
-      tube(ctx, [[r.ex - dx / d * 9, r.ey - dy / d * 9], [r.ex - dx / d * 2, r.ey - dy / d * 2]], [11.6, 11.2], C(back ? darken(pal.pants, 0.36) : pal.pantsD), ink, { flat: true, ow: 1.2 });
+      tube(ctx, [[r.ex - dx / d * 9, r.ey - dy / d * 9], [r.ex - dx / d * 2, r.ey - dy / d * 2]], [11.6 * Math.max(0.9, lk), 11.2 * Math.max(0.9, lk)], C(back ? darken(pal.pants, 0.36) : pal.pantsD), ink, { flat: true, ow: 1.2 });
     }
     const fa = Math.atan2(r.ey - r.jy, r.ex - r.jx) - Math.PI / 2;
     drawShoe(ctx, r.ex + 1, r.ey + 1, fa * 0.8, C(pal.shoe), C(pal.shoeD), ink, tint, back);
@@ -2191,7 +2196,7 @@ function drawFighter(ctx, f, opt = {}) {
   // ---- neck (world space, from the shoulders up to the chin)
   if (!look.robot) {
     const nx = shX + 1, ny = shY - 1, hx = headCX - 1 + Math.sin(p.headRot) * 6, hy = headCY + 14;
-    ctx.beginPath(); ctx.moveTo(nx - 8.5, ny + 1); ctx.lineTo(hx - 6.6, hy); ctx.lineTo(hx + 7.4, hy); ctx.lineTo(nx + 9, ny + 1); ctx.closePath();
+    ctx.beginPath(); ctx.moveTo(nx - 8.5 * nkK, ny + 1); ctx.lineTo(hx - 6.6 * nkK, hy); ctx.lineTo(hx + 7.4 * nkK, hy); ctx.lineTo(nx + 9 * nkK, ny + 1); ctx.closePath();
     const ng = ctx.createLinearGradient(nx - 8, 0, nx + 9, 0); ng.addColorStop(0, C(pal.skinD)); ng.addColorStop(0.6, C(skin)); ng.addColorStop(1, C(pal.skinD));
     ctx.fillStyle = ng; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = ink; ctx.stroke();
     if (!tint) { ctx.fillStyle = 'rgba(60,20,15,.3)'; ctx.beginPath(); ctx.ellipse(hx + 0.5, hy + 1.2, 8, 3.4, 0, 0, TAU); ctx.fill(); }
@@ -4205,7 +4210,7 @@ function emitRobotCore(mesh, S, L) {
 }
 
 function emitBody(mesh, S, L, opt) {
-  const look = L.look, pal = L.pal, p = S.p, bw = S.bw;
+  const look = L.look, pal = L.pal, p = S.p, bw = S.bw, lk = limbK(look);        // lk: thick or thin arms and legs
   const suit = c3(look.suit), suitFar = c3(look.suit, 0.78), pants = c3(look.pants || look.suit), pantsFar = c3(look.pants || look.suit, 0.74);
   const shirt = c3(look.shirt || '#ffffff'), shirtFar = c3(look.shirt || '#ffffff', 0.8), skin = c3(pal.skin), skinFar = c3(pal.skin, 0.8), shoe = c3(look.shoes || '#1d1b27');
   const nm = (m) => M4.normalMat(m);
@@ -4214,12 +4219,12 @@ function emitBody(mesh, S, L, opt) {
   // legs
   for (const lg of [S.legF, S.legN]) {
     const far = !lg.near, pc = far ? pantsFar : pants;
-    emitTube(mesh, lg.hp, lg.kn, 9.6 * bw, 7.9, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    emitTube(mesh, lg.kn, lg.an, 7.8, 6.0, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    sphere(mesh, lg.hp, 9.9 * bw, pc, MAT_CLOTH, { nu: 10, nv: 7 });
-    sphere(mesh, lg.kn, 7.9, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    emitTube(mesh, lg.hp, lg.kn, 9.6 * lk, 7.9 * lk, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    emitTube(mesh, lg.kn, lg.an, 7.8 * lk, 6.0 * lk, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    sphere(mesh, lg.hp, 9.9 * lk, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    sphere(mesh, lg.kn, 7.9 * lk, pc, MAT_CLOTH, { nu: 10, nv: 7 });
     const dl = V3.norm(V3.sub(lg.an, lg.kn));
-    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, -1.5), 6.95, 6.75, far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.04 });   // turn-up
+    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, -1.5), 6.95 * Math.max(0.9, lk), 6.75 * Math.max(0.9, lk), far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.04 });   // turn-up
     const M = M4.mul(M4.translate(lg.an[0] + 1, lg.an[1] - 0.6, lg.an[2] + (far ? -0.5 : 0.5)), M4.rotZ(lg.ang));
     stamp(mesh, shoeMesh(), M, nm(M), far ? c3(look.shoes || '#1d1b27', 0.75) : shoe, MAT_SHOE);
   }
@@ -4268,12 +4273,12 @@ function emitBody(mesh, S, L, opt) {
   // arms
   for (const ar of [S.armF, S.armN]) {
     const far = !ar.near, sc = far ? suitFar : suit;
-    sphere(mesh, ar.sh, 7.7, sc, MAT_CLOTH, { nu: 12, nv: 8 });
-    emitTube(mesh, ar.sh, ar.el, 7.6, 6.4, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    emitTube(mesh, ar.el, ar.wr, 6.4, 5.3, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    sphere(mesh, ar.el, 6.5, sc, MAT_CLOTH, { nu: 10, nv: 7 });
+    sphere(mesh, ar.sh, 7.7 * lk, sc, MAT_CLOTH, { nu: 12, nv: 8 });
+    emitTube(mesh, ar.sh, ar.el, 7.6 * lk, 6.4 * lk, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    emitTube(mesh, ar.el, ar.wr, 6.4 * lk, 5.3 * lk, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    sphere(mesh, ar.el, 6.5 * lk, sc, MAT_CLOTH, { nu: 10, nv: 7 });
     const d = ar.dir;
-    emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35, 6.05, far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
+    emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35 * Math.max(0.9, lk), 6.05 * Math.max(0.9, lk), far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
     // fist
     const ex = d, ey = V3.norm(V3.cross([0, 0, 1], ex)), ez = V3.cross(ex, ey);
     const M = M4.basis(ex, V3.mul(ey, 1), ez, ar.fist);
@@ -4583,90 +4588,92 @@ F3D.cpuTest = function (f) {
 const FG = { fw: 1.25, cheek: 1.6, chin: 2.0, jaw: 1.6, fore: 2.2, ridge: 2.4, lips: 2.0, nose: 1.7, noseL: 2.0, noseW: 1.7, ear: 1.5, eye: 1.8, neck: 1.6 };
 const FACE_GAIN = 2.0;
 const faceK = (v, f) => Math.max(0.5, Math.min(1.9, 1 + ((v || 1) - 1) * (FG[f] || FACE_GAIN)));
+// How much thicker (or thinner) the arms and legs are: a wide or heavy build has thick limbs, a slim one thin limbs.
+const limbK = (look) => Math.max(0.82, Math.min(1.3, 1 + ((look.w || 1) - 1) * 0.9 + (look.belly || 0) * 0.05));
 const LOOKS = {
   bibi: {
     fw: 1, len: 1.12, fore: 1.25, ridge: 1.5, cheek: 0.9, jowl: 0.35, chin: 1.2, jaw: 1.1, nose: 1.22, noseL: 1.3, noseW: 1.05, bridge: 0.15, noseT: 0.4, lips: 0.7, eyeSize: 0.9, lid: 0.85, bags: 0.7, browArch: 0.1, browTilt: 0.5, ear: 1.3, neck: 1.1,
-    skin: '#ecbb9b', hair: { style: 'swoop', color: '#c9c8cc', vol: 1.2, hl: 0.1, dt: -2.4, ds: -0.8, dd: -2.6, de: 1.5 }, browColor: '#4d4b52', brow: 4.6, age: 0.8, iris: '#5a4a3c', suit: '#1b2236', shirt: '#ffffff', tie: '#c1272d', pin: '#2155e0', h: 1.05, w: 1, shoulders: 0.3, mood: -0.8,
+    skin: '#ecbb9b', hair: { style: 'swoop', color: '#c9c8cc', vol: 1.2, hl: 0.1, dt: -2.4, ds: -0.8, dd: -2.6, de: 1.5 }, browColor: '#4d4b52', brow: 4.6, age: 0.8, iris: '#5a4a3c', suit: '#1b2236', shirt: '#ffffff', tie: '#c1272d', pin: '#2155e0', h: 1.05, w: 1.04, shoulders: 0.4, mood: -0.8, belly: 0.15,
   },
   bengvir: {
-    fw: 1.18, len: 0.95, ridge: 1.1, cheek: 1.55, jowl: 0.55, chin: 0.9, jaw: 1.15, nose: 1, noseL: 0.9, noseW: 1.3, lips: 0.95, mouthW: 1.05, eyeSize: 0.85, lid: 0.55, bags: 0.5, browTilt: 0.3, ear: 1.3, earOut: 0.3, neck: 1.35,
-    skin: '#e4a98f', hair: { style: 'crop', color: '#8a8d95', vol: 1.1, hl: 0.02, mix: '#d6d8de', dt: -1.8, dh: -2.4, dd: -2.4, ds: -0.2 }, kippah: { color: '#f2f2f4', knit: '#cfd2da', s: 1.05 }, glasses: { shape: 'rect', color: '#aab0c2', lw: 0.9 }, browColor: '#6b6c74', brow: 3.8, age: 0.4, iris: '#3b2a1e', suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.96, w: 1.14, head: 1.04, belly: 0.45, mood: -0.5,
+    fw: 1.18, len: 0.95, ridge: 1.1, cheek: 1.55, jowl: 0.55, chin: 0.9, jaw: 1.15, nose: 1, noseL: 0.9, noseW: 1.3, lips: 0.95, mouthW: 1.05, eyeSize: 0.85, lid: 0.55, bags: 0.5, browTilt: 0.3, ear: 1.3, earOut: 0.3, neck: 1.5,
+    skin: '#e4a98f', hair: { style: 'crop', color: '#8a8d95', vol: 1.1, hl: 0.02, mix: '#d6d8de', dt: -1.8, dh: -2.4, dd: -2.4, ds: -0.2 }, kippah: { color: '#f2f2f4', knit: '#cfd2da', s: 1.05 }, glasses: { shape: 'rect', color: '#aab0c2', lw: 0.9 }, browColor: '#6b6c74', brow: 3.8, age: 0.4, iris: '#3b2a1e', suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.96, w: 1.2, head: 1.04, belly: 0.6, mood: -0.5, shoulders: 0.1,
   },
   smotrich: {
-    fw: 1, len: 1.08, fore: 1.15, ridge: 1.25, cheek: 1, jaw: 1.05, nose: 1.1, noseL: 1.05, bridge: 0.15, lips: 0.95, lid: 0.3, bags: 0.25, browArch: 0.1, ear: 1.1, neck: 1.1,
-    skin: '#edc3a3', hair: { style: 'crop', color: '#463c37', vol: 1.15, hl: 0.03, mix: '#9c9692', dt: 0.8, dd: 0.4, dh: 0.4 }, beard: { color: '#4a4748', chin: '#9a9797', mix: '#c9c6c4' }, browColor: '#3b312b', brow: 4, age: 0.4, iris: '#5f8db0', suit: '#1c1d24', shirt: '#ffffff', open: true, pin: '#f28a1e', h: 1, w: 1.05, belly: 0.2, shoulders: 0.1, mood: 0.3,
+    fw: 1, len: 1.08, fore: 1.15, ridge: 1.25, cheek: 1, jaw: 1.05, nose: 1.1, noseL: 1.05, bridge: 0.15, lips: 0.95, lid: 0.3, bags: 0.25, browArch: 0.1, ear: 1.1, neck: 1.15,
+    skin: '#edc3a3', hair: { style: 'crop', color: '#463c37', vol: 1.15, hl: 0.03, mix: '#9c9692', dt: 0.8, dd: 0.4, dh: 0.4 }, beard: { color: '#4a4748', chin: '#9a9797', mix: '#c9c6c4' }, browColor: '#3b312b', brow: 4, age: 0.4, iris: '#5f8db0', suit: '#1c1d24', shirt: '#ffffff', open: true, pin: '#f28a1e', h: 1, w: 1, belly: 0.05, shoulders: 0.35, mood: 0.3,
   },
   deri: {
-    fw: 0.9, len: 1.15, fore: 1.1, ridge: 1.3, cheek: 0.7, jowl: 0.1, chin: 1.05, jaw: 0.95, nose: 1.2, noseL: 1.25, noseW: 1, lips: 0.85, eyeSize: 0.9, lid: 0.65, bags: 0.7, browTilt: 0.2, ear: 1.15, neck: 1,
-    skin: '#d6a584', hair: { style: 'comb', color: '#d5d7da', vol: 1.05, hl: 0.06, mix: '#ffffff', dt: -1.8, dd: -3.4, ds: -1.2 }, beard: { color: '#d8dade', chin: '#e9ebee', mix: '#9a9ca2' }, browColor: '#4a4a52', brow: 3.8, age: 0.75, iris: '#2e2119', suit: '#3b4f66', shirt: '#ffffff', tie: '#2a7fd0', pin: '#f4c81d', h: 0.95, w: 0.98, belly: 0.25, mood: -0.5,
+    fw: 0.9, len: 1.15, fore: 1.1, ridge: 1.3, cheek: 0.7, jowl: 0.1, chin: 1.05, jaw: 0.95, nose: 1.2, noseL: 1.25, noseW: 1, lips: 0.85, eyeSize: 0.9, lid: 0.65, bags: 0.7, browTilt: 0.2, ear: 1.15, neck: 0.85,
+    skin: '#d6a584', hair: { style: 'comb', color: '#d5d7da', vol: 1.05, hl: 0.06, mix: '#ffffff', dt: -1.8, dd: -3.4, ds: -1.2 }, beard: { color: '#d8dade', chin: '#e9ebee', mix: '#9a9ca2' }, browColor: '#4a4a52', brow: 3.8, age: 0.75, iris: '#2e2119', suit: '#3b4f66', shirt: '#ffffff', tie: '#2a7fd0', pin: '#f4c81d', h: 0.95, w: 0.82, belly: 0.1, mood: -0.5, shoulders: -0.3,
   },
   liberman: {
-    fw: 1.2, fore: 1.2, ridge: 1.5, cheek: 1.55, jowl: 0.9, chin: 1.1, jaw: 1.25, nose: 1.2, noseL: 1, noseW: 1.4, bridge: 0.1, noseT: 0.3, lips: 0.75, eyeSize: 0.82, lid: 0.7, bags: 0.6, browTilt: 0.5, ear: 1.1, neck: 1.5,
-    skin: '#e2a98c', hair: { style: 'sides', color: '#b4b7bd' }, beard: { style: 'goatee', color: '#bdbab5', chin: '#d8d5d0', mix: '#f1efec' }, browColor: '#5f5a58', brow: 4.6, age: 0.6, iris: '#4a5560', suit: '#2c5aa0', shirt: '#ffffff', tie: '#1d3d86', pin: '#b3562a', h: 0.97, w: 1.2, head: 1.06, belly: 0.8, shoulders: 0.2, mood: -0.6,
+    fw: 1.2, fore: 1.2, ridge: 1.5, cheek: 1.55, jowl: 0.9, chin: 1.1, jaw: 1.25, nose: 1.2, noseL: 1, noseW: 1.4, bridge: 0.1, noseT: 0.3, lips: 0.75, eyeSize: 0.82, lid: 0.7, bags: 0.6, browTilt: 0.5, ear: 1.1, neck: 1.6,
+    skin: '#e2a98c', hair: { style: 'sides', color: '#b4b7bd' }, beard: { style: 'goatee', color: '#bdbab5', chin: '#d8d5d0', mix: '#f1efec' }, browColor: '#5f5a58', brow: 4.6, age: 0.6, iris: '#4a5560', suit: '#2c5aa0', shirt: '#ffffff', tie: '#1d3d86', pin: '#b3562a', h: 0.97, w: 1.2, head: 1.06, belly: 0.65, shoulders: 0.3, mood: -0.6,
   },
   lapid: {
     fw: 1, len: 1.15, fore: 1.15, ridge: 1.3, cheek: 0.95, chin: 1.1, jaw: 1.1, nose: 1.1, noseL: 1.2, noseW: 0.95, lips: 1.1, mouthW: 1.2, eyeSize: 0.9, lid: 0.45, bags: 0.4, browArch: 0.15, ear: 1.4, earOut: 0.35, neck: 1.1,
-    skin: '#dca889', hair: { style: 'spiky', color: '#8e8b88', vol: 1.1, hl: 0.04, mix: '#c9c7c4', dt: -0.6, dd: -3.2 }, browColor: '#4f4c4a', brow: 4.2, age: 0.6, iris: '#4a4a45', suit: '#1d2230', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.06, w: 0.95, shoulders: 0.2, mood: 1.3,
+    skin: '#dca889', hair: { style: 'spiky', color: '#8e8b88', vol: 1.1, hl: 0.04, mix: '#c9c7c4', dt: -0.6, dd: -3.2 }, browColor: '#4f4c4a', brow: 4.2, age: 0.6, iris: '#4a4a45', suit: '#1d2230', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.06, w: 0.92, shoulders: 0.35, mood: 1.3, belly: 0,
   },
   gantz: {
     fw: 1.08, len: 1.18, fore: 1.2, ridge: 1.3, cheek: 1, jowl: 0.25, chin: 1.4, jaw: 1.25, nose: 1.2, noseL: 1.2, noseW: 1.1, lips: 0.8, eyeSize: 0.9, lid: 0.75, bags: 0.55, ear: 1.5, earOut: 0.55, neck: 1.25,
-    skin: '#dfa688', hair: { style: 'comb', color: '#e4e1da', vol: 1.3, hl: 0.04, mix: '#ffffff', dt: -0.6, dd: -3.2, ds: -0.8 }, browColor: '#a5a39f', brow: 3.6, age: 0.8, iris: '#6a8296', suit: '#1d2d52', shirt: '#ffffff', open: true, pin: '#6ec6ff', h: 1.13, w: 1.04, head: 1.05, shoulders: 0.6, mood: -0.45,
+    skin: '#dfa688', hair: { style: 'comb', color: '#e4e1da', vol: 1.3, hl: 0.04, mix: '#ffffff', dt: -0.6, dd: -3.2, ds: -0.8 }, browColor: '#a5a39f', brow: 3.6, age: 0.8, iris: '#6a8296', suit: '#1d2d52', shirt: '#ffffff', open: true, pin: '#6ec6ff', h: 1.13, w: 1.06, head: 1.05, shoulders: 0.6, mood: -0.45,
   },
   golan: {
     fw: 1.05, fore: 1.15, ridge: 1.2, cheek: 1.1, jowl: 0.15, chin: 1.1, jaw: 1.15, nose: 1.1, noseW: 1.05, lips: 1.1, mouthW: 1.15, eyeSize: 0.9, lid: 0.4, bags: 0.4, ear: 1.1, neck: 1.2,
-    skin: '#dcaa8a', hair: { style: 'spiky', color: '#a8a7a5', vol: 1, hl: 0.03, mix: '#e0dfdd', dt: -1.4, dd: -3.4 }, browColor: '#8a8985', brow: 3.4, age: 0.6, iris: '#5a4a3c', suit: '#1b2132', shirt: '#f4f6fa', open: true, pin: '#38b56a', h: 1, w: 1.06, belly: 0.25, mood: 1.2,
+    skin: '#dcaa8a', hair: { style: 'spiky', color: '#a8a7a5', vol: 1, hl: 0.03, mix: '#e0dfdd', dt: -1.4, dd: -3.4 }, browColor: '#8a8985', brow: 3.4, age: 0.6, iris: '#5a4a3c', suit: '#1b2132', shirt: '#f4f6fa', open: true, pin: '#38b56a', h: 1, w: 0.96, belly: 0.1, mood: 1.2, shoulders: 0.1,
   },
   odeh: {
     fw: 1.05, fore: 1.1, ridge: 1.35, cheek: 1.05, jaw: 1.1, nose: 1.1, noseW: 1.3, lips: 1, mouthW: 1.05, lid: 0.4, bags: 0.4, browArch: 0.1, browTilt: 0.4, ear: 1.05, neck: 1.3,
-    skin: '#c58f70', hair: { style: 'crop', color: '#2c2220', vol: 1.3, hl: 0.02, dt: 1.0, dh: 1.2, dd: -1.6 }, browColor: '#241b19', brow: 4.6, age: 0.35, iris: '#2e2119', suit: '#3a3d4c', shirt: '#cdd2ee', open: true, pin: '#e23b52', h: 1, w: 1.02, mood: 0,
+    skin: '#c58f70', hair: { style: 'crop', color: '#2c2220', vol: 1.3, hl: 0.02, dt: 1.0, dh: 1.2, dd: -1.6 }, browColor: '#241b19', brow: 4.6, age: 0.35, iris: '#2e2119', suit: '#3a3d4c', shirt: '#cdd2ee', open: true, pin: '#e23b52', h: 1, w: 1.08, mood: 0, belly: 0.2, shoulders: 0.35,
   },
   abbas: {
-    fw: 1.15, len: 0.98, fore: 1.2, ridge: 1.15, cheek: 1.35, jowl: 0.3, chin: 0.95, jaw: 1.15, nose: 1.05, noseW: 1.25, lips: 0.95, mouthW: 1.1, eyeSize: 0.88, lid: 0.6, bags: 0.4, ear: 1.1, neck: 1.3,
-    skin: '#c8987a', hair: { style: 'crop', color: '#1d1817', vol: 0.9, hl: 0.22, mix: '#6a6562', dt: -1.2, dd: -3.4 }, stubble: 0.8, stache: '#1b1716', stacheW: 1.15, browColor: '#1d1817', brow: 4, age: 0.45, iris: '#2e2119', suit: '#1d1d20', shirt: '#f0f2f4', open: true, pin: '#a5d63c', h: 0.99, w: 1.1, belly: 0.3, mood: 0.3,
+    fw: 1.15, len: 0.98, fore: 1.2, ridge: 1.15, cheek: 1.35, jowl: 0.3, chin: 0.95, jaw: 1.15, nose: 1.05, noseW: 1.25, lips: 0.95, mouthW: 1.1, eyeSize: 0.88, lid: 0.6, bags: 0.4, ear: 1.1, neck: 1.35,
+    skin: '#c8987a', hair: { style: 'crop', color: '#1d1817', vol: 0.9, hl: 0.22, mix: '#6a6562', dt: -1.2, dd: -3.4 }, stubble: 0.8, stache: '#1b1716', stacheW: 1.15, browColor: '#1d1817', brow: 4, age: 0.45, iris: '#2e2119', suit: '#1d1d20', shirt: '#f0f2f4', open: true, pin: '#a5d63c', h: 0.99, w: 1.18, belly: 0.55, mood: 0.3, shoulders: 0.2,
   },
   tibi: {
-    fw: 1.12, fore: 1.2, ridge: 1.15, cheek: 1.25, jowl: 0.45, jaw: 1.1, nose: 1.15, noseW: 1.2, bridge: 0.15, lips: 0.9, mouthW: 1.05, eyeSize: 0.85, lid: 0.6, bags: 0.6, browArch: 0.1, ear: 1.2, neck: 1.25,
-    skin: '#d9a98a', hair: { style: 'sides', color: '#b8b8bc' }, stache: '#9b9996', stacheW: 1.15, glasses: { shape: 'rect', color: '#a8b3c6', lw: 0.85 }, browColor: '#66646a', brow: 3.4, age: 0.6, iris: '#3a2c20', suit: '#1d2c55', shirt: '#ffffff', tie: '#6f8fc0', pin: '#e05fb4', h: 0.98, w: 1.08, belly: 0.3, mood: 0.8,
+    fw: 1.12, fore: 1.2, ridge: 1.15, cheek: 1.25, jowl: 0.45, jaw: 1.1, nose: 1.15, noseW: 1.2, bridge: 0.15, lips: 0.9, mouthW: 1.05, eyeSize: 0.85, lid: 0.6, bags: 0.6, browArch: 0.1, ear: 1.2, neck: 1.3,
+    skin: '#d9a98a', hair: { style: 'sides', color: '#b8b8bc' }, stache: '#9b9996', stacheW: 1.15, glasses: { shape: 'rect', color: '#a8b3c6', lw: 0.85 }, browColor: '#66646a', brow: 3.4, age: 0.6, iris: '#3a2c20', suit: '#1d2c55', shirt: '#ffffff', tie: '#6f8fc0', pin: '#e05fb4', h: 0.98, w: 1.15, belly: 0.5, mood: 0.8, shoulders: 0.3,
   },
   regev: {
-    fw: 0.95, len: 1.08, cheek: 0.85, chin: 0.92, jaw: 0.92, nose: 0.95, noseW: 0.9, lips: 1.2, eyeSize: 1.1, lid: 0.3, browArch: 0.4, neck: 0.95,
-    skin: '#e0b090', hair: { style: 'layered', color: '#2a1b15', vol: 1.1, len: 46, sweep: 1, dt: -1.6, ds: -0.4, dw: 0.9, dh: -1.2 }, browColor: '#241812', brow: 2.8, female: true, age: 0.45, iris: '#4a3020', suit: '#1d6fe0', shirt: '#1d6fe0', pin: '#ffd24a', h: 0.98, w: 0.97, open: true, head: 1, shoulders: 0.05, mood: -0.3,
+    fw: 0.95, len: 1.08, cheek: 0.85, chin: 0.92, jaw: 0.92, nose: 0.95, noseW: 0.9, lips: 1.2, eyeSize: 1.1, lid: 0.3, browArch: 0.4, neck: 0.85,
+    skin: '#e0b090', hair: { style: 'layered', color: '#2a1b15', vol: 1.1, len: 46, sweep: 1, dt: -1.6, ds: -0.4, dw: 0.9, dh: -1.2 }, browColor: '#241812', brow: 2.8, female: true, age: 0.45, iris: '#4a3020', suit: '#1d6fe0', shirt: '#1d6fe0', pin: '#ffd24a', h: 0.98, w: 0.86, open: true, head: 1, shoulders: -0.15, mood: -0.3, belly: 0,
   },
   ohana: {
-    fw: 0.98, len: 1.15, fore: 1.15, ridge: 1.35, cheek: 0.9, chin: 1.15, jaw: 1.2, nose: 1.05, noseL: 1.1, noseW: 0.95, lips: 0.85, eyeSize: 1, lid: 0.35, bags: 0.4, browTilt: 0.6, ear: 1.25, earOut: 0.3, neck: 1.25,
-    skin: '#e6bfa4', hair: { style: 'none', color: '#7a746e' }, beard: { color: '#867d76', chin: '#b4b0aa', mix: '#d9d6d2' }, browColor: '#4a3a30', brow: 3.8, age: 0.45, iris: '#6f8da6', suit: '#17202f', shirt: '#ffffff', tie: '#5a9ae6', pin: '#2155e0', h: 1.02, w: 1.02, shoulders: 0.15, mood: -0.2,
+    fw: 0.98, len: 1.15, fore: 1.15, ridge: 1.35, cheek: 0.9, chin: 1.15, jaw: 1.2, nose: 1.05, noseL: 1.1, noseW: 0.95, lips: 0.85, eyeSize: 1, lid: 0.35, bags: 0.4, browTilt: 0.6, ear: 1.25, earOut: 0.3, neck: 1.3,
+    skin: '#e6bfa4', hair: { style: 'none', color: '#7a746e' }, beard: { color: '#867d76', chin: '#b4b0aa', mix: '#d9d6d2' }, browColor: '#4a3a30', brow: 3.8, age: 0.45, iris: '#6f8da6', suit: '#17202f', shirt: '#ffffff', tie: '#5a9ae6', pin: '#2155e0', h: 1.02, w: 1, shoulders: 0.4, mood: -0.2, belly: 0,
   },
   gotliv: {
-    fw: 1.05, len: 0.98, cheek: 1.45, chin: 0.95, jaw: 0.95, noseW: 0.95, lips: 1.35, mouthW: 1.15, eyeSize: 1.1, lid: 0.3, browArch: 0.5, neck: 0.95,
-    skin: '#f0cdb9', hair: { style: 'bob', color: '#2e211c', vol: 1.1, len: 26, dt: -0.6 }, browColor: '#2a1c16', brow: 3.2, female: true, lip: '#c6283f', age: 0.35, iris: '#4a3220', suit: '#15151b', shirt: '#15151b', open: true, earring: '#cfcfdc', h: 0.94, w: 0.95, shoulders: -0.2, mood: 1.2,
+    fw: 1.05, len: 0.98, cheek: 1.45, chin: 0.95, jaw: 0.95, noseW: 0.95, lips: 1.35, mouthW: 1.15, eyeSize: 1.1, lid: 0.3, browArch: 0.5, neck: 0.9,
+    skin: '#f0cdb9', hair: { style: 'bob', color: '#2e211c', vol: 1.1, len: 26, dt: -0.6 }, browColor: '#2a1c16', brow: 3.2, female: true, lip: '#c6283f', age: 0.35, iris: '#4a3220', suit: '#15151b', shirt: '#15151b', open: true, earring: '#cfcfdc', h: 0.94, w: 1.02, shoulders: -0.2, mood: 1.2, belly: 0.25,
   },
   bennett: {
     fw: 0.98, len: 1.05, fore: 1.15, ridge: 1.2, cheek: 0.9, noseW: 0.95, eyeSize: 1, lid: 0.3, bags: 0.3, ear: 1.2, earOut: 0.35,
-    skin: '#dcaa88', hair: { style: 'crop', color: '#33281f', vol: 0.8, hl: 0.28, dt: -1.4, dd: -3.6, dh: -0.4 }, browColor: '#2c221b', brow: 3.6, age: 0.35, iris: '#4a3c2c', suit: '#16171c', shirt: '#f4f6fa', open: true, pin: '#19c6b7', h: 0.99, w: 0.97, shoulders: 0.15, mood: 0.6,
+    skin: '#dcaa88', hair: { style: 'crop', color: '#33281f', vol: 0.8, hl: 0.28, dt: -1.4, dd: -3.6, dh: -0.4 }, browColor: '#2c221b', brow: 3.6, age: 0.35, iris: '#4a3c2c', suit: '#16171c', shirt: '#f4f6fa', open: true, pin: '#19c6b7', h: 0.99, w: 0.9, shoulders: 0, mood: 0.6, belly: 0,
   },
   eisenkot: {
     fw: 1.2, fore: 1.3, ridge: 1.5, cheek: 1.1, jowl: 0.3, chin: 1.25, jaw: 1.4, nose: 1.15, noseW: 1.3, lips: 0.85, mouthW: 1.05, eyeSize: 0.88, lid: 0.55, bags: 0.6, browTilt: 0.2, ear: 1.15, neck: 1.5,
-    skin: '#dcaa88', hair: { style: 'crop', color: '#9a9a9c', vol: 0.9, hl: 0.03, mix: '#d0d0d2', dt: -1.4, dd: -3.6, dh: -0.6 }, browColor: '#55525a', brow: 4.2, age: 0.75, iris: '#6b5642', suit: '#1d2a52', shirt: '#14151a', open: true, pin: '#18b0e0', h: 1.06, w: 1.1, shoulders: 0.6, mood: -0.4,
+    skin: '#dcaa88', hair: { style: 'crop', color: '#9a9a9c', vol: 0.9, hl: 0.03, mix: '#d0d0d2', dt: -1.4, dd: -3.6, dh: -0.6 }, browColor: '#55525a', brow: 4.2, age: 0.75, iris: '#6b5642', suit: '#1d2a52', shirt: '#14151a', open: true, pin: '#18b0e0', h: 1.06, w: 1.16, shoulders: 0.6, mood: -0.4, belly: 0.3,
   },
   asher: {
-    fw: 1.12, fore: 1.3, ridge: 1.3, cheek: 1.15, jowl: 0.2, jaw: 1.05, nose: 1.2, noseL: 1.1, noseW: 1.15, lips: 0.8, eyeSize: 0.95, lid: 0.4, bags: 0.4, ear: 1.4, earOut: 0.3, neck: 1.2,
-    skin: '#dca682', hair: { style: 'sides', color: '#9c9892' }, kippah: { color: '#121118', s: 1.15 }, beard: { color: '#9d9892', chin: '#c9c5bf', mix: '#e6e3de', len: 0.7 }, stache: '#8d857d', glasses: { shape: 'round', color: '#c9a84c', lw: 1.1 }, browColor: '#6a625b', brow: 4.2, age: 0.6, iris: '#4a6a5a', suit: '#14141b', shirt: '#ffffff', tie: '#3a3d44', h: 0.99, w: 1.08, belly: 0.4, mood: -0.4,
+    fw: 1.12, fore: 1.3, ridge: 1.3, cheek: 1.15, jowl: 0.2, jaw: 1.05, nose: 1.2, noseL: 1.1, noseW: 1.15, lips: 0.8, eyeSize: 0.95, lid: 0.4, bags: 0.4, ear: 1.4, earOut: 0.3, neck: 1.25,
+    skin: '#dca682', hair: { style: 'sides', color: '#9c9892' }, kippah: { color: '#121118', s: 1.15 }, beard: { color: '#9d9892', chin: '#c9c5bf', mix: '#e6e3de', len: 0.7 }, stache: '#8d857d', glasses: { shape: 'round', color: '#c9a84c', lw: 1.1 }, browColor: '#6a625b', brow: 4.2, age: 0.6, iris: '#4a6a5a', suit: '#14141b', shirt: '#ffffff', tie: '#3a3d44', h: 0.99, w: 1.15, belly: 0.55, mood: -0.4, shoulders: 0.25,
   },
   maoz: {
     fw: 0.98, len: 1.05, fore: 1.1, ridge: 1.1, cheek: 1.1, nose: 1.1, noseW: 1.1, mouthW: 1.1, lid: 0.3, bags: 0.3, ear: 1.3, earOut: 0.25,
-    skin: '#e8b9a0', hair: { style: 'crop', color: '#8d877d', vol: 0.8, hl: 0.02, dt: -2, dd: -3.4, dh: -1 }, kippah: { color: '#1c2347', knit: '#aab8de' }, beard: { color: '#aaa090', chin: '#bdb4a5', mix: '#6f675c', len: 2.5, flare: 2.2 }, browColor: '#8a8378', brow: 3.6, age: 0.5, iris: '#7fa3b8', suit: '#f1f1f2', shirt: '#ffffff', h: 1, w: 1.04, belly: 0.35, mood: 1.1,
+    skin: '#e8b9a0', hair: { style: 'crop', color: '#8d877d', vol: 0.8, hl: 0.02, dt: -2, dd: -3.4, dh: -1 }, kippah: { color: '#1c2347', knit: '#aab8de' }, beard: { color: '#aaa090', chin: '#bdb4a5', mix: '#6f675c', len: 2.5, flare: 2.2 }, browColor: '#8a8378', brow: 3.6, age: 0.5, iris: '#7fa3b8', suit: '#f1f1f2', shirt: '#ffffff', h: 1, w: 1.15, belly: 0.5, mood: 1.1, shoulders: 0.2,
   },
   abushehadeh: {
     fw: 1.1, len: 0.98, fore: 1.3, cheek: 1.35, jowl: 0.25, nose: 1, noseW: 1.05, lips: 1, mouthW: 1.05, eyeSize: 0.95, lid: 0.35, bags: 0.4, ear: 1.1, neck: 1.1,
-    skin: '#e2b698', hair: { style: 'sides', color: '#2e2724' }, stache: '#4a3b36', stacheW: 0.85, stubble: 0.35, glasses: { shape: 'rect', color: '#101014', lw: 2.1 }, browColor: '#241d1b', brow: 3.8, age: 0.3, iris: '#3a2a1e', suit: '#1d3262', shirt: '#f1ece2', tie: '#6f94cc', pin: '#1f8f63', h: 1, w: 1.04, belly: 0.3, mood: 0.5,
+    skin: '#e2b698', hair: { style: 'sides', color: '#2e2724' }, stache: '#4a3b36', stacheW: 0.85, stubble: 0.35, glasses: { shape: 'rect', color: '#101014', lw: 2.1 }, browColor: '#241d1b', brow: 3.8, age: 0.3, iris: '#3a2a1e', suit: '#1d3262', shirt: '#f1ece2', tie: '#6f94cc', pin: '#1f8f63', h: 1, w: 1.02, belly: 0.3, mood: 0.5, shoulders: 0,
   },
   hendel: {
-    fw: 0.96, len: 1.05, ridge: 1.1, cheek: 0.9, jaw: 1.05, nose: 1.1, noseL: 1.05, noseW: 0.95, mouthW: 1.2, lid: 0.3, bags: 0.3, ear: 1.2, earOut: 0.3, neck: 1.1,
-    skin: '#d8a782', hair: { style: 'spiky', color: '#77746f', vol: 1.1, hl: 0.04, mix: '#bdbab4', dt: -0.8, dd: -3.2 }, stubble: 0.2, browColor: '#55504a', brow: 3.4, age: 0.5, iris: '#6f8a96', suit: '#4b5a3a', shirt: '#3c4a2e', open: true, pin: '#b59f5a', h: 1.03, w: 1, shoulders: 0.1, mood: 1.4,
+    fw: 0.96, len: 1.05, ridge: 1.1, cheek: 0.9, jaw: 1.05, nose: 1.1, noseL: 1.05, noseW: 0.95, mouthW: 1.2, lid: 0.3, bags: 0.3, ear: 1.2, earOut: 0.3, neck: 1.2,
+    skin: '#d8a782', hair: { style: 'spiky', color: '#77746f', vol: 1.1, hl: 0.04, mix: '#bdbab4', dt: -0.8, dd: -3.2 }, stubble: 0.2, browColor: '#55504a', brow: 3.4, age: 0.5, iris: '#6f8a96', suit: '#4b5a3a', shirt: '#3c4a2e', open: true, pin: '#b59f5a', h: 1.03, w: 1.1, shoulders: 0.45, mood: 1.4, belly: 0,
   },
   winter: {
-    fw: 1.18, ridge: 1.3, cheek: 1.2, jowl: 0.25, chin: 1.3, jaw: 1.3, nose: 1.05, noseW: 1.2, mouthW: 1.1, eyeSize: 0.8, lid: 0.55, bags: 0.4, browTilt: 0.1, ear: 1.1, neck: 1.5,
-    skin: '#d89f7c', hair: { style: 'buzz', color: '#6b6670', vol: 1, mix: '#b8b4bc', dd: -2.6 }, kippah: { color: '#cfc8d6', s: 0.62 }, beard: { color: '#5a5656', chin: '#c4c1c1', mix: '#e4e2e2', flare: 0.3 }, browColor: '#3d3835', brow: 3.8, age: 0.5, iris: '#4a3a2c', suit: '#1b2a4a', shirt: '#1b2a4a', open: true, pin: '#e0a82e', h: 1.08, w: 1.2, shoulders: 0.85, belly: 0.2, mood: 0.1,
+    fw: 1.18, ridge: 1.3, cheek: 1.2, jowl: 0.25, chin: 1.3, jaw: 1.3, nose: 1.05, noseW: 1.2, mouthW: 1.1, eyeSize: 0.8, lid: 0.55, bags: 0.4, browTilt: 0.1, ear: 1.1, neck: 1.6,
+    skin: '#d89f7c', hair: { style: 'buzz', color: '#6b6670', vol: 1, mix: '#b8b4bc', dd: -2.6 }, kippah: { color: '#cfc8d6', s: 0.62 }, beard: { color: '#5a5656', chin: '#c4c1c1', mix: '#e4e2e2', flare: 0.3 }, browColor: '#3d3835', brow: 3.8, age: 0.5, iris: '#4a3a2c', suit: '#1b2a4a', shirt: '#1b2a4a', open: true, pin: '#e0a82e', h: 1.08, w: 1.26, shoulders: 0.9, belly: 0.3, mood: 0.1,
   },
 };
 
@@ -9514,8 +9521,8 @@ const UI = {
     return `<section class="screen" id="s-title">
       <div class="title-wrap">
         <div class="logo">
-          <div class="l1">מכות</div>
-          <div class="l2">בכנסת</div>
+          <div class="l1" data-t="מכות">מכות</div>
+          <div class="l2" data-t="בכנסת">בכנסת</div>
           <div class="l3">KNESSET SMACKDOWN</div>
           <p class="tag">משחק לחימה סאטירי · ${ROSTER.length} לוחמים · ${new Set(ROSTER.map((d) => d.party)).size} מפלגות · יכולת מיוחדת לכל אחד</p>
           <p class="rothint">📱 סובבו את הטלפון על הצד, והמשחק יתיישר</p>

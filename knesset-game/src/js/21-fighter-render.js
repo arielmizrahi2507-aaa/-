@@ -541,6 +541,7 @@ function drawFighter(ctx, f, opt = {}) {
   const C = tint ? () => tint : flash > 0 ? (c) => flashMix(c, flash) : (c) => c;
   const s = look.h || 1;
   const bw = look.w || 1;
+  const lk = limbK(look), nkK = 1 + (faceK(look.neck, 'neck') - 1) * 0.7;      // thick or thin arms, legs and neck
   const ink = tint || INK;
 
   ctx.save();
@@ -563,10 +564,10 @@ function drawFighter(ctx, f, opt = {}) {
   const drawArm = (target, back) => {
     const [sx, sy] = toW(back ? -9 : 10, -43);
     const r = ik(sx, sy, target[0], target[1], 30, 30, 1);
-    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [13.4, 11.4, 9.6], C(back ? pal.suitD : pal.suit), ink, { noHl: back });
+    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [13.4 * lk, 11.4 * lk, 9.6 * lk], C(back ? pal.suitD : pal.suit), ink, { noHl: back });
     const cl2 = Math.hypot(r.ex - r.jx, r.ey - r.jy) || 1, ux = (r.ex - r.jx) / cl2, uy = (r.ey - r.jy) / cl2;
     if (!tint) {   // shirt cuff
-      tube(ctx, [[r.ex - ux * 8, r.ey - uy * 8], [r.ex - ux * 2.5, r.ey - uy * 2.5]], [10.6, 10.2], C(back ? pal.shirtD : pal.shirt), ink, { flat: true, ow: 1.3 });
+      tube(ctx, [[r.ex - ux * 8, r.ey - uy * 8], [r.ex - ux * 2.5, r.ey - uy * 2.5]], [10.6 * lk, 10.2 * lk], C(back ? pal.shirtD : pal.shirt), ink, { flat: true, ow: 1.3 });
     }
     drawFist(ctx, r.ex, r.ey, ux, uy, C(back ? pal.skinD : skin), ink, tint, back);
     if (p.finger && !back) {
@@ -579,11 +580,11 @@ function drawFighter(ctx, f, opt = {}) {
   const drawLeg = (target, back) => {
     const sx = hipX + (back ? -7 : 7), sy = hipY + 3;
     const r = ik(sx, sy, target[0], target[1], 38, 38, -1);
-    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [17.4, 14.2, 10.8], C(back ? pal.pantsD : pal.pants), ink, { noHl: back });
+    tube(ctx, [[sx, sy], [r.jx, r.jy], [r.ex, r.ey]], [17.4 * lk, 14.2 * lk, 10.8 * lk], C(back ? pal.pantsD : pal.pants), ink, { noHl: back });
     if (!tint) {   // trouser crease + turn-up
       const dx = r.ex - r.jx, dy = r.ey - r.jy, d = Math.hypot(dx, dy) || 1;
       ctx.strokeStyle = 'rgba(255,255,255,.1)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r.jx, r.jy); ctx.lineTo(r.ex - dx / d * 3, r.ey - dy / d * 3); ctx.stroke();
-      tube(ctx, [[r.ex - dx / d * 9, r.ey - dy / d * 9], [r.ex - dx / d * 2, r.ey - dy / d * 2]], [11.6, 11.2], C(back ? darken(pal.pants, 0.36) : pal.pantsD), ink, { flat: true, ow: 1.2 });
+      tube(ctx, [[r.ex - dx / d * 9, r.ey - dy / d * 9], [r.ex - dx / d * 2, r.ey - dy / d * 2]], [11.6 * Math.max(0.9, lk), 11.2 * Math.max(0.9, lk)], C(back ? darken(pal.pants, 0.36) : pal.pantsD), ink, { flat: true, ow: 1.2 });
     }
     const fa = Math.atan2(r.ey - r.jy, r.ex - r.jx) - Math.PI / 2;
     drawShoe(ctx, r.ex + 1, r.ey + 1, fa * 0.8, C(pal.shoe), C(pal.shoeD), ink, tint, back);
@@ -628,7 +629,7 @@ function drawFighter(ctx, f, opt = {}) {
   // ---- neck (world space, from the shoulders up to the chin)
   if (!look.robot) {
     const nx = shX + 1, ny = shY - 1, hx = headCX - 1 + Math.sin(p.headRot) * 6, hy = headCY + 14;
-    ctx.beginPath(); ctx.moveTo(nx - 8.5, ny + 1); ctx.lineTo(hx - 6.6, hy); ctx.lineTo(hx + 7.4, hy); ctx.lineTo(nx + 9, ny + 1); ctx.closePath();
+    ctx.beginPath(); ctx.moveTo(nx - 8.5 * nkK, ny + 1); ctx.lineTo(hx - 6.6 * nkK, hy); ctx.lineTo(hx + 7.4 * nkK, hy); ctx.lineTo(nx + 9 * nkK, ny + 1); ctx.closePath();
     const ng = ctx.createLinearGradient(nx - 8, 0, nx + 9, 0); ng.addColorStop(0, C(pal.skinD)); ng.addColorStop(0.6, C(skin)); ng.addColorStop(1, C(pal.skinD));
     ctx.fillStyle = ng; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = ink; ctx.stroke();
     if (!tint) { ctx.fillStyle = 'rgba(60,20,15,.3)'; ctx.beginPath(); ctx.ellipse(hx + 0.5, hy + 1.2, 8, 3.4, 0, 0, TAU); ctx.fill(); }

@@ -99,11 +99,15 @@ body[data-screen=settings] #mute, body[data-screen=help] #mute, body[data-screen
 .logo .l1, .logo .l2 { display: block; font: 900 clamp(64px, 20vmin, 230px)/.92 var(--f-disp); letter-spacing: -.01em; transform: skewX(-8deg); -webkit-text-stroke: clamp(4px, 1vmin, 10px) #08080a; paint-order: stroke fill; text-shadow: 0 .05em 0 #000, 0 .1em .18em rgba(0,0,0, .7); }
 .logo .l1 { color: #eceef2; }
 .logo .l2 { color: #e0303a; margin-top: .02em; }
-/* brushed-steel and blood-red letters; the plain colours above stay for browsers without background-clip:text */
+/* brushed-steel and blood-red letters; the plain colours above stay for browsers without background-clip:text.
+   The outline is NOT a text-stroke on the gradient text: the variable fonts from Google Fonts have overlapping outlines, and a stroke with a transparent
+   fill shows them as dark bars inside letters such as ב. So the letters are a dark, outlined copy (a stroke in the same colour as its fill hides every inner line)
+   with the gradient glyph, drawn without a stroke, on top (the copy is the ::after, from data-t). */
 @supports ((-webkit-background-clip: text) or (background-clip: text)) {
-  .logo .l1, .logo .l2 { -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; text-shadow: none; filter: drop-shadow(0 .045em 0 #000) drop-shadow(0 .1em .16em rgba(0,0,0, .65)); }
-  .logo .l1 { background-image: linear-gradient(180deg, #ffffff 0%, #d9dce3 30%, #8e93a0 49%, #cdd0d8 53%, #f1f2f5 72%, #9b9fab 100%); }
-  .logo .l2 { background-image: linear-gradient(180deg, #ff7a63 0%, #e8343d 38%, #a5151e 50%, #d22c36 56%, #8a0f17 100%); }
+  .logo .l1, .logo .l2 { position: relative; color: #08080a; -webkit-text-stroke-width: clamp(10px, 2.4vmin, 24px); text-shadow: none; filter: drop-shadow(0 .045em 0 #000) drop-shadow(0 .1em .16em rgba(0,0,0, .65)); }
+  .logo .l1::after, .logo .l2::after { content: attr(data-t); content: attr(data-t) / ""; position: absolute; left: 0; right: 0; top: 0; -webkit-text-stroke: 0; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; text-shadow: none; pointer-events: none; }
+  .logo .l1::after { background-image: linear-gradient(180deg, #ffffff 0%, #d9dce3 30%, #8e93a0 49%, #cdd0d8 53%, #f1f2f5 72%, #9b9fab 100%); }
+  .logo .l2::after { background-image: linear-gradient(180deg, #ff7a63 0%, #e8343d 38%, #a5151e 50%, #d22c36 56%, #8a0f17 100%); }
 }
 
 .logo .l3 { margin-top: 2.4vmin; display: flex; align-items: center; justify-content: center; gap: .9em; font: 800 clamp(12px, 2.4vmin, 24px) var(--f-ui); letter-spacing: .5em; color: var(--ember); text-shadow: 0 2px 0 #000; direction: ltr; }

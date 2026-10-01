@@ -183,8 +183,8 @@ const UI = {
     return `<section class="screen" id="s-title">
       <div class="title-wrap">
         <div class="logo">
-          <div class="l1">מכות</div>
-          <div class="l2">בכנסת</div>
+          <div class="l1" data-t="מכות">מכות</div>
+          <div class="l2" data-t="בכנסת">בכנסת</div>
           <div class="l3">KNESSET SMACKDOWN</div>
           <p class="tag">משחק לחימה סאטירי · ${ROSTER.length} לוחמים · ${new Set(ROSTER.map((d) => d.party)).size} מפלגות · יכולת מיוחדת לכל אחד</p>
           <p class="rothint">📱 סובבו את הטלפון על הצד, והמשחק יתיישר</p>

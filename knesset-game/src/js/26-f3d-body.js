@@ -201,7 +201,7 @@ function emitRobotCore(mesh, S, L) {
 }
 
 function emitBody(mesh, S, L, opt) {
-  const look = L.look, pal = L.pal, p = S.p, bw = S.bw;
+  const look = L.look, pal = L.pal, p = S.p, bw = S.bw, lk = limbK(look);        // lk: thick or thin arms and legs
   const suit = c3(look.suit), suitFar = c3(look.suit, 0.78), pants = c3(look.pants || look.suit), pantsFar = c3(look.pants || look.suit, 0.74);
   const shirt = c3(look.shirt || '#ffffff'), shirtFar = c3(look.shirt || '#ffffff', 0.8), skin = c3(pal.skin), skinFar = c3(pal.skin, 0.8), shoe = c3(look.shoes || '#1d1b27');
   const nm = (m) => M4.normalMat(m);
@@ -210,12 +210,12 @@ function emitBody(mesh, S, L, opt) {
   // legs
   for (const lg of [S.legF, S.legN]) {
     const far = !lg.near, pc = far ? pantsFar : pants;
-    emitTube(mesh, lg.hp, lg.kn, 9.6 * bw, 7.9, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    emitTube(mesh, lg.kn, lg.an, 7.8, 6.0, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    sphere(mesh, lg.hp, 9.9 * bw, pc, MAT_CLOTH, { nu: 10, nv: 7 });
-    sphere(mesh, lg.kn, 7.9, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    emitTube(mesh, lg.hp, lg.kn, 9.6 * lk, 7.9 * lk, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    emitTube(mesh, lg.kn, lg.an, 7.8 * lk, 6.0 * lk, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    sphere(mesh, lg.hp, 9.9 * lk, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    sphere(mesh, lg.kn, 7.9 * lk, pc, MAT_CLOTH, { nu: 10, nv: 7 });
     const dl = V3.norm(V3.sub(lg.an, lg.kn));
-    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, -1.5), 6.95, 6.75, far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.04 });   // turn-up
+    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, -1.5), 6.95 * Math.max(0.9, lk), 6.75 * Math.max(0.9, lk), far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.04 });   // turn-up
     const M = M4.mul(M4.translate(lg.an[0] + 1, lg.an[1] - 0.6, lg.an[2] + (far ? -0.5 : 0.5)), M4.rotZ(lg.ang));
     stamp(mesh, shoeMesh(), M, nm(M), far ? c3(look.shoes || '#1d1b27', 0.75) : shoe, MAT_SHOE);
   }
@@ -264,12 +264,12 @@ function emitBody(mesh, S, L, opt) {
   // arms
   for (const ar of [S.armF, S.armN]) {
     const far = !ar.near, sc = far ? suitFar : suit;
-    sphere(mesh, ar.sh, 7.7, sc, MAT_CLOTH, { nu: 12, nv: 8 });
-    emitTube(mesh, ar.sh, ar.el, 7.6, 6.4, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    emitTube(mesh, ar.el, ar.wr, 6.4, 5.3, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    sphere(mesh, ar.el, 6.5, sc, MAT_CLOTH, { nu: 10, nv: 7 });
+    sphere(mesh, ar.sh, 7.7 * lk, sc, MAT_CLOTH, { nu: 12, nv: 8 });
+    emitTube(mesh, ar.sh, ar.el, 7.6 * lk, 6.4 * lk, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    emitTube(mesh, ar.el, ar.wr, 6.4 * lk, 5.3 * lk, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
+    sphere(mesh, ar.el, 6.5 * lk, sc, MAT_CLOTH, { nu: 10, nv: 7 });
     const d = ar.dir;
-    emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35, 6.05, far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
+    emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35 * Math.max(0.9, lk), 6.05 * Math.max(0.9, lk), far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
     // fist
     const ex = d, ey = V3.norm(V3.cross([0, 0, 1], ex)), ez = V3.cross(ex, ey);
     const M = M4.basis(ex, V3.mul(ey, 1), ez, ar.fist);
