@@ -773,7 +773,7 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
     drawBust(ctx, look, C);
     drawHead(ctx, dummy, look, p, C);
   } else {
-    ctx.translate(2, 5); ctx.scale(0.9, 0.9);       // the side view is shifted to the left; the front view is centred and a little smaller so that the hair fits (see 21b-portrait-front.js)
+    ctx.translate(2, 1); ctx.scale(0.8, 0.8);       // the side view is shifted to the left; the front view is centred and a little smaller so that the hair fits (see 21b-portrait-front.js)
     drawFrontHead(ctx, look, p, C);
   }
   ctx.restore();
