@@ -5427,6 +5427,7 @@ const Snd = {
   vol: { sfx: 0.8, music: 0.5 }, muted: false, quiet: false,
   music: { name: null, step: 0, nextT: 0, timer: 0, track: null, bus: null },
   last: {}, tryAt: 0, watchT: 0, watchLast: -1, stuck: 0, gestured: false,
+  away: false,        // the player left the window (another app, tab or window): the audio is switched off until they are back
 
   init() {
     if (this.ctx) return;
@@ -5465,8 +5466,23 @@ const Snd = {
   // Anything that is not "running" is retried on every gesture / when the page comes back; a context that is closed or frozen is rebuilt.
   // (the browser only lets audio start after the player touched the page; before that we do not even try, which keeps the console quiet)
   canAuto() { return this.gestured || !!(navigator.userActivation && navigator.userActivation.hasBeenActive); },
+  // Leaving the window (without closing it) stops the sound at once: the audio clock is suspended, so the music carries on from the same bar when the player is back.
+  // Nothing may wake it up in the meantime (resume(), the watchdog, the music pump and the sound effects all check `away`).
+  setAway(a) {
+    if (a === this.away) return;
+    this.away = a;
+    if (a) {
+      try { const c = this.ctx; if (c && c.state === 'running') { const p = c.suspend(); if (p && p.catch) p.catch(() => { /* ignore */ }); } } catch (e) { /* ignore */ }
+      try { if (this.silentEl) this.silentEl.pause(); } catch (e) { /* ignore */ }      // iPhones keep a page that "plays media" alive in the background
+      this.watchLast = -1;
+    } else {
+      try { if (this.silentEl) { const p = this.silentEl.play(); if (p && p.catch) p.catch(() => { this.silentEl = null; /* made again on the next touch */ }); } } catch (e) { this.silentEl = null; }
+      this.tryAt = 0; this.resume();
+    }
+  },
   resume(force) {
     const c = this.ctx;
+    if (this.away) return;
     if (!force && !this.canAuto()) return;
     if (!c) { this.init(); return; }
     if (c.state === 'closed' || this.stuck >= 3) { this.rebuild(); return; }
@@ -5489,7 +5505,7 @@ const Snd = {
   // once a second: if the clock of a "running" context does not advance, the audio is frozen
   watch() {
     const c = this.ctx;
-    if (!c || document.hidden) { this.watchLast = -1; return; }
+    if (!c || document.hidden || this.away) { this.watchLast = -1; return; }
     if (c.state === 'running') {
       if (this.watchLast >= 0 && c.currentTime - this.watchLast < 0.05) this.stuck++; else this.stuck = 0;
       this.watchLast = c.currentTime;
@@ -5547,7 +5563,7 @@ const Snd = {
 
   // ---- SFX ----
   play(name, o) {
-    if (!this.ctx || this.muted) return;
+    if (!this.ctx || this.muted || this.away) return;
     if (this.ctx.state !== 'running') { this.resume(); return; }
     if (this.quiet && !UI_SOUNDS.has(name)) return;
     const now = performance.now();
@@ -5583,7 +5599,7 @@ const Snd = {
   },
   pump() {
     const c = this.ctx, m = this.music, tr = m.track;
-    if (!c || !tr) return;
+    if (!c || !tr || this.away) return;
     if (c.state !== 'running') { m.nextT = c.currentTime + 0.1; this.resume(); return; }
     if (m.nextT < c.currentTime - 0.25) m.nextT = c.currentTime + 0.05;      // the page stalled: skip what was missed instead of playing it all at once
     const sd = 60 / tr.bpm / 4;
@@ -9983,16 +9999,19 @@ const Game = {
       window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
       window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
       window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
-      window.addEventListener('pagehide', () => this.clear3dFlag());
-      let hideT = 0;      // a real trip to another app pauses the fight; a flicker of the page (fullscreen / rotation changes) does not
-      document.addEventListener('visibilitychange', () => {
-        clearTimeout(hideT);
-        if (document.hidden) hideT = setTimeout(() => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); }, 350);
-        else Snd.resume();
-      });
+      // Leaving the window without closing it (another app or tab, a minimised or covered window, a window that lost the focus): the sound stops at once and nothing runs
+      // in the background. A fight that was on comes back as the pause card. A flicker of the page (fullscreen / rotation changes) is not a trip away.
+      window.addEventListener('pagehide', () => { this.clear3dFlag(); this.leave(1); });
+      window.addEventListener('pageshow', () => this.back(1));
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.leave(1); else this.back(1); });
+      document.addEventListener('freeze', () => this.leave(1));
+      document.addEventListener('resume', () => this.back(1));
+      let blurT = 0;
+      window.addEventListener('blur', () => { clearTimeout(blurT); blurT = setTimeout(() => { if (!document.hasFocus()) this.leave(2); }, 300); });
+      window.addEventListener('focus', () => { clearTimeout(blurT); this.back(2); });
+      ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { if (this.awayWhy & 2) this.back(2); }, { capture: true, passive: true }));      // they are touching the page: it has the focus
       window.addEventListener('gamepadconnected', (e) => Controls.onPad(e));
       window.addEventListener('pointerdown', () => { document.body.classList.remove('padnav'); if (Inp.dev === 'pad') Inp.dev = null; }, { passive: true });
-      ['pageshow', 'focus'].forEach((ev) => window.addEventListener(ev, () => Snd.resume()));       // coming back to the game: wake the audio again
     });
     soft('settings', () => this.applySettings());
     this.last = performance.now();
@@ -10078,9 +10097,34 @@ const Game = {
     UI.applyMuteIcon();
   },
 
+  // away: 1 = the page is hidden, 2 = the window lost the focus (both can be on)
+  away: false, awayWhy: 0, leftAt: 0, wasFight: false, pauseT: 0,
+  leave(why) {
+    if (!this.awayWhy) {
+      const sc = this.scene;
+      this.leftAt = performance.now();
+      this.wasFight = !!(sc && sc.kind === 'fight' && sc.B && !sc.B.over && !this.paused);
+    }
+    this.awayWhy |= why; this.away = true;
+    Snd.setAway(true);
+    clearTimeout(this.pauseT);
+    this.pauseT = setTimeout(() => { const sc = this.scene; if (this.away && sc && sc.kind === 'fight' && !this.paused) this.togglePause(); }, 350);        // a real trip pauses the fight; a flicker of the page does not
+  },
+  back(why) {
+    this.awayWhy &= ~why;
+    if (this.awayWhy || !this.away) return;
+    this.away = false; clearTimeout(this.pauseT);
+    const sc = this.scene;
+    if (this.wasFight && performance.now() - this.leftAt > 350 && sc && sc.kind === 'fight' && !this.paused) this.togglePause();      // they come back to the pause card, not into a fight in progress
+    this.wasFight = false;
+    this.last = performance.now(); this.acc = 0;
+    Snd.setAway(false);
+  },
+
   loop(now) {
     requestAnimationFrame((t) => this.loop(t));
     const dt = Math.min(100, now - this.last); this.last = now;
+    if (this.away) return;
     UI.padPoll();
     const sc = this.scene;
     if (!sc || document.hidden) return;

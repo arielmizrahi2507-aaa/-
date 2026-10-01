@@ -4,6 +4,7 @@ const Snd = {
   vol: { sfx: 0.8, music: 0.5 }, muted: false, quiet: false,
   music: { name: null, step: 0, nextT: 0, timer: 0, track: null, bus: null },
   last: {}, tryAt: 0, watchT: 0, watchLast: -1, stuck: 0, gestured: false,
+  away: false,        // the player left the window (another app, tab or window): the audio is switched off until they are back
 
   init() {
     if (this.ctx) return;
@@ -42,8 +43,23 @@ const Snd = {
   // Anything that is not "running" is retried on every gesture / when the page comes back; a context that is closed or frozen is rebuilt.
   // (the browser only lets audio start after the player touched the page; before that we do not even try, which keeps the console quiet)
   canAuto() { return this.gestured || !!(navigator.userActivation && navigator.userActivation.hasBeenActive); },
+  // Leaving the window (without closing it) stops the sound at once: the audio clock is suspended, so the music carries on from the same bar when the player is back.
+  // Nothing may wake it up in the meantime (resume(), the watchdog, the music pump and the sound effects all check `away`).
+  setAway(a) {
+    if (a === this.away) return;
+    this.away = a;
+    if (a) {
+      try { const c = this.ctx; if (c && c.state === 'running') { const p = c.suspend(); if (p && p.catch) p.catch(() => { /* ignore */ }); } } catch (e) { /* ignore */ }
+      try { if (this.silentEl) this.silentEl.pause(); } catch (e) { /* ignore */ }      // iPhones keep a page that "plays media" alive in the background
+      this.watchLast = -1;
+    } else {
+      try { if (this.silentEl) { const p = this.silentEl.play(); if (p && p.catch) p.catch(() => { this.silentEl = null; /* made again on the next touch */ }); } } catch (e) { this.silentEl = null; }
+      this.tryAt = 0; this.resume();
+    }
+  },
   resume(force) {
     const c = this.ctx;
+    if (this.away) return;
     if (!force && !this.canAuto()) return;
     if (!c) { this.init(); return; }
     if (c.state === 'closed' || this.stuck >= 3) { this.rebuild(); return; }
@@ -66,7 +82,7 @@ const Snd = {
   // once a second: if the clock of a "running" context does not advance, the audio is frozen
   watch() {
     const c = this.ctx;
-    if (!c || document.hidden) { this.watchLast = -1; return; }
+    if (!c || document.hidden || this.away) { this.watchLast = -1; return; }
     if (c.state === 'running') {
       if (this.watchLast >= 0 && c.currentTime - this.watchLast < 0.05) this.stuck++; else this.stuck = 0;
       this.watchLast = c.currentTime;
@@ -124,7 +140,7 @@ const Snd = {
 
   // ---- SFX ----
   play(name, o) {
-    if (!this.ctx || this.muted) return;
+    if (!this.ctx || this.muted || this.away) return;
     if (this.ctx.state !== 'running') { this.resume(); return; }
     if (this.quiet && !UI_SOUNDS.has(name)) return;
     const now = performance.now();
@@ -160,7 +176,7 @@ const Snd = {
   },
   pump() {
     const c = this.ctx, m = this.music, tr = m.track;
-    if (!c || !tr) return;
+    if (!c || !tr || this.away) return;
     if (c.state !== 'running') { m.nextT = c.currentTime + 0.1; this.resume(); return; }
     if (m.nextT < c.currentTime - 0.25) m.nextT = c.currentTime + 0.05;      // the page stalled: skip what was missed instead of playing it all at once
     const sd = 60 / tr.bpm / 4;

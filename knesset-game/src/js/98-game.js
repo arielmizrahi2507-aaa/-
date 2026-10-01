@@ -36,16 +36,19 @@ const Game = {
       window.addEventListener('orientationchange', () => setTimeout(() => this.layout(), 120));
       window.addEventListener('devicemotion', (e) => this.onMotion(e), { passive: true });
       window.addEventListener('pointerdown', () => this.landscapeAttempt(), { capture: true, passive: true });
-      window.addEventListener('pagehide', () => this.clear3dFlag());
-      let hideT = 0;      // a real trip to another app pauses the fight; a flicker of the page (fullscreen / rotation changes) does not
-      document.addEventListener('visibilitychange', () => {
-        clearTimeout(hideT);
-        if (document.hidden) hideT = setTimeout(() => { if (document.hidden && this.scene && this.scene.kind === 'fight' && !this.paused) this.togglePause(); }, 350);
-        else Snd.resume();
-      });
+      // Leaving the window without closing it (another app or tab, a minimised or covered window, a window that lost the focus): the sound stops at once and nothing runs
+      // in the background. A fight that was on comes back as the pause card. A flicker of the page (fullscreen / rotation changes) is not a trip away.
+      window.addEventListener('pagehide', () => { this.clear3dFlag(); this.leave(1); });
+      window.addEventListener('pageshow', () => this.back(1));
+      document.addEventListener('visibilitychange', () => { if (document.hidden) this.leave(1); else this.back(1); });
+      document.addEventListener('freeze', () => this.leave(1));
+      document.addEventListener('resume', () => this.back(1));
+      let blurT = 0;
+      window.addEventListener('blur', () => { clearTimeout(blurT); blurT = setTimeout(() => { if (!document.hasFocus()) this.leave(2); }, 300); });
+      window.addEventListener('focus', () => { clearTimeout(blurT); this.back(2); });
+      ['pointerdown', 'keydown', 'touchstart'].forEach((ev) => window.addEventListener(ev, () => { if (this.awayWhy & 2) this.back(2); }, { capture: true, passive: true }));      // they are touching the page: it has the focus
       window.addEventListener('gamepadconnected', (e) => Controls.onPad(e));
       window.addEventListener('pointerdown', () => { document.body.classList.remove('padnav'); if (Inp.dev === 'pad') Inp.dev = null; }, { passive: true });
-      ['pageshow', 'focus'].forEach((ev) => window.addEventListener(ev, () => Snd.resume()));       // coming back to the game: wake the audio again
     });
     soft('settings', () => this.applySettings());
     this.last = performance.now();
@@ -131,9 +134,34 @@ const Game = {
     UI.applyMuteIcon();
   },
 
+  // away: 1 = the page is hidden, 2 = the window lost the focus (both can be on)
+  away: false, awayWhy: 0, leftAt: 0, wasFight: false, pauseT: 0,
+  leave(why) {
+    if (!this.awayWhy) {
+      const sc = this.scene;
+      this.leftAt = performance.now();
+      this.wasFight = !!(sc && sc.kind === 'fight' && sc.B && !sc.B.over && !this.paused);
+    }
+    this.awayWhy |= why; this.away = true;
+    Snd.setAway(true);
+    clearTimeout(this.pauseT);
+    this.pauseT = setTimeout(() => { const sc = this.scene; if (this.away && sc && sc.kind === 'fight' && !this.paused) this.togglePause(); }, 350);        // a real trip pauses the fight; a flicker of the page does not
+  },
+  back(why) {
+    this.awayWhy &= ~why;
+    if (this.awayWhy || !this.away) return;
+    this.away = false; clearTimeout(this.pauseT);
+    const sc = this.scene;
+    if (this.wasFight && performance.now() - this.leftAt > 350 && sc && sc.kind === 'fight' && !this.paused) this.togglePause();      // they come back to the pause card, not into a fight in progress
+    this.wasFight = false;
+    this.last = performance.now(); this.acc = 0;
+    Snd.setAway(false);
+  },
+
   loop(now) {
     requestAnimationFrame((t) => this.loop(t));
     const dt = Math.min(100, now - this.last); this.last = now;
+    if (this.away) return;
     UI.padPoll();
     const sc = this.scene;
     if (!sc || document.hidden) return;
