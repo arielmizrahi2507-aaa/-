@@ -147,7 +147,10 @@ const Game = {
       while (this.acc >= 1000 / 60 && steps < 5) { B.update(); this.acc -= 1000 / 60; steps++; }
       if (steps === 5) this.acc = 0;
       if (sc.kind === 'attract' && B.over) this.setScene('attract');
-      if (sc.kind === 'preview') { const cap = $('#pvcap'); if (cap && cap.textContent !== (B.demoLabel || '')) cap.textContent = B.demoLabel || ''; }
+      if (sc.kind === 'preview') {
+        const cap = $('#pvcap'); if (cap && cap.textContent !== (B.demoLabel || '')) cap.textContent = B.demoLabel || '';
+        if (sc.stageSel === 'random' && B.frame - sc.cycleAt > 210) { sc.cycleAt = B.frame; sc.ci = (sc.ci + 1) % STAGES.length; B.stage = STAGES[sc.ci]; }      // a random arena: they take turns
+      }
     }
     const c = sc.ctx, cv = sc.cv;
     c.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
@@ -295,16 +298,26 @@ const Game = {
       const f0 = new Fighter(def, 0, { ctrl: makeDemo(def) });
       const f1 = new Fighter(ROSTER_BY_ID[dummyId], 1, { ctrl: () => 0 });
       f1.maxHp = 300;
-      const stg = STAGES[Math.abs(hashStr(p.id)) % STAGES.length].id;
+      const chosen = p.stage && p.stage !== 'random' ? p.stage : null;                    // the arena picked above the grid is the background of the preview
+      const stg = chosen || STAGES[Math.abs(hashStr(p.id)) % STAGES.length].id;
       const B = new Battle({ fighters: [f0, f1], stage: stg, rounds: 2, time: 99, training: true, noHud: true, attract: true, zoom: 1.5, infMeter: false });
       f1.hp = f1.maxHp;
-      this.scene = { kind, B, cv: this.pv, ctx: this.pvctx };
+      this.scene = { kind, B, cv: this.pv, ctx: this.pvctx, stageSel: p.stage || null, cycleAt: 0, ci: Math.max(0, STAGES.findIndex((q) => q.id === stg)) };
       return;
     }
     if (kind === 'fight') {
       this.scene = { kind, B: p.B, cv: this.cv, ctx: this.ctx };
       this.layout();
     }
+  },
+
+  // the arena picked in the character select: it becomes the background of the preview at once
+  setPreviewStage(id) {
+    const sc = this.scene;
+    if (!sc || sc.kind !== 'preview') return;
+    sc.stageSel = id; sc.cycleAt = sc.B.frame;
+    const st = id === 'random' ? STAGES[sc.ci] : STAGES.find((q) => q.id === id);
+    if (st) { sc.B.stage = st; sc.ci = STAGES.indexOf(st); }
   },
 
   // ------------------------------------------------------------------ mode entry

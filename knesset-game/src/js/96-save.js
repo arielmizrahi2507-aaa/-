@@ -42,14 +42,32 @@ const Save = {
 
   load() {
     const def = this.defaults();
-    try {
-      const raw = localStorage.getItem(this.key);
-      const got = raw ? JSON.parse(raw) : {};
-      this.d = Object.assign(def, got);
-      this.d.settings = Object.assign(def.settings, got.settings || {});
-      if (!this.d.settings.rotateSet) this.d.settings.rotate = 'auto';       // the old default was 'off'; landscape-first is the new default
-      this.d.daily = Object.assign(this.defaults().daily, got.daily || {});
-    } catch (e) { this.d = def; }
+    let got = null;
+    try { const raw = localStorage.getItem(this.key); got = raw ? JSON.parse(raw) : null; } catch (e) { got = null; }
+    const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    // Every known field keeps the type of its default. A damaged or very old save falls back to the defaults field by field instead of stopping the game;
+    // fields this version does not know about (lastPick, hints that were shown ...) are kept as they are.
+    const keep = (d, g) => {
+      const out = Object.assign({}, d);
+      if (!isObj(g)) return out;
+      for (const k of Object.keys(g)) {
+        const dv = d[k], gv = g[k];
+        if (!(k in d)) out[k] = gv;
+        else if (isObj(dv)) { if (isObj(gv)) out[k] = (k === 'settings' || k === 'daily') ? keep(dv, gv) : gv; }
+        else if (typeof dv === 'number') { if (typeof gv === 'number' && isFinite(gv)) out[k] = gv; }
+        else if (gv !== null && typeof gv === typeof dv) out[k] = gv;
+      }
+      return out;
+    };
+    this.d = keep(def, got);
+    const st = this.d.settings;
+    st.sfx = clamp(st.sfx, 0, 1); st.music = clamp(st.music, 0, 1);
+    if (![1, 2, 3].includes(st.rounds)) st.rounds = 2;
+    if (![45, 60, 90].includes(st.timer)) st.timer = 60;
+    if (!['auto', 'on', 'off'].includes(st.touch)) st.touch = 'auto';
+    if (!['auto', 'off', 'cw', 'ccw'].includes(st.rotate)) st.rotate = 'auto';
+    if (!['classic', 'new'].includes(st.lobbySong)) st.lobbySong = 'classic';
+    if (!st.rotateSet) st.rotate = 'auto';       // the old default was 'off'; landscape-first is the new default
     return this.d;
   },
 

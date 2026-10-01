@@ -226,7 +226,7 @@ const UI = {
       <div class="selbody">
         <div class="grid" id="grid"></div>
         <aside class="detail" id="detail">
-          <div class="pvwrap"><canvas id="pv" width="480" height="270"></canvas><div id="pvcap" class="pvcap"></div></div>
+          <div class="pvwrap"><canvas id="pv" width="480" height="270"></canvas><div id="pvstage" class="pvstage"></div><div id="pvcap" class="pvcap"></div></div>
           <div id="dinfo"></div>
         </aside>
       </div>
@@ -387,7 +387,7 @@ const UI = {
     $('#grid').innerHTML = all.map((d) => {
       const locked = !Save.isUnlocked(d);
       return `<button class="card nav ${locked ? 'locked' : ''}" data-act="pick" data-id="${d.id}" style="--pc:${d.color}">
-        <img src="${portraitURL(d.id, 96, true)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
+        <img src="${portraitURL(d.id, 128, true)}" alt=""><b>${locked ? '???' : d.short}</b><span>${locked ? 'נעול' : d.partyName}</span></button>`;
     }).join('');
     // extras (difficulty / stage)
     let extra = '';
@@ -398,15 +398,17 @@ const UI = {
     $('#sel-extra').innerHTML = extra;
     this.updateStageName();
     $('#btn-confirm').style.display = S.view ? 'none' : '';
-    const first = S.picks[S.step - 1] || (S.mode === 'roster' ? 'bibi' : (Save.d.lastPick && Save.isUnlocked(ROSTER_BY_ID[Save.d.lastPick] || ROSTER[0]) ? Save.d.lastPick : 'bibi'));
+    const lp = ROSTER_BY_ID[Save.d.lastPick];                  // a fighter that no longer exists (an older version of the game) is ignored
+    const first = S.picks[S.step - 1] || (S.mode === 'roster' ? 'bibi' : (lp && Save.isUnlocked(lp) ? lp.id : 'bibi'));
     this.preview(first, true);
     Snd.playMusic('menu');
   },
   updateStageName() {
-    const n = $('#stage-name');
-    if (!n) return;
+    const n = $('#stage-name'), b = $('#pvstage');
     const S = this.sel;
-    n.textContent = S.stage === 'random' ? 'זירה: אקראית' : 'זירה: ' + STAGES.find((s) => s.id === S.stage).name;
+    const txt = S.stage === 'random' ? 'זירה: אקראית' : 'זירה: ' + STAGES.find((s) => s.id === S.stage).name;
+    if (b) { b.textContent = n ? txt : ''; b.style.display = n ? '' : 'none'; }                  // the arena is named on the preview too (only where an arena can be chosen)
+    if (n) n.textContent = txt;
   },
   preview(id, force) {
     const S = this.sel;
@@ -419,7 +421,7 @@ const UI = {
     $('#btn-confirm').disabled = locked;
     $('#btn-confirm').textContent = locked ? 'נעול: ' + def.unlock.text : (S.mode === 'arcade' || S.mode === 'survival' ? 'יוצאים לדרך' : (S.mode === 'versus' && S.step === 0 ? 'שחקן 1 בחר. הלאה' : ((S.mode === 'training' || S.mode === 'quick') && S.step === 0 ? 'הלאה: בחירת יריב' : (S.mode === 'quick' ? 'לקרב!' : 'בחירה'))));
     $('#dinfo').innerHTML = this.detailHTML(def, locked);
-    Game.setScene('preview', { id });
+    Game.setScene('preview', { id, stage: S.mode === 'quick' || S.mode === 'versus' || S.mode === 'training' ? S.stage : null });
   },
   detailHTML(def, locked) {
     const r = def.rating;
@@ -499,7 +501,7 @@ const UI = {
       case 'stage-next': case 'stage-prev': {
         const ids = ['random'].concat(STAGES.map((s) => s.id));
         let i = ids.indexOf(S.stage) + (name === 'stage-next' ? 1 : -1);
-        i = (i + ids.length) % ids.length; S.stage = ids[i]; this.updateStageName(); Snd.play('move'); break;
+        i = (i + ids.length) % ids.length; S.stage = ids[i]; this.updateStageName(); Game.setPreviewStage(S.stage); Snd.play('move'); break;
       }
       case 'rand-opp': {
         const pool = ROSTER.filter((d) => Save.isUnlocked(d) && d.id !== S.picks[0] && d.id !== S.hover);

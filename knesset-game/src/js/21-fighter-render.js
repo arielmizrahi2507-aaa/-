@@ -715,7 +715,7 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
   const t = ctx.getTransform ? ctx.getTransform() : null;
   const sc = t ? Math.max(1, Math.hypot(t.a, t.b)) : 1;
   if (opt.cache) {
-    const key = [def.id, Math.round(r * sc), opt.eyes, opt.mouth, opt.flip ? 1 : 0, opt.zoom || 1, opt.bg, opt.ring, opt.lw, opt.flat ? 'f' : '3'].join('|');
+    const key = [def.id, Math.round(r * sc), opt.eyes, opt.mouth, opt.flip ? 1 : 0, opt.zoom || 1, opt.bg, opt.ring, opt.lw, opt.flat ? 'f' : '3', opt.view || 'front'].join('|');
     let c = PORT_CACHE.get(key);
     if (!c) {
       const pad = Math.ceil((opt.lw || 4) / 2 + 2), size = Math.ceil((r + pad) * 2 * sc);
@@ -760,9 +760,12 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
     ctx.drawImage(bust3, -r, -r, r * 2, r * 2);
   } else if (look.robot) {
     ctx.translate(0, 6); ctx.scale(0.62, 0.62); drawRobotHead(ctx, dummy, look, p, C);
-  } else {
+  } else if (opt.view === 'side') {
     drawBust(ctx, look, C);
     drawHead(ctx, dummy, look, p, C);
+  } else {
+    ctx.translate(2, 5); ctx.scale(0.9, 0.9);       // the side view is shifted to the left; the front view is centred and a little smaller so that the hair fits (see 21b-portrait-front.js)
+    drawFrontHead(ctx, look, p, C);
   }
   ctx.restore();
   ctx.save();
