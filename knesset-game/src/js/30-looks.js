@@ -27,7 +27,7 @@ const LOOKS = {
   },
   bengvir: {
     fw: 1.45, len: 0.88, ridge: 1.1, cheek: 2.0, jowl: 1, chin: 0.8, jaw: 1.3, nose: 1.5, noseL: 1.35, noseW: 1.5, lips: 0.95, mouthW: 1.35, eyeSize: 1.06, lid: 0.95, eyeH: 0.75, bags: 0.7, browTilt: 0.4, ear: 1.5, earOut: 0.4, neck: 1.7, browY: -1.8, mouthDy: 0.5,
-    skin: '#e2a48c', ruddy: 0.7, hair: { style: 'crop', color: '#8a8d95', mix: '#d6d8de', dd: -3.4, dome: [[23.6, -4], [25, -11], [23.2, -20], [18.6, -27], [10, -31], [0, -32]], line: [[0, -24.4], [6, -25], [12, -22.8], [17, -17.6], [20.4, -10], [22, -4]] }, kippah: { color: '#f2f2f4', knit: '#cfd2da', s: 0.85 }, glasses: { shape: 'rect', color: '#aab0c2', lw: 0.9 }, stubble: 0.8, browColor: '#5a5b63', brow: 4.6, age: 0.45, iris: '#3b2a1e', suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.94, w: 1.22, head: 1.04, belly: 0.65, shoulders: 0.1, mood: -0.6,
+    skin: '#e2a48c', ruddy: 0.7, hair: { style: 'crop', color: '#8a8d95', mix: '#d6d8de', dd: -3.4, dome: [[23.6, -4], [25, -11], [23.2, -20], [18.6, -27], [10, -31], [0, -32]], line: [[0, -24.4], [6, -25], [12, -22.8], [17, -17.6], [20.4, -10], [22, -4]] }, kippah: { color: '#f2f2f4', knit: '#cfd2da', s: 0.85 }, glasses: { shape: 'rect', color: '#8f98ad', lw: 1.3 }, stubble: 0.8, browColor: '#5a5b63', brow: 4.6, age: 0.45, iris: '#3b2a1e', suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.94, w: 1.22, head: 1.04, belly: 0.65, shoulders: 0.1, mood: -0.6,
   },
   smotrich: {
     fw: 1.05, len: 1.22, fore: 1.2, ridge: 1.25, cheek: 0.89, jaw: 1.26, nose: 1.3, noseL: 0.9, bridge: 0.15, lips: 0.95, eyeSize: 1, eyeGap: 1.01, lid: 0.25, bags: 0.25, browArch: 0.1, ear: 1.1, neck: 1.1, jawSq: 0.4, chin: 1.24, noseW: 1.36, mouthW: 1.16, browY: 1.2, mouthDy: -0.25,
@@ -63,7 +63,7 @@ const LOOKS = {
   },
   tibi: {
     fw: 1.05, len: 0.92, fore: 1.2, ridge: 1.1, cheek: 0.92, jowl: 0.7, chin: 0.82, jaw: 1.07, nose: 1.05, noseW: 1.54, bridge: 0.15, lips: 0.9, mouthW: 1.1, eyeSize: 0.88, lid: 0.65, bags: 0.65, browArch: 0.1, ear: 1.2, neck: 1.35, bald: 0.55, noseL: 0.75, eyeGap: 1.02, browY: 0.2, mouthDy: -1,
-    skin: '#d4a587', hair: { style: 'sides', color: '#bcbcc0' }, stache: '#9b9996', stacheW: 1.2, stacheH: 1.1, glasses: { shape: 'rect', color: '#b4bccb', lw: 0.65 }, browColor: '#66646a', brow: 3.6, age: 0.65, iris: '#3a2c20', suit: '#1d2c55', shirt: '#ffffff', tie: '#6f8fc0', pin: '#e05fb4', h: 0.98, w: 1.15, belly: 0.5, shoulders: 0.3, mood: 1,
+    skin: '#d4a587', hair: { style: 'sides', color: '#bcbcc0' }, stache: '#9b9996', stacheW: 1.2, stacheH: 1.1, glasses: { shape: 'rect', color: '#a3adc0', lw: 1.0 }, browColor: '#66646a', brow: 3.6, age: 0.65, iris: '#3a2c20', suit: '#1d2c55', shirt: '#ffffff', tie: '#6f8fc0', pin: '#e05fb4', h: 0.98, w: 1.15, belly: 0.5, shoulders: 0.3, mood: 1,
   },
   regev: {
     fw: 0.98, len: 1.24, fore: 1.0, ridge: 1.1, cheek: 1.18, chin: 1.08, jaw: 1.43, nose: 1.35, noseL: 1.4, noseW: 1.2, lips: 1.4, mouthW: 1, eyeSize: 1.06, lid: 0.4, bags: 0.35, browArch: 0.35, neck: 0.85, jawSq: 0.1, eyeGap: 0.96, browY: 0.6, mouthDy: 1.5,
