@@ -161,7 +161,7 @@ function frontGeo(look) {
     }
     const st = S;
     g.topY = Math.min(R[0][1], outer.reduce((m, q) => Math.min(m, q[1]), 0));
-    g.hair = { cap, sil, hln, ticks, S: st, hs, back: null, lockR: null, lockL: null, V: null };
+    g.hair = { cap, sil, hln, ticks, S: st, hs, hairPts: hair, back: null, lockR: null, lockL: null, V: null };
     if (hs.long) {                                                                                           // a mass behind the head and two locks in front of the shoulders
       const flare = hs.flare ? 1 : 0, len = ((look.hair.len || 40) - 6) * 0.78, bot = Math.min(46, 8 + len), wide = 24.2 * fw + hs.side * 0.6 + flare * 2.6;
       const bp = [[0, -30.5 - hs.top * 0.3], [11, -29], [wide * 0.78, -22], [wide, -10], [wide + 1.2, 6], [wide + 0.4 + flare * 2.2, bot * 0.55], [wide - 0.5 + flare * 4.2, bot], [wide * 0.45, bot + 2.2], [0, bot + 1.5]];
@@ -628,6 +628,13 @@ function drawFrontHead(ctx, look, p, C) {
     ctx.lineWidth = hs.buzz ? 0.8 : 1.1; ctx.strokeStyle = rgba(hairLine, 0.92); ctx.stroke(H.sil);
     ctx.lineWidth = 0.7; ctx.strokeStyle = rgba(hairLine, 0.35); ctx.stroke(H.hln);
     ctx.lineWidth = 0.6; ctx.strokeStyle = rgba(P.hD, 0.75); ctx.stroke(H.ticks);
+    if (look.hair.part !== undefined) {                                                                                   // the parting: a dark line from the hairline up over the head
+      const px = look.hair.part, py = fYat(g.hair.hairPts, px);
+      ctx.save(); ctx.clip(H.cap); ctx.lineCap = 'round';
+      ctx.strokeStyle = rgba(P.hDD, 0.7); ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(px, py + 0.6); ctx.quadraticCurveTo(px - 0.6, (py + g.topY) / 2, px + 1.6, g.topY + 3); ctx.stroke();
+      ctx.strokeStyle = rgba(P.hLL, 0.4); ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(px + 0.9, py + 0.4); ctx.quadraticCurveTo(px + 0.3, (py + g.topY) / 2, px + 2.5, g.topY + 3); ctx.stroke();
+      ctx.restore();
+    }
   }
   if (look.hair && (look.hair.style === 'none' || look.hair.style === 'sides')) {                      // a bald crown shines
     softBlob(ctx, -4, -22.6, 11, 4, '#ffffff', 0.26, -0.08);
