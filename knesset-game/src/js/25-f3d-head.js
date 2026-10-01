@@ -107,8 +107,8 @@ function buildHeadMeshes(look, pal) {
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
   const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
   const style0 = look.hair ? look.hair.style : 'none';
-  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part', layered: 'wavy' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
-  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05, layered: 1.2 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
+  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part', layered: 'wavy', bob: 'wavy', spiky: 'crop' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
+  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05, layered: 1.2, spiky: 1.15 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
   const sweep = (look.hair && look.hair.sweep) || 0;              // a fringe swept to one side: lower on the near side, higher on the far side
   const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR, CLS.HAIR);
   const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
@@ -167,6 +167,7 @@ function buildHeadMeshes(look, pal) {
       let cov = sstep(-1.7, 1.7, top - y) * sstep(2.4, 1.7, at);
       const hole = Math.pow(base[2] / 7.4, 2) + Math.pow((y + 12.9) / 4.2, 2);
       cov *= sstep(0.95, 1.25, hole);
+      if (look.beard.style === 'goatee') cov *= 1 - sstep(6.2, 9.2, l);                             // a moustache and a chin patch only
       if (y > -7.4 && l < 5.5) cov = 0;
       const t = 1.0 + 1.7 * sstep(-9, -20, y);
       return { cov, t, shade: 0.8 + 0.2 * sstep(4, -12, y) };

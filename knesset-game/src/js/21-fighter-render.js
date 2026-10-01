@@ -134,8 +134,15 @@ const HAIR_DEF = {
     line: [[-11, 8.5], [-10.6, 2], [-11, -3.5], [-8, -9.5], [-2, -13.4], [4, -15.4], [10, -15.6], [14.4, -14]],
     strands: ['M 11 -19 q 1.8 -2.2 3.6 0', 'M 6 -21.5 q 1.8 -2.2 3.6 0', 'M 0 -22.5 q 1.8 -2.2 3.6 0', 'M -6 -21.5 q 1.8 -2.2 3.6 0', 'M -12 -18 q 1.8 -2.2 3.6 0', 'M -15 -11 q 1.8 -2.2 3.6 0'],
   },
+  bob: {     // chin-length hair with a swept fringe
+    outer: [[17, -10], [16, -17.4], [9.4, -24.4], [0, -27], [-10, -24.6], [-17.4, -16.4], [-20.6, -4], [-19.6, 8], [-15, 12]],
+    line: [[-11.4, 9], [-11.6, 0.6], [-9.2, -8], [-3, -14.2], [4, -17.4], [10.4, -16.6], [15.4, -13.4]],
+    strands: ['M 14 -15 Q 6 -23.5 -6 -24.5', 'M 9 -16.8 Q 0 -22 -12 -21', 'M 4 -17 Q -6 -20 -16 -15', 'M -6 -14 Q -14 -12 -18 -3'],
+    back: [[-9, -22], [-21, -19], [-26.4, -5], [-26.6, 7], [-24, 16], [-18, 19.4], [-11.6, 17.6], [-8.6, 10]],
+  },
   none: null,
 };
+HAIR_DEF.spiky = HAIR_DEF.crop;           // the drawn profile has no spikes; the front portrait does
 
 const GEO = new WeakMap();
 function geo(look) {
@@ -156,6 +163,7 @@ function geo(look) {
     [19 + (lp - 1) * 1.0, 9.5], [19.6 + (lp - 1) * 1.2, 11.2], [18.8 + (lp - 1) * 0.7, 12.5], [19.2 + (chn - 1) * 1.6, Ly(13.9) + (chn - 1) * 0.5], [17.7 + (chn - 1) * 2.0, Ly(15.9) + (chn - 1) * 1.0], [17.5 + (chn - 1) * 1.8, Ly(18.3) + (chn - 1) * 1.4 + jl * 0.6], [14.4, Ly(21) + (chn - 1) * 0.8 + jl * 1.6 + (chk - 1) * 0.8], [J(7), Ly(21.7) + jl * 1.8 + (chk - 1) * 0.8], [J(0), Ly(19.7) + jl * 1.2], [J(-5), Ly(17.6) + jl * 0.8],
   ], true);
   const beardZone = spline([[-8, 1.5], [-2, 4.6], [4.5, 7], [9.6, 9.2], [12, 11.4], [11.6, 14], [14, 15.5], [17.2, 15.8], [19.2, 15.3], [19.8, 17.6 + ln * 4 + (chn - 1) * 0.6], [17.8, 21.6 + ln * 9 + (chn - 1) * 1.2], [13, 23.8 + ln * 9 + (chn - 1) * 1.2], [6.5, 24.4 + ln * 9 + (chn - 1) * 1.2], [0, 22.4 + ln * 8], [-5.4, 17.8 + ln * 5], [-9.2, 10]], true);
+  const goatee = spline([[9.6, 13.4], [14, 14.2], [17.4, 14.4], [19.4, 14.4], [19.8, 17.6 + ln * 4 + (chn - 1) * 0.6], [17.8, 21.6 + ln * 9 + (chn - 1) * 1.2], [13, 23.8 + ln * 9 + (chn - 1) * 1.2], [6.5, 24.4 + ln * 9 + (chn - 1) * 1.2], [2.4, 22.4 + ln * 8], [2.6, 17]], true);   // a chin patch only
   const stache = spline([[10.6, 10.4], [15, 9.2], [19.6, 9.7], [20, 11.2], [17, 12.2], [13.4, 12]], true);
   const tex = new Path2D();
   for (let i = 0, a = 12345; i < 120; i++) {
@@ -187,9 +195,9 @@ function geo(look) {
     hair: hc, hairL: lighten(hc, 0.28), hairD: darken(hc, 0.32),
     brow: look.browColor || darken(hc, 0.28),
     shoe: look.shoes || '#1d1b27', shoeD: darken(look.shoes || '#1d1b27', 0.35),
-    lip: look.female ? '#b8425c' : mix(sk, '#9a4a48', 0.5),
+    lip: look.lip || (look.female ? '#b8425c' : mix(sk, '#9a4a48', 0.5)),
   };
-  g = { face, beardZone, stache, tex, hair, pal, tipX, tipY };
+  g = { face, beardZone: look.beard && look.beard.style === 'goatee' ? goatee : beardZone, stache, tex, hair, pal, tipX, tipY };
   GEO.set(look, g);
   return g;
 }

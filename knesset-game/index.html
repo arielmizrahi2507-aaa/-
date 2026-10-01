@@ -1697,8 +1697,15 @@ const HAIR_DEF = {
     line: [[-11, 8.5], [-10.6, 2], [-11, -3.5], [-8, -9.5], [-2, -13.4], [4, -15.4], [10, -15.6], [14.4, -14]],
     strands: ['M 11 -19 q 1.8 -2.2 3.6 0', 'M 6 -21.5 q 1.8 -2.2 3.6 0', 'M 0 -22.5 q 1.8 -2.2 3.6 0', 'M -6 -21.5 q 1.8 -2.2 3.6 0', 'M -12 -18 q 1.8 -2.2 3.6 0', 'M -15 -11 q 1.8 -2.2 3.6 0'],
   },
+  bob: {     // chin-length hair with a swept fringe
+    outer: [[17, -10], [16, -17.4], [9.4, -24.4], [0, -27], [-10, -24.6], [-17.4, -16.4], [-20.6, -4], [-19.6, 8], [-15, 12]],
+    line: [[-11.4, 9], [-11.6, 0.6], [-9.2, -8], [-3, -14.2], [4, -17.4], [10.4, -16.6], [15.4, -13.4]],
+    strands: ['M 14 -15 Q 6 -23.5 -6 -24.5', 'M 9 -16.8 Q 0 -22 -12 -21', 'M 4 -17 Q -6 -20 -16 -15', 'M -6 -14 Q -14 -12 -18 -3'],
+    back: [[-9, -22], [-21, -19], [-26.4, -5], [-26.6, 7], [-24, 16], [-18, 19.4], [-11.6, 17.6], [-8.6, 10]],
+  },
   none: null,
 };
+HAIR_DEF.spiky = HAIR_DEF.crop;           // the drawn profile has no spikes; the front portrait does
 
 const GEO = new WeakMap();
 function geo(look) {
@@ -1719,6 +1726,7 @@ function geo(look) {
     [19 + (lp - 1) * 1.0, 9.5], [19.6 + (lp - 1) * 1.2, 11.2], [18.8 + (lp - 1) * 0.7, 12.5], [19.2 + (chn - 1) * 1.6, Ly(13.9) + (chn - 1) * 0.5], [17.7 + (chn - 1) * 2.0, Ly(15.9) + (chn - 1) * 1.0], [17.5 + (chn - 1) * 1.8, Ly(18.3) + (chn - 1) * 1.4 + jl * 0.6], [14.4, Ly(21) + (chn - 1) * 0.8 + jl * 1.6 + (chk - 1) * 0.8], [J(7), Ly(21.7) + jl * 1.8 + (chk - 1) * 0.8], [J(0), Ly(19.7) + jl * 1.2], [J(-5), Ly(17.6) + jl * 0.8],
   ], true);
   const beardZone = spline([[-8, 1.5], [-2, 4.6], [4.5, 7], [9.6, 9.2], [12, 11.4], [11.6, 14], [14, 15.5], [17.2, 15.8], [19.2, 15.3], [19.8, 17.6 + ln * 4 + (chn - 1) * 0.6], [17.8, 21.6 + ln * 9 + (chn - 1) * 1.2], [13, 23.8 + ln * 9 + (chn - 1) * 1.2], [6.5, 24.4 + ln * 9 + (chn - 1) * 1.2], [0, 22.4 + ln * 8], [-5.4, 17.8 + ln * 5], [-9.2, 10]], true);
+  const goatee = spline([[9.6, 13.4], [14, 14.2], [17.4, 14.4], [19.4, 14.4], [19.8, 17.6 + ln * 4 + (chn - 1) * 0.6], [17.8, 21.6 + ln * 9 + (chn - 1) * 1.2], [13, 23.8 + ln * 9 + (chn - 1) * 1.2], [6.5, 24.4 + ln * 9 + (chn - 1) * 1.2], [2.4, 22.4 + ln * 8], [2.6, 17]], true);   // a chin patch only
   const stache = spline([[10.6, 10.4], [15, 9.2], [19.6, 9.7], [20, 11.2], [17, 12.2], [13.4, 12]], true);
   const tex = new Path2D();
   for (let i = 0, a = 12345; i < 120; i++) {
@@ -1750,9 +1758,9 @@ function geo(look) {
     hair: hc, hairL: lighten(hc, 0.28), hairD: darken(hc, 0.32),
     brow: look.browColor || darken(hc, 0.28),
     shoe: look.shoes || '#1d1b27', shoeD: darken(look.shoes || '#1d1b27', 0.35),
-    lip: look.female ? '#b8425c' : mix(sk, '#9a4a48', 0.5),
+    lip: look.lip || (look.female ? '#b8425c' : mix(sk, '#9a4a48', 0.5)),
   };
-  g = { face, beardZone, stache, tex, hair, pal, tipX, tipY };
+  g = { face, beardZone: look.beard && look.beard.style === 'goatee' ? goatee : beardZone, stache, tex, hair, pal, tipX, tipY };
   GEO.set(look, g);
   return g;
 }
@@ -2359,6 +2367,8 @@ const HAIR_F = {
   thin:    { top: 2.0, side: 1.6, drop: -4,  hc: -24.6, edge: 14,   sw: 0.3,  peak: 0,   thin: 1 },
   wavy:    { top: 4.0, side: 3.6, drop: 2,   hc: -13.4, edge: 8,    sw: 0,    peak: 0,   long: 1 },
   layered: { top: 6.4, side: 5.0, drop: 2,   hc: -19,   edge: 12,   sw: -1.4, peak: 0,   long: 1, flare: 1 },
+  spiky:   { top: 5.2, side: 2.4, drop: -1,  hc: -21.4, edge: 15.5, sw: 0,    peak: 0.5, spike: 1 },
+  bob:     { top: 4.6, side: 4.4, drop: 2,   hc: -16.5, edge: 9,    sw: -1.0, peak: 0,   long: 1 },
 };
 
 // y of a polyline (points run from left to right) at x
@@ -2391,21 +2401,25 @@ function frontGeo(look) {
   const mouthY = noseY + 7.2 + ln * 3.2;
   // short strokes for the texture of beards and stubble
   const tex = new Path2D();
-  for (let i = 0, a = 4242; i < 150; i++) {
+  const ext = (look.beard && look.beard.len ? look.beard.len * 7 : 0), wide = 42 + ((look.beard && look.beard.flare) || 0) * 9;
+  for (let i = 0, a = 4242, cnt = 230 + ext * 12; i < cnt; i++) {
     const rn = () => { a = (a * 1103515245 + 12345) & 0x7fffffff; return a / 0x7fffffff; };
-    const x = (rn() - 0.5) * 42, y = -4 + rn() * 36, an = Math.PI / 2 + (rn() - 0.5) * 1.0, l = 1.2 + rn() * 1.6;
+    const x = (rn() - 0.5) * wide, y = -4 + rn() * (36 + ext), an = Math.PI / 2 + (rn() - 0.5) * 1.1, l = 0.9 + rn() * 1.3;
     tex.moveTo(x, y); tex.lineTo(x + Math.cos(an) * l, y + Math.sin(an) * l);
   }
   g = { face, R, fw, chinY: R[R.length - 1][1], pal, noseY, mouthY, nwq, nq, tex, hair: null };
   // ---- hair
   const style = look.hair && look.hair.style;
-  const hs = style && HAIR_F[style];
+  const hs0 = style && HAIR_F[style];
+  // per-person tweaks of the hair shape: dt (higher / flatter on top), ds (wider at the sides), dd (sideburns longer), dh (hairline lower), de (hairline curves down more at the temples), dw (swept more to the right)
+  const hs = hs0 && Object.assign({}, hs0, { top: hs0.top + (look.hair.dt || 0), side: hs0.side + (look.hair.ds || 0), drop: hs0.drop + (look.hair.dd || 0), hc: hs0.hc + (look.hair.dh || 0), edge: hs0.edge + (look.hair.de || 0), sw: hs0.sw + (look.hair.dw || 0) });
   if (hs) {
     const hl = look.hair.hl || 0, vol = look.hair.vol || 1, vk = 1 + (vol - 1) * 0.2;
     const W0 = 20.6 * fw, Rx = W0 + hs.side * vk, Ry = 22.6 + (fore - 1) * 1.3 + hs.top * vk, n = hs.curl ? 2.6 : 2.3;
     const outer = [];
-    for (let i = 0; i <= 16; i++) {
-      const th = (i / 16) * Math.PI, bump = hs.curl ? 1 + 0.045 * Math.sin(th * 13) : 1;
+    const np = hs.spike ? 44 : 16;
+    for (let i = 0; i <= np; i++) {
+      const th = (i / np) * Math.PI, bump = hs.curl ? 1 + 0.045 * Math.sin(th * 13) : hs.spike ? 1 + (i % 2 ? 0.075 + 0.05 * Math.sin(i * 2.3) : -0.02) * Math.pow(Math.sin(th), 0.7) : 1 + 0.02 * Math.sin(th * 3.7 + 1.1);
       outer.push([fSup(Math.cos(th), n) * Rx * bump, -6 - Math.pow(Math.sin(th), 2 / n) * Ry * bump]);       // right equator -> crown -> left equator
     }
     const side = hs.drop;
@@ -2418,10 +2432,20 @@ function frontGeo(look) {
       y -= rec * 0.35 * Math.exp(-Math.pow((u - 0.62) / 0.2, 2));                                            // receding temples
       y += hs.sw * Math.max(-1, Math.min(1, x / 12)) * 4.2;                                                  // swept fringe
       y -= hs.peak * Math.exp(-Math.pow(x / 4.5, 2));                                                        // widow's peak
+      if (!hs.buzz) y += 0.55 * Math.sin(x * 1.45 + 0.6) * (1 - u * 0.5);                                    // not a ruler-straight edge
       hair.push([x, Math.max(y, -29 - (fore - 1))]);
     }
-    const cap = new Path2D();
-    addSpline(cap, outerSeq, true); cap.lineTo(hair[0][0], hair[0][1]); addSpline(cap, hair, false); cap.closePath();
+    const cap = new Path2D(), sil = new Path2D(), hln = new Path2D(), ticks = new Path2D();
+    const edge = (path, first) => { if (hs.spike) { outerSeq.forEach((q, k) => { if (k === 0 && first) path.moveTo(q[0], q[1]); else path.lineTo(q[0], q[1]); }); } else addSpline(path, outerSeq, first); };
+    edge(cap, true); cap.lineTo(hair[0][0], hair[0][1]); addSpline(cap, hair, false); cap.closePath();
+    sil.moveTo(hair[hair.length - 1][0], hair[hair.length - 1][1]); sil.lineTo(outerSeq[0][0], outerSeq[0][1]); edge(sil, false); sil.lineTo(hair[0][0], hair[0][1]);
+    addSpline(hln, hair, true);
+    if (!hs.buzz && !hs.curl) {                                                                              // short hairs on the forehead edge, so it does not look like a cap
+      for (let i = 1; i < hair.length - 1; i += 1) {
+        const [x, y] = hair[i], d = (i % 2 ? 1 : -1) * 0.6;
+        ticks.moveTo(x, y - 0.6); ticks.quadraticCurveTo(x + d, y + 0.5, x + d * 1.8, y + 1.9 + (i % 3) * 0.35);
+      }
+    }
     const st = new Path2D();
     if (!hs.buzz && !hs.curl) {                                                                              // strands from the hairline up and back
       for (let i = 0, cnt = 8; i < cnt; i++) {
@@ -2433,7 +2457,7 @@ function frontGeo(look) {
     if (hs.curl) {
       for (let i = 0; i < 11; i++) { const th = 0.18 + (i / 10) * (Math.PI - 0.36), r = 0.82 + (i % 2) * 0.1, x = fSup(Math.cos(th), n) * Rx * r, y = -6 - Math.pow(Math.sin(th), 2 / n) * Ry * r; st.moveTo(x - 1.5, y + 1); st.arc(x, y + 0.2, 1.6, Math.PI, Math.PI * 2.1); }
     }
-    g.hair = { cap, strands: st, hs, back: null, lockR: null, lockL: null };
+    g.hair = { cap, sil, hln, ticks, strands: st, hs, back: null, lockR: null, lockL: null };
     if (hs.long) {                                                                                           // a mass behind the head and two locks in front of the shoulders
       const flare = hs.flare ? 1 : 0, len = ((look.hair.len || 40) - 6) * 0.78, bot = Math.min(46, 8 + len), wide = 24.2 * fw + hs.side * 0.6 + flare * 2.6;
       const bp = [[0, -30.5 - hs.top * 0.3], [11, -29], [wide * 0.78, -22], [wide, -10], [wide + 1.2, 6], [wide + 0.4 + flare * 2.2, bot * 0.55], [wide - 0.5 + flare * 4.2, bot], [wide * 0.45, bot + 2.2], [0, bot + 1.5]];
@@ -2443,7 +2467,7 @@ function frontGeo(look) {
       g.hair.lockR = spline(lp, true); g.hair.lockL = spline(lp.map(fMir), true);
     }
   } else if (style === 'sides') {                                                                            // bald crown, hair only above and behind the ears
-    const k = fw, sp = [[19.4 * k, -12], [22.4 * k, -10.2], [24.2 * k, -3.6], [24 * k, 4], [22 * k, 8.6], [20.8 * k, 3.4], [20.2 * k, -3.2]];
+    const k = fw, sp = [[18.6 * k, -15], [22.6 * k, -12.6], [25.2 * k, -5.6], [25.2 * k, 3.4], [23.4 * k, 9.4], [20.6 * k, 4.2], [19.8 * k, -4.4]];
     const strands = new Path2D();
     for (const sg of [1, -1]) for (const [a, b] of [[-8, 1], [-4, 3], [0, 4.6]]) { strands.moveTo(sg * 21 * k, a); strands.quadraticCurveTo(sg * 23.2 * k, (a + b) / 2, sg * 22.4 * k, b + 2); }
     g.hair = { sidesR: spline(sp, true), sidesL: spline(sp.map(fMir), true), strands, hs: { sides: 1 }, cap: null };
@@ -2599,29 +2623,39 @@ function frontStache(ctx, look, g, C) {
 }
 
 function frontBeard(ctx, look, g, C) {
-  const R = g.R, fw = g.fw, my = g.mouthY, pal = g.pal;
-  const bl = ((look.beard && look.beard.len) || 0) * 7;
-  const out = R.slice(4).map(([x, y]) => [x + 0.55, y + 0.5]);
-  const last = out.length - 1;
-  out[last][1] += (look.beard ? 2.6 : 0) + bl * 0.55; if (last > 0) out[last - 1][1] += bl * 0.22;
-  const right = [[19.2 * fw, -7.5]].concat(out);
+  const R = g.R, fw = g.fw, my = g.mouthY, pal = g.pal, bd = look.beard;
+  const bl = ((bd && bd.len) || 0) * 7, fl = (bd && bd.flare) || 0, cy = g.chinY;
+  let right, upper;
+  if (bd && bd.style === 'goatee') {                                    // a moustache joined to a chin patch
+    right = [[11, my - 1.6], [11.6, my + 3.4], [9.8, cy - 3.8], [5.6, cy - 0.2 + bl * 0.3], [0, cy + 1.4 + bl * 0.55]];
+    upper = [[-11, my - 1.6], [-6.4, my - 3.8], [0, my - 4.4], [6.4, my - 3.8], [11, my - 1.6]];
+  } else {
+    const src = R.slice(4), n0 = src.length;
+    const out = src.map(([x, y], i) => [x + 0.55 + fl * 4.2 * Math.sin(Math.PI * (i + 0.5) / (n0 + 0.3)), y + 0.5]);
+    const last = out.length - 1;
+    out[last][0] = 0; out[last][1] += (bd ? 2.6 : 0) + bl * 0.55; if (last > 0) out[last - 1][1] += bl * 0.22;
+    right = [[19.2 * fw, -7.5]].concat(out);
+    upper = bd
+      ? [[-17.6 * fw, -2.2], [-14.4 * fw, 3.4], [-10.8, my - 2.6], [-5.6, my - 4.2], [0, my - 4.6], [5.6, my - 4.2], [10.8, my - 2.6], [14.4 * fw, 3.4], [17.6 * fw, -2.2]]
+      : [[-18.2 * fw, 3.2], [-9, my - 5.2], [0, my - 4.6], [9, my - 5.2], [18.2 * fw, 3.2]];
+  }
   const full = right.concat(right.slice(1, -1).reverse().map(fMir));
-  const upper = look.beard
-    ? [[-17.6 * fw, -2.2], [-14.4 * fw, 3.4], [-10.8, my - 2.6], [-5.6, my - 4.2], [0, my - 4.6], [5.6, my - 4.2], [10.8, my - 2.6], [14.4 * fw, 3.4], [17.6 * fw, -2.2]]
-    : [[-18.2 * fw, 3.2], [-9, my - 5.2], [0, my - 4.6], [9, my - 5.2], [18.2 * fw, 3.2]];
   const shape = new Path2D();
   addSpline(shape, full, true); shape.lineTo(upper[0][0], upper[0][1]); addSpline(shape, upper, false); shape.closePath();
-  if (look.beard) {
-    ctx.fillStyle = C(look.beard.color); ctx.fill(shape);
+  if (bd) {
+    const fg = ctx.createLinearGradient(0, my - 6, 0, cy + bl * 0.7 + 3);                      // cheeks in one colour, the chin can be greyer
+    fg.addColorStop(0, C(bd.color)); fg.addColorStop(0.5, C(bd.color)); fg.addColorStop(1, C(bd.chin || bd.color));
+    ctx.fillStyle = fg; ctx.fill(shape);
     ctx.save(); ctx.clip(shape);
-    const bg = ctx.createLinearGradient(0, 0, 0, 34); bg.addColorStop(0, 'rgba(0,0,0,0)'); bg.addColorStop(1, 'rgba(0,0,0,.34)'); ctx.fillStyle = bg; ctx.fillRect(-30, -4, 60, 60);
-    ctx.lineWidth = 0.55; ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.stroke(g.tex);
-    ctx.translate(0.6, 0.7); ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.stroke(g.tex);
+    const bg = ctx.createLinearGradient(0, 0, 0, 34 + bl); bg.addColorStop(0, 'rgba(0,0,0,0)'); bg.addColorStop(1, 'rgba(0,0,0,.3)'); ctx.fillStyle = bg; ctx.fillRect(-34, -4, 68, 70 + bl);
+    ctx.lineWidth = bd.mix ? 0.7 : 0.55; ctx.strokeStyle = bd.mix ? rgba(bd.mix, 0.38) : 'rgba(255,255,255,.2)'; ctx.stroke(g.tex);
+    ctx.translate(0.6, 0.7); ctx.lineWidth = 0.55; ctx.strokeStyle = 'rgba(0,0,0,.28)'; ctx.stroke(g.tex);
     ctx.restore();
     const outl = new Path2D(); addSpline(outl, full, true);
     ctx.lineWidth = 1.2; ctx.strokeStyle = INK; ctx.globalAlpha = 0.8; ctx.stroke(outl); ctx.globalAlpha = 1;
-    // a trimmed patch around the mouth, so the lips are visible in the beard
-    ctx.beginPath(); ctx.ellipse(0, my + 0.9, 8.6 * (look.mouthW || 1), 4.4, 0, 0, TAU); ctx.fillStyle = C(pal.skinD); ctx.fill();
+    if (bd.style !== 'goatee') {                                                                // a trimmed patch around the mouth, so the lips are visible in the beard
+      ctx.beginPath(); ctx.ellipse(0, my + 0.9, 8.6 * (look.mouthW || 1), 4.4, 0, 0, TAU); ctx.fillStyle = C(pal.skinD); ctx.fill();
+    }
   } else {
     const st = look.stubble, hc = HEX.test(pal.hair) ? pal.hair : '#333333';
     ctx.save(); ctx.clip(g.face); ctx.clip(shape);
@@ -2634,14 +2668,15 @@ function frontBeard(ctx, look, g, C) {
 function frontGlasses(ctx, look, ey, ex, eK, fw) {
   const gl = look.glasses, col = gl.color || '#222';
   const w = 9.8 * eK + 4.6, h = (gl.shape === 'round' ? 10 : 8.6) * (0.85 + 0.15 * eK);
-  ctx.lineWidth = 1.25; ctx.strokeStyle = col; ctx.lineJoin = 'round';
+  const lw = gl.lw || 1.25;
+  ctx.lineWidth = lw; ctx.strokeStyle = col; ctx.lineJoin = 'round';
   for (const sg of [1, -1]) {
     const cx = sg * ex;
     ctx.beginPath();
     if (gl.shape === 'round') ctx.ellipse(cx, ey - 0.2, w / 2, h / 2, 0, 0, TAU); else { const r = 2.2; if (ctx.roundRect) ctx.roundRect(cx - w / 2, ey - 0.2 - h / 2, w, h, r); else ctx.rect(cx - w / 2, ey - 0.2 - h / 2, w, h); }
     ctx.fillStyle = 'rgba(190,225,255,.17)'; ctx.fill(); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.moveTo(cx - w * 0.28, ey - 0.2 - h * 0.28); ctx.lineTo(cx - w * 0.06, ey - 0.2 - h * 0.34); ctx.stroke();
-    ctx.strokeStyle = col; ctx.lineWidth = 1.25;
+    ctx.strokeStyle = col; ctx.lineWidth = lw;
     ctx.beginPath(); ctx.moveTo(sg * (ex + w / 2), ey - 2.2); ctx.lineTo(sg * (20.6 * fw + 0.6), ey - 1.4); ctx.stroke();
   }
   ctx.beginPath(); ctx.moveTo(-ex + w / 2, ey - 2.2); ctx.quadraticCurveTo(0, ey - 4, ex - w / 2, ey - 2.2); ctx.stroke();
@@ -2690,6 +2725,12 @@ function drawFrontHead(ctx, look, p, C) {
     }
   }
 
+  // hair above and behind the ears (a bald crown): drawn first, so the ears stay in front of it
+  if (H && H.sidesR) {
+    for (const sp of [H.sidesR, H.sidesL]) { ctx.fillStyle = C(pal.hair); ctx.fill(sp); ctx.lineWidth = 1.3; ctx.strokeStyle = INK; ctx.stroke(sp); }
+    ctx.lineWidth = 0.7; ctx.strokeStyle = rgba(HEX.test(pal.hairL) ? pal.hairL : '#ffffff', 0.5); ctx.stroke(H.strands);
+  }
+
   // ears (and the earring)
   const eEar = faceK(look.ear, 'ear'), eOut = (look.earOut || 0) * 2.2;
   for (const sg of [1, -1]) {
@@ -2734,12 +2775,11 @@ function drawFrontHead(ctx, look, p, C) {
     if (hs.buzz || hs.thin) ctx.globalAlpha = hs.buzz ? 0.82 : 0.9;
     ctx.fillStyle = hg; ctx.fill(H.cap);
     ctx.globalAlpha = 1;
-    ctx.lineWidth = hs.buzz ? 0.9 : 1.4; ctx.strokeStyle = INK; ctx.stroke(H.cap);
-    ctx.lineWidth = 0.7; ctx.strokeStyle = rgba(HEX.test(pal.hairL) ? pal.hairL : '#ffffff', hs.long ? 0.3 : 0.42); ctx.stroke(H.strands);
+    ctx.lineWidth = hs.buzz ? 0.9 : 1.4; ctx.strokeStyle = INK; ctx.stroke(H.sil);
+    ctx.lineWidth = 0.8; ctx.strokeStyle = 'rgba(30,14,8,.5)'; ctx.stroke(H.hln);
+    ctx.lineWidth = 0.6; ctx.strokeStyle = rgba(HEX.test(pal.hairD) ? pal.hairD : '#333333', 0.75); ctx.stroke(H.ticks);
+    ctx.lineWidth = look.hair.mix ? 0.9 : 0.7; ctx.strokeStyle = look.hair.mix ? rgba(look.hair.mix, 0.45) : rgba(HEX.test(pal.hairL) ? pal.hairL : '#ffffff', hs.long ? 0.3 : 0.42); ctx.stroke(H.strands);
     ctx.restore();
-  } else if (H && H.sidesR) {
-    for (const sp of [H.sidesR, H.sidesL]) { ctx.fillStyle = C(pal.hair); ctx.fill(sp); ctx.lineWidth = 1.3; ctx.strokeStyle = INK; ctx.stroke(sp); }
-    ctx.lineWidth = 0.7; ctx.strokeStyle = rgba(HEX.test(pal.hairL) ? pal.hairL : '#ffffff', 0.5); ctx.stroke(H.strands);
   }
   if (look.hair && (look.hair.style === 'none' || look.hair.style === 'sides')) {                                          // a bald crown shines
     ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.beginPath(); ctx.ellipse(-4, -22.6, 9, 3, -0.08, 0, TAU); ctx.fill();
@@ -2748,7 +2788,7 @@ function drawFrontHead(ctx, look, p, C) {
 
   // kippah
   if (look.kippah) {
-    const kc = look.kippah, big = kc.knit ? 1.12 : 1.18;
+    const kc = look.kippah, big = (kc.knit ? 1.12 : 1.18) * (kc.s || 1);
     ctx.save(); ctx.translate(2.2, -25); ctx.rotate(-0.08);
     ctx.beginPath(); ctx.ellipse(0, 0, 9 * big, (kc.knit ? 4.5 : 3.7), 0, 0, TAU); ctx.fillStyle = C(kc.color); ctx.fill(); ctx.lineWidth = 1.3; ctx.strokeStyle = INK; ctx.stroke();
     if (kc.knit) {
@@ -3339,7 +3379,7 @@ function paintFaceBase(c, look, pal) {
   }
   c.putImageData(id, 0, 0);
 
-  if (look.beard) soft(0, -14.5, 11, 6.5, look.beard.color, 0.5);              // skin colour under a full beard
+  if (look.beard && look.beard.style !== 'goatee') soft(0, -14.5, 11, 6.5, look.beard.color, 0.5);              // skin colour under a full beard
 
   // ---- age: spots and wrinkles
   if (age > 0.45) {
@@ -3810,8 +3850,8 @@ function buildHeadMeshes(look, pal) {
   // ---- shells (hair, beard, kippah): alpha-to-coverage, finer grid so the edges are smooth
   const H = headGrid(look, 97, 65), NU = H.nu, NV = H.nv;
   const style0 = look.hair ? look.hair.style : 'none';
-  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part', layered: 'wavy' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
-  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05, layered: 1.2 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
+  const style = { buzz: 'crop', curly: 'crop', comb: 'swoop', thin: 'part', layered: 'wavy', bob: 'wavy', spiky: 'crop' }[style0] || style0;                 // new 2D names that reuse a 3D shape ...
+  const volK = { buzz: 0.45, thin: 0.55, curly: 1.3, comb: 1.05, layered: 1.2, spiky: 1.15 }[style0] || 1, hlAdd = style0 === 'thin' ? 0.12 : 0;    // ... with their own thickness
   const sweep = (look.hair && look.hair.sweep) || 0;              // a fringe swept to one side: lower on the near side, higher on the far side
   const hairMat = packMat(0.42, 0.2, 0.55, LAYER.HAIR, CLS.HAIR);
   const shell = (mesh, fieldFn, matv, uvfn, shadeFn) => {
@@ -3870,6 +3910,7 @@ function buildHeadMeshes(look, pal) {
       let cov = sstep(-1.7, 1.7, top - y) * sstep(2.4, 1.7, at);
       const hole = Math.pow(base[2] / 7.4, 2) + Math.pow((y + 12.9) / 4.2, 2);
       cov *= sstep(0.95, 1.25, hole);
+      if (look.beard.style === 'goatee') cov *= 1 - sstep(6.2, 9.2, l);                             // a moustache and a chin patch only
       if (y > -7.4 && l < 5.5) cov = 0;
       const t = 1.0 + 1.7 * sstep(-9, -20, y);
       return { cov, t, shade: 0.8 + 0.2 * sstep(4, -12, y) };
@@ -4534,7 +4575,8 @@ F3D.cpuTest = function (f) {
 //   nose (size), noseL (length / how far it sticks out), noseW (width), bridge (bump), noseT (> 0 drooping tip, < 0 turned up), lips, mouthW, ear, earOut (sticking out),
 //   eyeSize, eyeGap, lid (0..1 heavy upper lids), bags (0..1 under the eyes), brow (thickness in px), browArch, browTilt (> 0 stern), browLen, neck.
 // Other: skin, iris, age (lines, 0..1), stubble (0..1), beard {color}, stache, glasses {shape, color}, kippah {color, knit}, hat {color}, female, earring, mood (the usual expression of the closed mouth, -1 stern .. +1 smiling, front portraits),
-//   hair {style: crop | buzz | curly | comb | swoop | part | thin | sides | wavy | none, color, vol (thickness), hl (receding hairline, radians), len (long hair)}.
+//   hair {style: crop | buzz | curly | comb | swoop | part | thin | sides | wavy | layered | bob | spiky | none, color, mix (grey strands), vol (thickness), hl (receding hairline), len (long hair)}.
+//   beard {color, chin (colour of the lower part), mix (grey strands), len (longer), flare (wider), style: 'goatee' for a moustache + chin patch}, glasses {shape, color, lw (frame thickness)}, kippah {color, knit, s (size)}, lip (lip colour).
 // Build: h height, w width, head (head size), belly (0..1), shoulders (-1..1). Clothes: suit, shirt, tie, pin, open.
 // How strongly each personal face-structure number is drawn. A raw value of 1 is the average face; the gain multiplies the distance from 1
 // (this is a caricature, so the differences between people are exaggerated on purpose, and some more than others).
@@ -4543,88 +4585,88 @@ const FACE_GAIN = 2.0;
 const faceK = (v, f) => Math.max(0.5, Math.min(1.9, 1 + ((v || 1) - 1) * (FG[f] || FACE_GAIN)));
 const LOOKS = {
   bibi: {
-    fw: 0.95, len: 1.14, fore: 1.22, ridge: 1.2, cheek: 0.85, chin: 1.22, jaw: 1, nose: 1.14, noseL: 1.22, noseW: 0.95, bridge: 0.1, noseT: 0.35, lips: 0.78, eyeSize: 0.92, lid: 0.7, bags: 0.55, browArch: 0.3,
-    skin: '#f0c7a3', hair: { style: 'swoop', color: '#dfe3ea', vol: 1.1, hl: 0.09 }, browColor: '#6f6e75', brow: 3.2, age: 0.7, iris: '#5b5648', suit: '#1f2a44', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.05, w: 1, shoulders: 0.3, mood: -0.6,
+    fw: 1, len: 1.12, fore: 1.25, ridge: 1.5, cheek: 0.9, jowl: 0.35, chin: 1.2, jaw: 1.1, nose: 1.22, noseL: 1.3, noseW: 1.05, bridge: 0.15, noseT: 0.4, lips: 0.7, eyeSize: 0.9, lid: 0.85, bags: 0.7, browArch: 0.1, browTilt: 0.5, ear: 1.3, neck: 1.1,
+    skin: '#ecbb9b', hair: { style: 'swoop', color: '#c9c8cc', vol: 1.2, hl: 0.1, dt: -2.4, ds: -0.8, dd: -2.6, de: 1.5 }, browColor: '#4d4b52', brow: 4.6, age: 0.8, iris: '#5a4a3c', suit: '#1b2236', shirt: '#ffffff', tie: '#c1272d', pin: '#2155e0', h: 1.05, w: 1, shoulders: 0.3, mood: -0.8,
   },
   bengvir: {
-    fw: 1.14, len: 0.92, cheek: 1.4, jowl: 0.3, chin: 0.86, jaw: 1.12, ridge: 1.25, nose: 0.95, noseL: 0.92, noseW: 1.25, lips: 1.2, eyeSize: 0.88, lid: 0.3, bags: 0.2, browTilt: 0.6, ear: 1.15, neck: 1.3,
-    skin: '#e3b48b', hair: { style: 'curly', color: '#241d1a', vol: 1, hl: 0.1 }, kippah: { color: '#2b3a8f', knit: '#f2d24a' }, stubble: 0.4, age: 0.25, brow: 4.4, iris: '#3b2a1e', suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.96, w: 1.12, head: 1.04, belly: 0.4, mood: -0.7,
+    fw: 1.18, len: 0.95, ridge: 1.1, cheek: 1.55, jowl: 0.55, chin: 0.9, jaw: 1.15, nose: 1, noseL: 0.9, noseW: 1.3, lips: 0.95, mouthW: 1.05, eyeSize: 0.85, lid: 0.55, bags: 0.5, browTilt: 0.3, ear: 1.3, earOut: 0.3, neck: 1.35,
+    skin: '#e4a98f', hair: { style: 'crop', color: '#8a8d95', vol: 1.1, hl: 0.02, mix: '#d6d8de', dt: -1.8, dh: -2.4, dd: -2.4, ds: -0.2 }, kippah: { color: '#f2f2f4', knit: '#cfd2da', s: 1.05 }, glasses: { shape: 'rect', color: '#aab0c2', lw: 0.9 }, browColor: '#6b6c74', brow: 3.8, age: 0.4, iris: '#3b2a1e', suit: '#262633', shirt: '#f2f2f2', open: true, pin: '#8a4fe0', h: 0.96, w: 1.14, head: 1.04, belly: 0.45, mood: -0.5,
   },
   smotrich: {
-    fw: 1, len: 1.02, fore: 1.1, ridge: 1.3, cheek: 1.15, jaw: 1.02, nose: 1.14, noseL: 1.05, bridge: 0.25, lips: 0.95, eyeSize: 0.9, lid: 0.35, browArch: 0.1, ear: 1.1, neck: 1.05,
-    skin: '#eec39b', hair: { style: 'crop', color: '#33261d', vol: 0.8 }, kippah: { color: '#f28a1e', knit: '#ffffff' }, beard: { color: '#2a211c' }, age: 0.3, brow: 4.2, iris: '#3d2c1e', suit: '#2a2f4a', shirt: '#ffffff', tie: '#f28a1e', pin: '#f28a1e', h: 1, w: 1.05, belly: 0.2, shoulders: 0.1, mood: 0.3,
+    fw: 1, len: 1.08, fore: 1.15, ridge: 1.25, cheek: 1, jaw: 1.05, nose: 1.1, noseL: 1.05, bridge: 0.15, lips: 0.95, lid: 0.3, bags: 0.25, browArch: 0.1, ear: 1.1, neck: 1.1,
+    skin: '#edc3a3', hair: { style: 'crop', color: '#463c37', vol: 1.15, hl: 0.03, mix: '#9c9692', dt: 0.8, dd: 0.4, dh: 0.4 }, beard: { color: '#4a4748', chin: '#9a9797', mix: '#c9c6c4' }, browColor: '#3b312b', brow: 4, age: 0.4, iris: '#5f8db0', suit: '#1c1d24', shirt: '#ffffff', open: true, pin: '#f28a1e', h: 1, w: 1.05, belly: 0.2, shoulders: 0.1, mood: 0.3,
   },
   deri: {
-    fw: 1.2, len: 0.88, fore: 1.15, ridge: 1.15, cheek: 1.6, jowl: 0.6, chin: 0.8, jaw: 1.2, nose: 0.9, noseL: 0.85, noseW: 1.25, noseT: -0.2, lips: 1.1, eyeSize: 0.8, lid: 0.55, bags: 0.5, neck: 1.25,
-    skin: '#e0b088', hair: { style: 'sides', color: '#8a8f9a' }, kippah: { color: '#15141d' }, browColor: '#6a6a75', brow: 4, age: 0.55, iris: '#3b2a1e', suit: '#191922', shirt: '#ffffff', tie: '#f4c81d', pin: '#f4c81d', h: 0.92, w: 1.16, head: 1.04, belly: 0.75, mood: -0.6,
+    fw: 0.9, len: 1.15, fore: 1.1, ridge: 1.3, cheek: 0.7, jowl: 0.1, chin: 1.05, jaw: 0.95, nose: 1.2, noseL: 1.25, noseW: 1, lips: 0.85, eyeSize: 0.9, lid: 0.65, bags: 0.7, browTilt: 0.2, ear: 1.15, neck: 1,
+    skin: '#d6a584', hair: { style: 'comb', color: '#d5d7da', vol: 1.05, hl: 0.06, mix: '#ffffff', dt: -1.8, dd: -3.4, ds: -1.2 }, beard: { color: '#d8dade', chin: '#e9ebee', mix: '#9a9ca2' }, browColor: '#4a4a52', brow: 3.8, age: 0.75, iris: '#2e2119', suit: '#3b4f66', shirt: '#ffffff', tie: '#2a7fd0', pin: '#f4c81d', h: 0.95, w: 0.98, belly: 0.25, mood: -0.5,
   },
   liberman: {
-    fw: 1.18, fore: 1.3, ridge: 1.5, cheek: 1.3, jowl: 0.7, chin: 1.15, jaw: 1.2, nose: 1.25, noseL: 1.1, noseW: 1.35, bridge: 0.3, noseT: 0.2, lips: 0.75, eyeSize: 0.82, lid: 0.5, bags: 0.4, browTilt: 0.8, ear: 1.15, neck: 1.4,
-    skin: '#efc4a2', hair: { style: 'sides', color: '#b8bcc6' }, browColor: '#5b5f6b', brow: 4.6, age: 0.6, iris: '#4a5560', suit: '#2d3542', shirt: '#ffffff', tie: '#b3562a', pin: '#b3562a', h: 0.97, w: 1.2, head: 1.06, belly: 0.8, shoulders: 0.2, mood: -0.7,
+    fw: 1.2, fore: 1.2, ridge: 1.5, cheek: 1.55, jowl: 0.9, chin: 1.1, jaw: 1.25, nose: 1.2, noseL: 1, noseW: 1.4, bridge: 0.1, noseT: 0.3, lips: 0.75, eyeSize: 0.82, lid: 0.7, bags: 0.6, browTilt: 0.5, ear: 1.1, neck: 1.5,
+    skin: '#e2a98c', hair: { style: 'sides', color: '#b4b7bd' }, beard: { style: 'goatee', color: '#bdbab5', chin: '#d8d5d0', mix: '#f1efec' }, browColor: '#5f5a58', brow: 4.6, age: 0.6, iris: '#4a5560', suit: '#2c5aa0', shirt: '#ffffff', tie: '#1d3d86', pin: '#b3562a', h: 0.97, w: 1.2, head: 1.06, belly: 0.8, shoulders: 0.2, mood: -0.6,
   },
   lapid: {
-    fw: 0.92, len: 1.22, fore: 1.2, ridge: 1.15, cheek: 0.72, chin: 1.08, jaw: 0.98, nose: 1.1, noseL: 1.3, noseW: 0.85, lips: 0.9, lid: 0.4, bags: 0.35, browArch: 0.2,
-    skin: '#f0caa7', hair: { style: 'comb', color: '#a9a59d', vol: 1, hl: 0.06 }, browColor: '#5a5650', brow: 3.7, stubble: 0.35, age: 0.5, iris: '#55605a', suit: '#20242e', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.06, w: 0.92, shoulders: 0.2, mood: 0.5,
+    fw: 1, len: 1.15, fore: 1.15, ridge: 1.3, cheek: 0.95, chin: 1.1, jaw: 1.1, nose: 1.1, noseL: 1.2, noseW: 0.95, lips: 1.1, mouthW: 1.2, eyeSize: 0.9, lid: 0.45, bags: 0.4, browArch: 0.15, ear: 1.4, earOut: 0.35, neck: 1.1,
+    skin: '#dca889', hair: { style: 'spiky', color: '#8e8b88', vol: 1.1, hl: 0.04, mix: '#c9c7c4', dt: -0.6, dd: -3.2 }, browColor: '#4f4c4a', brow: 4.2, age: 0.6, iris: '#4a4a45', suit: '#1d2230', shirt: '#e7ebf2', open: true, pin: '#19c6b7', h: 1.06, w: 0.95, shoulders: 0.2, mood: 1.3,
   },
   gantz: {
-    fw: 1.08, len: 1.18, fore: 1.2, ridge: 1.25, cheek: 0.95, chin: 1.45, jaw: 1.2, nose: 1.15, noseL: 1.2, noseW: 1.05, lips: 0.85, eyeSize: 0.95, lid: 0.4, bags: 0.3, ear: 1.35, earOut: 0.4, neck: 1.2,
-    skin: '#e8bd96', hair: { style: 'buzz', color: '#c5c9d2', vol: 1, hl: 0.05 }, browColor: '#7a7f8a', brow: 4, age: 0.5, iris: '#4f5a63', suit: '#22355a', shirt: '#ffffff', tie: '#6ec6ff', pin: '#6ec6ff', h: 1.13, w: 1.04, head: 1.05, shoulders: 0.6, mood: -0.2,
+    fw: 1.08, len: 1.18, fore: 1.2, ridge: 1.3, cheek: 1, jowl: 0.25, chin: 1.4, jaw: 1.25, nose: 1.2, noseL: 1.2, noseW: 1.1, lips: 0.8, eyeSize: 0.9, lid: 0.75, bags: 0.55, ear: 1.5, earOut: 0.55, neck: 1.25,
+    skin: '#dfa688', hair: { style: 'comb', color: '#e4e1da', vol: 1.3, hl: 0.04, mix: '#ffffff', dt: -0.6, dd: -3.2, ds: -0.8 }, browColor: '#a5a39f', brow: 3.6, age: 0.8, iris: '#6a8296', suit: '#1d2d52', shirt: '#ffffff', open: true, pin: '#6ec6ff', h: 1.13, w: 1.04, head: 1.05, shoulders: 0.6, mood: -0.45,
   },
   golan: {
-    fw: 1.12, fore: 1.35, ridge: 1.2, cheek: 1.2, jowl: 0.3, jaw: 1.1, nose: 1.15, noseW: 1.15, lips: 0.95, eyeSize: 0.95, lid: 0.35, bags: 0.4, ear: 1.25, neck: 1.1,
-    skin: '#e4b48c', hair: { style: 'none', color: '#aab0ba' }, beard: { color: '#b4bac4' }, browColor: '#8b919c', brow: 3.6, age: 0.6, iris: '#4a3a2c', suit: '#1f3a2c', shirt: '#e8efe6', open: true, pin: '#38b56a', h: 1, w: 1.08, belly: 0.35, mood: 0.4,
+    fw: 1.05, fore: 1.15, ridge: 1.2, cheek: 1.1, jowl: 0.15, chin: 1.1, jaw: 1.15, nose: 1.1, noseW: 1.05, lips: 1.1, mouthW: 1.15, eyeSize: 0.9, lid: 0.4, bags: 0.4, ear: 1.1, neck: 1.2,
+    skin: '#dcaa8a', hair: { style: 'spiky', color: '#a8a7a5', vol: 1, hl: 0.03, mix: '#e0dfdd', dt: -1.4, dd: -3.4 }, browColor: '#8a8985', brow: 3.4, age: 0.6, iris: '#5a4a3c', suit: '#1b2132', shirt: '#f4f6fa', open: true, pin: '#38b56a', h: 1, w: 1.06, belly: 0.25, mood: 1.2,
   },
   odeh: {
-    fw: 0.95, cheek: 0.9, fore: 1.12, chin: 0.95, jaw: 0.98, noseL: 0.95, lips: 1.1, mouthW: 1.12, eyeSize: 1.25, browArch: 0.5,
-    skin: '#c79770', hair: { style: 'part', color: '#1f1a1a', vol: 0.8, hl: 0.12 }, stache: '#1f1a1a', age: 0.3, brow: 3.2, iris: '#2e2119', suit: '#2b2e3b', shirt: '#cfe3ff', tie: '#e23b52', pin: '#e23b52', h: 1, w: 0.97, head: 0.98, mood: 0.9,
+    fw: 1.05, fore: 1.1, ridge: 1.35, cheek: 1.05, jaw: 1.1, nose: 1.1, noseW: 1.3, lips: 1, mouthW: 1.05, lid: 0.4, bags: 0.4, browArch: 0.1, browTilt: 0.4, ear: 1.05, neck: 1.3,
+    skin: '#c58f70', hair: { style: 'crop', color: '#2c2220', vol: 1.3, hl: 0.02, dt: 1.0, dh: 1.2, dd: -1.6 }, browColor: '#241b19', brow: 4.6, age: 0.35, iris: '#2e2119', suit: '#3a3d4c', shirt: '#cdd2ee', open: true, pin: '#e23b52', h: 1, w: 1.02, mood: 0,
   },
   abbas: {
-    fw: 1.12, len: 0.96, cheek: 1.4, jowl: 0.3, chin: 0.95, jaw: 1.08, noseW: 1.15, ridge: 0.95, lips: 1.15, lid: 0.3, ear: 1.1, neck: 1.15,
-    skin: '#c39670', hair: { style: 'thin', color: '#241d1a', vol: 0.9, hl: 0.06 }, beard: { color: '#3a2f28' }, age: 0.3, brow: 3.2, iris: '#2e2119', suit: '#233a34', shirt: '#f0f4ef', tie: '#a5d63c', pin: '#a5d63c', h: 0.98, w: 1.06, belly: 0.3, mood: 0.7,
+    fw: 1.15, len: 0.98, fore: 1.2, ridge: 1.15, cheek: 1.35, jowl: 0.3, chin: 0.95, jaw: 1.15, nose: 1.05, noseW: 1.25, lips: 0.95, mouthW: 1.1, eyeSize: 0.88, lid: 0.6, bags: 0.4, ear: 1.1, neck: 1.3,
+    skin: '#c8987a', hair: { style: 'crop', color: '#1d1817', vol: 0.9, hl: 0.22, mix: '#6a6562', dt: -1.2, dd: -3.4 }, stubble: 0.8, stache: '#1b1716', stacheW: 1.15, browColor: '#1d1817', brow: 4, age: 0.45, iris: '#2e2119', suit: '#1d1d20', shirt: '#f0f2f4', open: true, pin: '#a5d63c', h: 0.99, w: 1.1, belly: 0.3, mood: 0.3,
   },
   tibi: {
-    len: 1.05, fore: 1.1, ridge: 1.35, cheek: 0.95, chin: 1.1, nose: 1.4, noseL: 1.25, noseW: 1.3, bridge: 0.5, noseT: 0.4, lid: 0.5, bags: 0.55, browArch: 0.3, ear: 1.1,
-    skin: '#c79770', hair: { style: 'thin', color: '#3a3a44', vol: 1, hl: 0.1 }, stache: '#33302e', glasses: { shape: 'rect', color: '#2a2a33' }, age: 0.55, brow: 4, iris: '#2e2119', suit: '#3a2f4a', shirt: '#ffffff', tie: '#e05fb4', pin: '#e05fb4', h: 0.96, w: 1.02, belly: 0.2, mood: 1.2,
+    fw: 1.12, fore: 1.2, ridge: 1.15, cheek: 1.25, jowl: 0.45, jaw: 1.1, nose: 1.15, noseW: 1.2, bridge: 0.15, lips: 0.9, mouthW: 1.05, eyeSize: 0.85, lid: 0.6, bags: 0.6, browArch: 0.1, ear: 1.2, neck: 1.25,
+    skin: '#d9a98a', hair: { style: 'sides', color: '#b8b8bc' }, stache: '#9b9996', stacheW: 1.15, glasses: { shape: 'rect', color: '#a8b3c6', lw: 0.85 }, browColor: '#66646a', brow: 3.4, age: 0.6, iris: '#3a2c20', suit: '#1d2c55', shirt: '#ffffff', tie: '#6f8fc0', pin: '#e05fb4', h: 0.98, w: 1.08, belly: 0.3, mood: 0.8,
   },
   regev: {
-    fw: 1.06, cheek: 1.3, chin: 0.98, jaw: 1, nose: 0.9, noseL: 0.92, noseW: 0.98, lips: 1.35, eyeSize: 1.2, ridge: 1.05, browArch: 0.75, neck: 1,
-    skin: '#e8b88c', hair: { style: 'layered', color: '#b08650', vol: 1.3, len: 40, sweep: 1 }, browColor: '#4e3522', brow: 3.4, earring: '#ffd24a', female: true, age: 0.5, iris: '#5a4028', suit: '#8b1e3f', shirt: '#fff4f6', pin: '#ffd24a', h: 0.98, w: 0.97, open: true, head: 1, shoulders: 0.05, mood: -0.3,
+    fw: 0.95, len: 1.08, cheek: 0.85, chin: 0.92, jaw: 0.92, nose: 0.95, noseW: 0.9, lips: 1.2, eyeSize: 1.1, lid: 0.3, browArch: 0.4, neck: 0.95,
+    skin: '#e0b090', hair: { style: 'layered', color: '#2a1b15', vol: 1.1, len: 46, sweep: 1, dt: -1.6, ds: -0.4, dw: 0.9, dh: -1.2 }, browColor: '#241812', brow: 2.8, female: true, age: 0.45, iris: '#4a3020', suit: '#1d6fe0', shirt: '#1d6fe0', pin: '#ffd24a', h: 0.98, w: 0.97, open: true, head: 1, shoulders: 0.05, mood: -0.3,
   },
   ohana: {
-    fw: 0.95, len: 1.1, fore: 1.1, ridge: 1.1, cheek: 0.88, chin: 1.1, nose: 1.05, noseL: 1.1, noseW: 0.95, lips: 0.95, lid: 0.2,
-    skin: '#e6bb95', hair: { style: 'crop', color: '#332a24', vol: 0.9, hl: 0.14 }, stubble: 0.4, browColor: '#3b302a', brow: 3.4, age: 0.3, iris: '#3c2a1e', suit: '#1c2436', shirt: '#ffffff', tie: '#2155e0', pin: '#2155e0', h: 1.02, w: 1, shoulders: 0.1, mood: 0,
+    fw: 0.98, len: 1.15, fore: 1.15, ridge: 1.35, cheek: 0.9, chin: 1.15, jaw: 1.2, nose: 1.05, noseL: 1.1, noseW: 0.95, lips: 0.85, eyeSize: 1, lid: 0.35, bags: 0.4, browTilt: 0.6, ear: 1.25, earOut: 0.3, neck: 1.25,
+    skin: '#e6bfa4', hair: { style: 'none', color: '#7a746e' }, beard: { color: '#867d76', chin: '#b4b0aa', mix: '#d9d6d2' }, browColor: '#4a3a30', brow: 3.8, age: 0.45, iris: '#6f8da6', suit: '#17202f', shirt: '#ffffff', tie: '#5a9ae6', pin: '#2155e0', h: 1.02, w: 1.02, shoulders: 0.15, mood: -0.2,
   },
   gotliv: {
-    fw: 0.92, len: 1.08, cheek: 1.15, ridge: 1.25, chin: 0.92, jaw: 0.92, nose: 1.15, noseL: 1.2, noseW: 0.85, noseT: -0.15, lips: 1.3, eyeSize: 1.05, lid: 0.3, browArch: 0.5, browTilt: 0.3, neck: 0.9,
-    skin: '#efc6a2', hair: { style: 'wavy', color: '#3a2820', len: 46 }, browColor: '#3a2820', brow: 3.4, female: true, age: 0.35, iris: '#4a3220', suit: '#221a33', shirt: '#efe6ff', open: true, pin: '#8a4fe0', earring: '#d8d8e6', h: 0.94, w: 0.9, head: 0.97, shoulders: -0.3, mood: -0.4,
+    fw: 1.05, len: 0.98, cheek: 1.45, chin: 0.95, jaw: 0.95, noseW: 0.95, lips: 1.35, mouthW: 1.15, eyeSize: 1.1, lid: 0.3, browArch: 0.5, neck: 0.95,
+    skin: '#f0cdb9', hair: { style: 'bob', color: '#2e211c', vol: 1.1, len: 26, dt: -0.6 }, browColor: '#2a1c16', brow: 3.2, female: true, lip: '#c6283f', age: 0.35, iris: '#4a3220', suit: '#15151b', shirt: '#15151b', open: true, earring: '#cfcfdc', h: 0.94, w: 0.95, shoulders: -0.2, mood: 1.2,
   },
   bennett: {
-    fw: 1.1, len: 0.93, cheek: 1.35, jowl: 0.15, chin: 0.9, jaw: 1.02, nose: 0.85, noseL: 0.85, noseW: 0.95, noseT: -0.3, eyeSize: 1.1, ear: 1.15,
-    skin: '#efc8a3', hair: { style: 'crop', color: '#3b2e26', vol: 0.8, hl: 0.14 }, kippah: { color: '#2b3a6b', knit: '#e9eef8' }, stubble: 0.15, browColor: '#3b2e26', brow: 3, age: 0.35, iris: '#4a5a4a', suit: '#2a3245', shirt: '#dbe6f7', open: true, pin: '#19c6b7', h: 0.98, w: 0.98, shoulders: 0.2, mood: 0.7,
+    fw: 0.98, len: 1.05, fore: 1.15, ridge: 1.2, cheek: 0.9, noseW: 0.95, eyeSize: 1, lid: 0.3, bags: 0.3, ear: 1.2, earOut: 0.35,
+    skin: '#dcaa88', hair: { style: 'crop', color: '#33281f', vol: 0.8, hl: 0.28, dt: -1.4, dd: -3.6, dh: -0.4 }, browColor: '#2c221b', brow: 3.6, age: 0.35, iris: '#4a3c2c', suit: '#16171c', shirt: '#f4f6fa', open: true, pin: '#19c6b7', h: 0.99, w: 0.97, shoulders: 0.15, mood: 0.6,
   },
   eisenkot: {
-    fw: 1.08, len: 1.08, fore: 1.05, ridge: 1.45, cheek: 0.95, chin: 1.4, jaw: 1.25, nose: 1.2, noseL: 1.05, noseW: 1.2, lips: 0.8, eyeSize: 0.9, lid: 0.4, browTilt: 0.5, ear: 1.15, neck: 1.3,
-    skin: '#e7bd97', hair: { style: 'buzz', color: '#babfc9', vol: 1, hl: 0.04 }, browColor: '#5f6473', brow: 4.4, age: 0.65, iris: '#54606a', suit: '#1d2a3c', shirt: '#e9eef7', open: true, pin: '#18b0e0', h: 1.06, w: 1.1, shoulders: 0.6, mood: -0.5,
+    fw: 1.2, fore: 1.3, ridge: 1.5, cheek: 1.1, jowl: 0.3, chin: 1.25, jaw: 1.4, nose: 1.15, noseW: 1.3, lips: 0.85, mouthW: 1.05, eyeSize: 0.88, lid: 0.55, bags: 0.6, browTilt: 0.2, ear: 1.15, neck: 1.5,
+    skin: '#dcaa88', hair: { style: 'crop', color: '#9a9a9c', vol: 0.9, hl: 0.03, mix: '#d0d0d2', dt: -1.4, dd: -3.6, dh: -0.6 }, browColor: '#55525a', brow: 4.2, age: 0.75, iris: '#6b5642', suit: '#1d2a52', shirt: '#14151a', open: true, pin: '#18b0e0', h: 1.06, w: 1.1, shoulders: 0.6, mood: -0.4,
   },
   asher: {
-    fw: 0.94, len: 1.1, fore: 1.1, ridge: 1.15, cheek: 0.85, nose: 1.25, noseL: 1.1, lips: 0.85, eyeSize: 0.92, lid: 0.45, bags: 0.4, ear: 1.1,
-    skin: '#e5bd98', hair: { style: 'none', color: '#5a5350' }, beard: { color: '#6d6660' }, hat: { color: '#121118' }, browColor: '#4c4642', brow: 3.6, age: 0.6, iris: '#3b2a1e', suit: '#14141b', shirt: '#ffffff', h: 0.97, w: 1.08, belly: 0.45, mood: -0.3,
+    fw: 1.12, fore: 1.3, ridge: 1.3, cheek: 1.15, jowl: 0.2, jaw: 1.05, nose: 1.2, noseL: 1.1, noseW: 1.15, lips: 0.8, eyeSize: 0.95, lid: 0.4, bags: 0.4, ear: 1.4, earOut: 0.3, neck: 1.2,
+    skin: '#dca682', hair: { style: 'sides', color: '#9c9892' }, kippah: { color: '#121118', s: 1.15 }, beard: { color: '#9d9892', chin: '#c9c5bf', mix: '#e6e3de', len: 0.7 }, stache: '#8d857d', glasses: { shape: 'round', color: '#c9a84c', lw: 1.1 }, browColor: '#6a625b', brow: 4.2, age: 0.6, iris: '#4a6a5a', suit: '#14141b', shirt: '#ffffff', tie: '#3a3d44', h: 0.99, w: 1.08, belly: 0.4, mood: -0.4,
   },
   maoz: {
-    fw: 0.97, len: 1.05, ridge: 1.25, cheek: 0.9, jaw: 1.05, nose: 1.25, noseW: 1.15, lips: 0.85, eyeSize: 0.95, lid: 0.5, bags: 0.5, ear: 1.2,
-    skin: '#e0b48c', hair: { style: 'none', color: '#a9adb5' }, beard: { color: '#a9adb5' }, kippah: { color: '#15141d' }, browColor: '#7a7f8a', brow: 4, age: 0.7, iris: '#3f3428', suit: '#2a2732', shirt: '#f2f2f2', h: 1, w: 1.04, belly: 0.35, mood: -0.6,
+    fw: 0.98, len: 1.05, fore: 1.1, ridge: 1.1, cheek: 1.1, nose: 1.1, noseW: 1.1, mouthW: 1.1, lid: 0.3, bags: 0.3, ear: 1.3, earOut: 0.25,
+    skin: '#e8b9a0', hair: { style: 'crop', color: '#8d877d', vol: 0.8, hl: 0.02, dt: -2, dd: -3.4, dh: -1 }, kippah: { color: '#1c2347', knit: '#aab8de' }, beard: { color: '#aaa090', chin: '#bdb4a5', mix: '#6f675c', len: 2.5, flare: 2.2 }, browColor: '#8a8378', brow: 3.6, age: 0.5, iris: '#7fa3b8', suit: '#f1f1f2', shirt: '#ffffff', h: 1, w: 1.04, belly: 0.35, mood: 1.1,
   },
   abushehadeh: {
-    ridge: 1.15, jaw: 1.1, lips: 1.1, eyeSize: 1.05,
-    skin: '#c99872', hair: { style: 'curly', color: '#211a17', vol: 1 }, stubble: 0.55, stache: '#211a17', browColor: '#211a17', brow: 3.9, age: 0.3, iris: '#2e2119', suit: '#22303a', shirt: '#eaf3f2', open: true, pin: '#1f8f63', h: 1.01, w: 1, mood: 0.2,
+    fw: 1.1, len: 0.98, fore: 1.3, cheek: 1.35, jowl: 0.25, nose: 1, noseW: 1.05, lips: 1, mouthW: 1.05, eyeSize: 0.95, lid: 0.35, bags: 0.4, ear: 1.1, neck: 1.1,
+    skin: '#e2b698', hair: { style: 'sides', color: '#2e2724' }, stache: '#4a3b36', stacheW: 0.85, stubble: 0.35, glasses: { shape: 'rect', color: '#101014', lw: 2.1 }, browColor: '#241d1b', brow: 3.8, age: 0.3, iris: '#3a2a1e', suit: '#1d3262', shirt: '#f1ece2', tie: '#6f94cc', pin: '#1f8f63', h: 1, w: 1.04, belly: 0.3, mood: 0.5,
   },
   hendel: {
-    fw: 0.92, len: 1.1, cheek: 0.8, chin: 0.95, jaw: 0.95, nose: 1.1, noseL: 1.1, noseW: 0.9, ridge: 0.9, eyeSize: 1.1, ear: 1.05,
-    skin: '#efc5a1', hair: { style: 'part', color: '#5a4232' }, stubble: 0.3, browColor: '#4c382a', brow: 2.8, age: 0.3, iris: '#4a5a52', suit: '#4c5a34', shirt: '#f1efe6', open: true, pin: '#b59f5a', h: 1.03, w: 0.94, head: 0.97, shoulders: -0.1, mood: 0.3,
+    fw: 0.96, len: 1.05, ridge: 1.1, cheek: 0.9, jaw: 1.05, nose: 1.1, noseL: 1.05, noseW: 0.95, mouthW: 1.2, lid: 0.3, bags: 0.3, ear: 1.2, earOut: 0.3, neck: 1.1,
+    skin: '#d8a782', hair: { style: 'spiky', color: '#77746f', vol: 1.1, hl: 0.04, mix: '#bdbab4', dt: -0.8, dd: -3.2 }, stubble: 0.2, browColor: '#55504a', brow: 3.4, age: 0.5, iris: '#6f8a96', suit: '#4b5a3a', shirt: '#3c4a2e', open: true, pin: '#b59f5a', h: 1.03, w: 1, shoulders: 0.1, mood: 1.4,
   },
   winter: {
-    fw: 1.14, len: 1.05, ridge: 1.4, cheek: 1.1, chin: 1.45, jaw: 1.25, nose: 1.05, noseW: 1.15, lips: 0.95, eyeSize: 0.9, lid: 0.3, ear: 1.1, neck: 1.45,
-    skin: '#e6b990', hair: { style: 'buzz', color: '#514c48', vol: 1 }, kippah: { color: '#222b3d', knit: '#c9a959' }, stubble: 0.22, browColor: '#3d3835', brow: 4.2, age: 0.4, iris: '#3f4a52', suit: '#2a3a2c', shirt: '#f2f2f2', open: true, pin: '#e0a82e', h: 1.08, w: 1.2, shoulders: 0.85, belly: 0.2, mood: -0.7,
+    fw: 1.18, ridge: 1.3, cheek: 1.2, jowl: 0.25, chin: 1.3, jaw: 1.3, nose: 1.05, noseW: 1.2, mouthW: 1.1, eyeSize: 0.8, lid: 0.55, bags: 0.4, browTilt: 0.1, ear: 1.1, neck: 1.5,
+    skin: '#d89f7c', hair: { style: 'buzz', color: '#6b6670', vol: 1, mix: '#b8b4bc', dd: -2.6 }, kippah: { color: '#cfc8d6', s: 0.62 }, beard: { color: '#5a5656', chin: '#c4c1c1', mix: '#e4e2e2', flare: 0.3 }, browColor: '#3d3835', brow: 3.8, age: 0.5, iris: '#4a3a2c', suit: '#1b2a4a', shirt: '#1b2a4a', open: true, pin: '#e0a82e', h: 1.08, w: 1.2, shoulders: 0.85, belly: 0.2, mood: 0.1,
   },
 };
 

@@ -117,7 +117,7 @@ function paintFaceBase(c, look, pal) {
   }
   c.putImageData(id, 0, 0);
 
-  if (look.beard) soft(0, -14.5, 11, 6.5, look.beard.color, 0.5);              // skin colour under a full beard
+  if (look.beard && look.beard.style !== 'goatee') soft(0, -14.5, 11, 6.5, look.beard.color, 0.5);              // skin colour under a full beard
 
   // ---- age: spots and wrinkles
   if (age > 0.45) {
