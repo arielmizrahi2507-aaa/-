@@ -74,6 +74,16 @@ const Baked = (() => {
     return Promise.all(all);
   }
 
+  // the drawn (2D) fights show the same realistic face as a head without the shoulders: cut under the chin and faded into the neck; kept at half size (the head is ~50 px across)
+  const headOf = new WeakMap();
+  function fightKey(eyes, mouth) {
+    if (eyes === 'ko') return 'ko_sad';
+    if (eyes === 'hurt') return mouth === 'shout' || mouth === 'open' ? 'hurt_shout' : 'hurt_sad';
+    if (eyes === 'angry') return mouth === 'grin' || mouth === 'closed' ? 'angry_grin' : 'angry_shout';
+    if (mouth === 'shout' || mouth === 'open') return 'angry_shout';
+    return 'base';
+  }
+
   return {
     has(id) { return !!(imgs[id] && imgs[id].base); },
     count() { return Object.keys(imgs).length; },
@@ -117,6 +127,28 @@ const Baked = (() => {
     },
     layout(id) { return (data[id] && data[id].t_rest && LAYOUT[id]) || null; },
     face3d(id, eyes, mouth) { const m = imgs[id]; return (m && (m[state3(eyes, mouth)] || m.t_rest)) || null; },
+    // { c: canvas, U: canvas px per eye distance, ex: x of the middle of the eyes, ey: y of the eye line } or null when this fighter has no baked face yet
+    head2d(id, eyes, mouth, look) {
+      const m = imgs[id];
+      if (!m || !m.base) return null;
+      const im = m[fightKey(eyes, mouth)] || m.base;
+      let h = headOf.get(im);
+      if (h) return h;
+      const lay = LAYOUT[id], chin = lay ? lay.chin : 2.45, U0 = im.width / 5, sc = 0.5, U = U0 * sc;
+      const bl = look && look.beard ? Math.max(0, look.beard.len || 0) : 0, longHair = look && look.hair && look.hair.len > 0;
+      const keep = bl > 0.5 || longHair;                              // a long beard or long hair goes on below the chin: keep the picture to its lower edge, fade only the last bit
+      const f0 = (2.1 + chin + 0.05 + bl * 0.376) * U0;               // the neck and the collar fade out from just under the chin (or the end of the beard)
+      const hh = keep ? im.height : Math.min(im.height, Math.ceil(f0 + 0.24 * U0));
+      const c = document.createElement('canvas'); c.width = Math.round(im.width * sc); c.height = Math.round(hh * sc);
+      const x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+      x.drawImage(im, 0, 0, im.width, hh, 0, 0, c.width, c.height);
+      const g = x.createLinearGradient(0, keep ? c.height - 0.3 * U : f0 * sc, 0, c.height);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+      h = { c, U, ex: c.width / 2, ey: 2.1 * U };
+      headOf.set(im, h);
+      return h;
+    },
     paint(ctx, id, eyes, mouth, cx, cy, r, opt) {
       const m = imgs[id];
       if (!m || !m.base) return false;

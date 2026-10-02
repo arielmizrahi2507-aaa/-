@@ -68,6 +68,76 @@ function emitTube(mesh, a, b, r0, r1, col, mat, o = {}) {
   }
 }
 
+
+// ---------------------------------------------------------------------------------------------------------------
+// Smooth limbs: a path through the joints (Catmull-Rom), a radius profile along it (monotone-ish cubic through knots), and rings lofted along the path.
+// ---------------------------------------------------------------------------------------------------------------
+// n points along a Catmull-Rom spline through ctl (arrays of 3 numbers); the ends are straight
+function splinePath(ctl, n) {
+  const m = ctl.length, out = [];
+  for (let k = 0; k < n; k++) {
+    const t = (k / (n - 1)) * (m - 1), i = Math.min(m - 2, Math.floor(t)), u = t - i;
+    const p0 = ctl[Math.max(0, i - 1)], p1 = ctl[i], p2 = ctl[i + 1], p3 = ctl[Math.min(m - 1, i + 2)];
+    const u2 = u * u, u3 = u2 * u, q = [0, 0, 0];
+    for (let c = 0; c < 3; c++) q[c] = 0.5 * ((2 * p1[c]) + (-p0[c] + p2[c]) * u + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * u2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * u3);
+    out.push(q);
+  }
+  return out;
+}
+// radius at t in [0,1] from knots [[t, r], ...] (t ascending): cubic Hermite with Catmull-Rom tangents, so the silhouette has no kinks
+function profAt(kn, t) {
+  const n = kn.length;
+  if (t <= kn[0][0]) return kn[0][1];
+  if (t >= kn[n - 1][0]) return kn[n - 1][1];
+  let i = 0; while (i < n - 2 && t > kn[i + 1][0]) i++;
+  const t0 = kn[i][0], t1 = kn[i + 1][0], r0 = kn[i][1], r1 = kn[i + 1][1], h = t1 - t0, u = (t - t0) / h;
+  const m0 = i > 0 ? (r1 - kn[i - 1][1]) / (t1 - kn[i - 1][0]) : (r1 - r0) / h, m1 = i < n - 2 ? (kn[i + 2][1] - r0) / (kn[i + 2][0] - t0) : (r1 - r0) / h;
+  const u2 = u * u, u3 = u2 * u;
+  return (2 * u3 - 3 * u2 + 1) * r0 + (u3 - 2 * u2 + u) * h * m0 + (-2 * u3 + 3 * u2) * r1 + (u3 - u2) * h * m1;
+}
+// A lofted limb along `path` (points) with per-point radii rr (and rz across the plane of the pose, default the same). `cap0` / `cap1`: round the start / end off with that many rings.
+// The frame convention is the one of emitTube (u in the plane of the pose, v along z), so the winding and the uv tiling are the same.
+function emitLoft(mesh, path, rr, col, mat, o = {}) {
+  const sides = o.sides || 12, tile = o.tile, cols = tile ? sides + 1 : sides, T = trig(sides), base = mesh.nv;
+  let pts = path, R = rr, Z = o.rz || rr;
+  const c0 = o.cap0 || 0, c1 = o.cap1 || 0;
+  if (c0 || c1) {                                  // extra rings that close the ends on a quarter circle
+    pts = path.slice(); R = rr.slice(); Z = Z.slice();
+    const n = path.length;
+    if (c0) {
+      const d = V3.norm(V3.sub(path[0], path[1]));
+      for (let j = 1; j <= c0; j++) { const a = (Math.PI / 2) * (j / (c0 + 1)), ca = Math.cos(a), sa = Math.sin(a); pts.unshift(V3.madd(path[0], d, rr[0] * sa)); R.unshift(rr[0] * ca); Z.unshift((o.rz ? o.rz[0] : rr[0]) * ca); }
+    }
+    if (c1) {
+      const d = V3.norm(V3.sub(path[n - 1], path[n - 2]));
+      for (let j = 1; j <= c1; j++) { const a = (Math.PI / 2) * (j / (c1 + 1)), ca = Math.cos(a), sa = Math.sin(a); pts.push(V3.madd(path[n - 1], d, rr[n - 1] * sa)); R.push(rr[n - 1] * ca); Z.push((o.rz ? o.rz[n - 1] : rr[n - 1]) * ca); }
+    }
+  }
+  const n = pts.length, arc = new Float32Array(n);
+  for (let k = 1; k < n; k++) arc[k] = arc[k - 1] + V3.len(V3.sub(pts[k], pts[k - 1]));
+  const cf = typeof col === 'function' ? col : null;
+  for (let k = 0; k < n; k++) {
+    const a = pts[Math.max(0, k - 1)], b = pts[Math.min(n - 1, k + 1)], k0 = Math.max(0, k - 1), k1 = Math.min(n - 1, k + 1);
+    let wx = b[0] - a[0], wy = b[1] - a[1], wz = b[2] - a[2]; const wl = Math.hypot(wx, wy, wz) || 1e-3; wx /= wl; wy /= wl; wz /= wl;
+    let rx = 0, ry = 0, rz = 1; if (Math.abs(wz) > 0.85) { rx = 1; rz = 0; }
+    let ux = wy * rz - wz * ry, uy = wz * rx - wx * rz, uz = wx * ry - wy * rx; const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
+    const vx = wy * uz - wz * uy, vy = wz * ux - wx * uz, vz = wx * uy - wy * ux;
+    const ds = (arc[k1] - arc[k0]) || 1e-3, slope = -(((R[k1] + Z[k1]) - (R[k0] + Z[k0])) / 2) / ds;
+    const ck = cf ? cf(k, n) : col, ra = Math.max(R[k], 1e-3), rb = Math.max(Z[k], 1e-3), P = pts[k];
+    for (let s = 0; s < cols; s++) {
+      const cp = T.c[s % sides], sp = T.s[s % sides];
+      const dx = ux * cp * ra + vx * sp * rb, dy = uy * cp * ra + vy * sp * rb, dz = uz * cp * ra + vz * sp * rb;
+      let nx = ux * cp / ra + vx * sp / rb, ny = uy * cp / ra + vy * sp / rb, nz = uz * cp / ra + vz * sp / rb; const nl0 = Math.hypot(nx, ny, nz) || 1; nx /= nl0; ny /= nl0; nz /= nl0;
+      nx += wx * slope; ny += wy * slope; nz += wz * slope; const nl = Math.hypot(nx, ny, nz) || 1;
+      mesh.vert(P[0] + dx, P[1] + dy, P[2] + dz, nx / nl, ny / nl, nz / nl, tile ? (s / sides) * tile[0] : WHITE_UV[0], tile ? arc[k] / tile[1] : WHITE_UV[1], ck, mat);
+    }
+  }
+  for (let k = 0; k < n - 1; k++) for (let s = 0; s < sides; s++) {
+    const s2 = tile ? s + 1 : (s + 1) % sides, i00 = base + k * cols + s, i10 = base + k * cols + s2, i11 = base + (k + 1) * cols + s2, i01 = base + (k + 1) * cols + s;
+    mesh.tri(i00, i10, i01); mesh.tri(i10, i11, i01);
+  }
+}
+
 // Ellipsoid with three (scaled) axis vectors. Good for joints, hands, feet, ears.
 function emitEllipsoid(mesh, c, ax, ay, az, col, mat, o = {}) {
   const nu = o.nu || 10, nv = o.nv || 7, uv = o.uv || WHITE_UV, T = trig(nu), base = mesh.nv;

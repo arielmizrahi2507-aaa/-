@@ -531,6 +531,32 @@ function drawFist(ctx, x, y, ux, uy, skin, ink, tint, back) {
   ctx.restore();
 }
 
+// The head of the drawn (2D) fighter: the realistic portrait of the same person (the face the select screen shows), without the shoulders. It is a front view on the
+// profile body, a little narrower and shifted forward as if turned towards the opponent, and never mirrored. A hit flash or a ghost tint is applied to a scratch copy.
+const HEAD2D_IPD = 12.4;         // head drawing units per inter-eye distance (before the head size of the look)
+let HEAD_TMP = null;
+function drawBakedHead(ctx, f, look, p, flash, tint) {
+  const h = Baked.head2d(f.def.id, p.eyes, p.mouth, look);
+  if (!h) return false;
+  const k = HEAD2D_IPD * (look.head || 1) * 1.14 / h.U, w = h.c.width * k, hgt = h.c.height * k;
+  ctx.save();
+  ctx.translate(3.2, 0); ctx.scale(f.face * 0.95, 1);
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  const x0 = -h.ex * k, y0 = -5.5 - h.ey * k;
+  if (tint || flash > 0) {
+    const t = HEAD_TMP || (HEAD_TMP = document.createElement('canvas'));
+    if (t.width !== h.c.width || t.height !== h.c.height) { t.width = h.c.width; t.height = h.c.height; }
+    const x = t.getContext('2d');
+    x.globalCompositeOperation = 'source-over'; x.clearRect(0, 0, t.width, t.height); x.drawImage(h.c, 0, 0);
+    x.globalCompositeOperation = tint ? 'source-in' : 'source-atop';
+    x.fillStyle = tint || 'rgba(255,255,255,' + Math.min(1, flash) + ')'; x.fillRect(0, 0, t.width, t.height);
+    x.globalCompositeOperation = 'source-over';
+    ctx.drawImage(t, x0, y0, w, hgt);
+  } else ctx.drawImage(h.c, x0, y0, w, hgt);
+  ctx.restore();
+  return true;
+}
+
 function drawFighter(ctx, f, opt = {}) {
   if (!opt.tint && F3D.active() && F3D.draw(ctx, f, opt)) return;      // real 3D model (WebGL); falls through to the cartoon renderer otherwise
   const def = f.def, look = def.look;
@@ -676,7 +702,7 @@ function drawFighter(ctx, f, opt = {}) {
   ctx.translate(headCX, headCY);
   ctx.rotate(p.headRot);
   ctx.scale(HEAD_K, HEAD_K);
-  if (look.robot) drawRobotHead(ctx, f, look, p, C); else drawHead(ctx, f, look, p, C);
+  if (look.robot) drawRobotHead(ctx, f, look, p, C); else if (!drawBakedHead(ctx, f, look, p, flash, tint)) drawHead(ctx, f, look, p, C);
   ctx.restore();
 
   // ---- front arm (+ prop)
