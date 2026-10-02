@@ -323,7 +323,8 @@ def eye_geometry(h, side, open_px):
     t = np.linspace(0, 1, len(mid))                                  # 0 = outer corner, 1 = inner corner
     s_up = np.sin(np.pi * np.clip(t, 0, 1)) ** 0.62 * (1 + 0.22 * (t - 0.45)); s_up = s_up / s_up.max()
     s_lo = np.sin(np.pi * np.clip(t, 0, 1)) ** 0.85; s_lo = s_lo / s_lo.max()
-    up = mid + np.stack([0 * t, -0.60 * open_px * s_up], 1); lo = mid + np.stack([0 * t, 0.40 * open_px * s_lo], 1)
+    hood = float(h.spec.get('hood', 0.0))
+    up = mid + np.stack([0 * t, -(0.60 - 0.34 * hood) * open_px * s_up], 1); lo = mid + np.stack([0 * t, (0.40 + 0.10 * hood) * open_px * s_lo], 1)
     return up, lo
 
 def mouth_params(h):
@@ -390,6 +391,28 @@ def skin_albedo(h):
     if not L.get('female'):
         shad = smoothstep(EY + 0.45 * I, EY + 1.1 * I, YY) * smoothstep(1.15 * I, 0.8 * I, np.abs(XX - CX)) * h.m_head
         A = A * (1 - (0.05 + 0.20 * st) * shad)[:, :, None] * (1 - ((0.02 + 0.05 * st) * shad)[:, :, None] * np.array([0.6, 0.2, -0.4], np.float32)[None, None, :])
+    # personal marks: moles [x, y, radius, strength] (eye distances from the eye centre, y down), freckles {n, k, zone}, red blotches, scars (polylines)
+    sp_ = h.spec
+    for mx, my, mr, ms in sp_.get('moles', []):
+        m_ = gauss(CX + mx * I, EY + my * I, max(1.5, mr * I), max(1.5, mr * I))
+        A = A * (1 - 0.62 * ms * m_)[:, :, None] * (np.array([1.0, 0.86, 0.78], np.float32)[None, None, :] ** m_[:, :, None])
+    fk = sp_.get('freckles')
+    if fk:
+        rng = np.random.RandomState(23); fr = np.zeros((SS, SS), np.float32)
+        for _ in range(int(fk.get('n', 60))):
+            if fk.get('zone', 'cheeks') == 'cheeks':
+                x = CX + rng.choice([-1, 1]) * rng.uniform(0.25, 0.95) * I; y = EY + rng.uniform(0.05, 0.62) * I
+            else:
+                x = CX + rng.uniform(-1.0, 1.0) * I; y = EY + rng.uniform(-1.2, 1.2) * I
+            fr = np.maximum(fr, gauss(x, y, rng.uniform(1.4, 3.2), rng.uniform(1.4, 3.2)) * rng.uniform(0.35, 1.0))
+        A = A * (1 - 0.30 * float(fk.get('k', 0.6)) * fr)[:, :, None] * (np.array([1.0, 0.90, 0.80], np.float32)[None, None, :] ** fr[:, :, None])
+    for bx, by, brx, bry, bs in sp_.get('blotch', []):                                       # a red patch (rosacea, sunburn): centre, radii (eye distances), strength
+        bl = gauss(CX + bx * I, EY + by * I, brx * I, bry * I)
+        A = A * (1 + bs * bl[:, :, None] * np.array([0.22, -0.20, -0.18], np.float32)[None, None, :])
+    for sc in sp_.get('scars', []):
+        pts = np.array([[CX + x * I, EY + y * I] for x, y in sc['pts']], np.float32)
+        lm = line_mask(pts, float(sc.get('w', 2.4)), 1.0)
+        A = A * (1 + float(sc.get('k', 0.35)) * lm[:, :, None] * np.array([0.30, -0.10, -0.05], np.float32)[None, None, :])
     # age spots
     if age > 0.55:
         rng = np.random.RandomState(7); spots = np.zeros((SS, SS), np.float32)
@@ -400,12 +423,13 @@ def skin_albedo(h):
     return A
 
 def wrinkle_field(h, squeeze=0.0, smile=0.0):
-    """negative height (px) of the typical wrinkles; strength from age and the look's own numbers"""
+    """negative height (px) of the typical wrinkles; strength from age and the look's own numbers; spec 'wr' scales every group (fore, glab, crow, bag, nl, mar)"""
     P = h.P; L = h.L; age = h.age; bags = float(L.get('bags', 0.4)); lid = float(L.get('lid', 0.4))
+    W_ = h.spec.get('wr', {}); wk = lambda k, d=1.0: float(W_.get(k, d))
     g = np.zeros((SS, SS), np.float32); rng = np.random.RandomState(11)
     a = 0.25 + 0.75 * age
     brow_y = (P[105, 1] + P[334, 1]) / 2; top = EY - 1.55 * I
-    n = int(1 + 5 * age)
+    n = int(round((1 + 5 * age) * min(1.7, wk('fore'))))
     for k in range(n):
         y = brow_y - 0.30 * I - k * (brow_y - top - 0.35 * I) / max(n, 1)
         half = (0.80 - 0.05 * k) * I
@@ -416,28 +440,33 @@ def wrinkle_field(h, squeeze=0.0, smile=0.0):
             xs = np.linspace(CX + xa, CX + xb, 24)
             u = np.linspace(-1, 1, 24)
             ys = y + rng.uniform(-3, 3) - 4.5 * (1 - u ** 2) * np.sign(xa + xb + 1e-3) * 0.0 - 5 * (1 - (np.linspace(CX + xa, CX + xb, 24) - CX) ** 2 / (half ** 2)) + noise(60 + k + si, 12)[int(y), 300:324] * 0.7
-            g -= line_mask(np.stack([xs, ys], 1), 2.2, 1.6) * (1.6 + 4.2 * a) * rng.uniform(0.40, 1.0)
+            g -= line_mask(np.stack([xs, ys], 1), 2.2, 1.6) * (1.6 + 4.2 * a) * rng.uniform(0.40, 1.0) * wk('fore')
     for (eo, sg) in ((33, -1), (263, 1)):
         for ang in (-0.55, -0.2, 0.15, 0.5):
-            p0 = P[eo] + np.array([sg * 10, 0.0]); ln = (0.20 + 0.13 * a) * I
+            p0 = P[eo] + np.array([sg * 10, 0.0]); ln = (0.20 + 0.13 * a) * I * min(1.4, wk('crow'))
             p1 = p0 + np.array([sg * np.cos(ang), np.sin(ang)]) * ln
-            g -= line_mask(np.array([p0, (p0 + p1) / 2 + [0, 2], p1]), 1.8, 1.0) * (1.0 + 3.0 * a + 4.0 * squeeze + 1.5 * smile)
+            g -= line_mask(np.array([p0, (p0 + p1) / 2 + [0, 2], p1]), 1.8, 1.0) * (1.0 + 3.0 * a + 4.0 * squeeze + 1.5 * smile) * wk('crow')
     bi = float(h.expr['ee'].get('brow_in', 0.0)) if hasattr(h, 'expr') else 0.0
+    bi = bi + 0.055 * wk('glab', 0.0)                                                      # permanent frown lines between the brows
     if bi > 0.05:
         for sg in (-1, 1):
             a0 = np.array([CX + sg * 0.075 * I, brow_y - 0.02 * I]); b0 = np.array([CX + sg * 0.055 * I, brow_y + 0.17 * I])
             g -= line_mask(np.array([a0, (a0 + b0) / 2 + [sg * 0.01 * I, 0], b0]), 3.4, 1.6) * (3.0 + 40.0 * bi)
     for sg, (wing, cor) in ((-1, (129, 61)), (1, (358, 291))):
         a0 = P[wing] + np.array([sg * 6, 10.0]); b0 = P[cor] + np.array([sg * 0.16 * I, -4.0]); mid = (a0 + b0) / 2 + np.array([sg * 0.10 * I, -6.0])
-        g -= line_mask(curve([a0, mid, b0], 30), 5.0, 2.8) * (2.0 + 6.5 * a + 3.0 * smile)
+        g -= line_mask(curve([a0, mid, b0], 30), 5.0, 2.8) * (2.0 + 6.5 * a + 3.0 * smile) * wk('nl')
     for sg, cor in ((-1, 61), (1, 291)):
         a0 = P[cor] + np.array([sg * 0.07 * I, 0.05 * I]); b0 = a0 + np.array([sg * 0.02 * I, (0.28 + 0.16 * a) * I])
-        g -= line_mask(curve([a0, (a0 + b0) / 2 + [sg * 0.02 * I, 0], b0], 20), 3.6, 2.0) * (0.8 + 5.0 * a)
+        g -= line_mask(curve([a0, (a0 + b0) / 2 + [sg * 0.02 * I, 0], b0], 20), 3.6, 2.0) * (0.8 + 5.0 * a) * wk('mar')
     for sg, side in ((-1, 'R'), (1, 'L')):
         lo = curve(P[EYE_LO[side]], 30) + np.array([0, 0.115 * I])
-        g -= line_mask(lo, 5.0, 3.0) * (1.0 + 4.0 * bags + 2.0 * a)
+        g -= line_mask(lo, 5.0, 3.0) * (1.0 + 4.0 * bags + 2.0 * a) * wk('bag')
         up = curve(P[EYE_UP[side]], 30) + np.array([0, -0.075 * I])
         g -= line_mask(up, 3.4, 1.8) * (2.0 + 3.0 * lid)
+    ch = wk('chin', 0.0)
+    if ch > 0:                                                                              # a crease under the lower lip, a dimple in the chin
+        y0 = P[17, 1] + 0.12 * I
+        g -= line_mask(curve([[CX - 0.22 * I, y0 - 2], [CX, y0 + 3], [CX + 0.22 * I, y0 - 2]], 20), 3.4, 2.0) * 4.0 * ch
     return g
 
 def fine_skin(h, age):
@@ -504,6 +533,12 @@ def render_head(h, eyes='open', mouth='smile'):
         c = np.array([CX + sg * 0.115 * I, P[1, 1] * 0.25 + P[2, 1] * 0.75 - 0.012 * I])
         nos = np.maximum(nos, gauss(c[0], c[1], 0.046 * I, 0.020 * I, rot=sg * 0.45))
     D -= 9 * nos
+    pf = float(sp.get('puff', 0.0))
+    if pf > 0:                                                                                  # puffy bags under the eyes
+        for lo_ in (eyeR_lo, eyeL_lo):
+            c_ = lo_.mean(0); wdt = float(lo_[:, 0].max() - lo_[:, 0].min())
+            D += 9.0 * pf * gauss(c_[0], c_[1] + 0.17 * I, 0.46 * wdt, 0.045 * I)
+            D -= 4.5 * pf * gauss(c_[0], c_[1] + 0.27 * I, 0.50 * wdt, 0.030 * I)
     # a smile pushes the cheeks up
     if em['mood'] > 0.1:
         for sg in (-1, 1): D += 7 * em['mood'] * gauss(CX + sg * 0.62 * I, EY + 0.50 * I, 0.26 * I, 0.17 * I)
@@ -623,14 +658,14 @@ def draw_eye(img, h, side, state='open', ri_scale=1.0):
     hh = max(lt - ut, 6.0)
     ri = min(0.5 * w * 0.46, 0.5 * hh / 0.82) * ri_scale * 1.0
     ri = max(ri, 0.075 * I)
-    ri = min(ri, 0.105 * I)
+    ri = min(ri, 0.105 * I) * float(h.spec.get('iris_k', 1.0))
     cy = ut + 0.54 * hh                                            # the iris sits a little under the upper lid
     ix = cx + (0.5 if side == 'R' else -0.5) * 0.0
     dx, dy = XX - ix, YY - cy; rho = np.sqrt(dx * dx + dy * dy) / ri; th = np.arctan2(dy, dx)
     # sclera: slightly warm white with a spherical shade, darker towards the corners and under the upper lid
     t = np.clip((YY - ut) / max(hh, 1), 0, 1)
     across = np.clip(np.abs(XX - (x0 + x1) / 2) / (w / 2), 0, 1)
-    scl = np.array([0.74, 0.70, 0.64], np.float32)[None, None, :] * (0.50 + 0.50 * (1 - across ** 2.2))[:, :, None] * (0.45 + 0.55 * smoothstep(0.0, 0.55, t))[:, :, None]
+    scl = np.array([0.74, 0.70, 0.64], np.float32)[None, None, :] * float(h.spec.get('sclera', 1.0)) * (0.50 + 0.50 * (1 - across ** 2.2))[:, :, None] * (0.45 + 0.55 * smoothstep(0.0, 0.55, t))[:, :, None]
     red = (smoothstep(0.55, 1.0, across) * 0.35)[:, :, None] * np.array([0.10, -0.02, -0.04], np.float32)[None, None, :]
     scl = scl + red
     # iris with fibres, a dark limbal ring and a lighter ring around the pupil
@@ -638,14 +673,15 @@ def draw_eye(img, h, side, state='open', ri_scale=1.0):
     fib = 0.5 + 0.5 * np.sin(th * 34 + noise(9, 5) * 3.0 + 3 * noise(13, 9)); fib2 = 0.5 + 0.5 * np.sin(th * 71 + noise(14, 3) * 4.0)
     irc = base[None, None, :] * (0.62 + 0.55 * fib[:, :, None] * 0.7 + 0.25 * fib2[:, :, None] * 0.4)
     collar = np.exp(-((rho - 0.52) / 0.16) ** 2)[:, :, None] * (base[None, None, :] * 0.8 + 0.10)
-    irc = irc + collar * 0.55
+    irc = (irc + collar * 0.55) * (1 - 0.55 * float(h.spec.get('iris_dark', 0.0)))
     irc = irc * (1 - 0.72 * smoothstep(0.80, 1.0, rho))[:, :, None]
     pup = 1 - smoothstep(0.30, 0.38, rho)
     irisA = 1 - smoothstep(0.97, 1.03, rho)
     eye = scl * (1 - irisA[:, :, None]) + irc * irisA[:, :, None]
     eye = eye * (1 - pup[:, :, None]) + np.array([0.004, 0.003, 0.003], np.float32)[None, None, :] * pup[:, :, None]
     # shadow of the upper lid on the eyeball
-    eye = eye * (0.30 + 0.70 * smoothstep(0.0, 0.50, t))[:, :, None] * (0.80 + 0.2 * smoothstep(0.0, 0.2, t))[:, :, None]
+    lidsh = float(h.spec.get('lid_shadow', 0.0))
+    eye = eye * (0.30 + 0.70 * smoothstep(0.0, 0.50 + 0.25 * lidsh, t))[:, :, None] * (0.80 + 0.2 * smoothstep(0.0, 0.2, t))[:, :, None]
     # catchlights
     cl = np.exp(-(((XX - (ix - 0.34 * ri)) / (0.22 * ri)) ** 2 + ((YY - (cy - 0.36 * ri)) / (0.16 * ri)) ** 2))
     cl2 = np.exp(-(((XX - (ix + 0.36 * ri)) ** 2 + (YY - (cy + 0.40 * ri)) ** 2) / (2 * (0.10 * ri) ** 2)))
@@ -855,16 +891,18 @@ def draw_stubble(img, h, amount, seed=3):
     return img
 
 def draw_stache(img, h, color, seed=31):
+    """moustache: thick in the middle and thinner towards the corners (spec 'taper'), corners that hang down ('droop'), ragged edges, 'alpha' = how solid it is"""
     sp = h.spec.get('stache', {})
     P = h.P; mp = h.parts
-    sw = sp.get('w', 1.0); sh_ = sp.get('h', 1.0)
+    sw = sp.get('w', 1.0); sh_ = sp.get('h', 1.0); tp = float(sp.get('taper', 0.40)); dr = float(sp.get('droop', 1.0)); al = float(sp.get('alpha', 1.0))
     ny = P[2, 1]; ly = mp['lipU'][len(mp['lipU']) // 2][1]
     top = ny + 0.045 * I; bot = ly + 0.015 * I * sh_
     wid = 0.40 * I * sw
-    u = np.linspace(-1, 1, 41)
-    upper = np.stack([CX + u * wid, top + 0.0 * u + 0.02 * I * np.abs(u)], 1)
-    droop = 0.05 * I * sh_
-    lower = np.stack([CX + u * wid * 0.98, bot + droop * (np.abs(u) ** 1.6) - 0.02 * I * (1 - np.abs(u)) ** 0.5], 1)
+    u = np.linspace(-1, 1, 41); au = np.abs(u)
+    upper = np.stack([CX + u * wid, top + 0.0 * u + 0.02 * I * au], 1)
+    mid_low = bot - 0.02 * I * (1 - au) ** 0.5                                        # where the hairs end above the lip
+    th = (mid_low - upper[:, 1]) * (1 - tp * au ** 1.3)
+    lower = np.stack([CX + u * wid * 0.98, upper[:, 1] + th + dr * 0.05 * I * sh_ * au ** 2.2], 1)
     region = poly_mask(smooth_curve(np.vstack([upper, lower[::-1]]), 100, closed=True), 1.6)
     base = hexlin(color)
     def flow(x, y):
@@ -872,7 +910,8 @@ def draw_stache(img, h, color, seed=31):
         return np.cos(a), np.sin(a)
     vx, vy = ST.flow_grid(flow)
     rgbc, a0 = ST.lit_fibres(region, vx, vy, base, base, hexlin(h.L['skin']), seed=seed, fine_len=9, lock_len=22, lock_scale=1.2, k_fine=0.30, k_lock=0.30, spec=0.14, spec_pow=26, dome=4.0, dome_cap=30.0, occl=0.2, target=base * sp.get('exposure', 0.80))
-    alpha = np.clip(blur(region, 1.2), 0, 1)
+    near = np.clip(blur(region, 7.0) * 5.0, 0, 1)                                                               # the ragged edge only close to the moustache (the noise alone would speckle the whole face)
+    alpha = np.clip(smoothstep(0.16, 0.70, blur(region, 3.0) + 0.17 * noise(77, 1) * near), 0, 1) * al
     img = over(img, rgbc, alpha)
     return img, alpha
 

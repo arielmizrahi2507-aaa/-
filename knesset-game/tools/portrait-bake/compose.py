@@ -88,6 +88,10 @@ def render_portrait(id, K=1.0, seed=0, verbose=True, eyes='open', mouth='smile',
     if 'earring' not in skip: cv.P = draw_earring(cv.P, h)
     if verbose: print(id, 'rendered', round(time.time() - t0, 1), 's')
     P, A = caricature_warp(cv.P, cv.A, h.M, K)
+    tilt = float(h.spec.get('tilt', 0.0))
+    if abs(tilt) > 1e-3 and not skip:                                    # the head is tilted a little (the shoulders turn with it, slightly)
+        R_ = cv2.getRotationMatrix2D((CX, EY + 2.2 * I), tilt, 1.0)
+        P = cv2.warpAffine(P, R_, (SS, SS), flags=cv2.INTER_LINEAR); A = cv2.warpAffine(A, R_, (SS, SS), flags=cv2.INTER_LINEAR)
     return P, A, h
 
 def to_srgb_rgba(P, A):

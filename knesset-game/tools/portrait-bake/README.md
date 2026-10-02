@@ -16,8 +16,8 @@ Six faces per fighter, because those are the ones the game asks for:
 
 A small offline renderer written with numpy / scipy / OpenCV, **not** a photo filter: no pixel of any photo ends up in an image.
 
-- **Geometry**: the 478 face-landmark points measured on the reference photo (rotated to the front, in units of the distance between the eyes, symmetrised, and exaggerated by 10% against the
-  average of the cast) give a height field of the face: the inflated head, the measured relief, the nose, eye sockets, brow ridge, lips, ears.
+- **Geometry**: the 478 face-landmark points measured on the reference photo (rotated to the front, in units of the distance between the eyes, symmetrised, and exaggerated against the
+  average of the cast: 1.6 x on the outline, 1.3 x inside, see `KOUT` / `KIN` below) give a height field of the face: the inflated head, the measured relief, the nose, eye sockets, brow ridge, lips, ears.
 - **Light and skin** (`rend2.py`): one key light from the upper left, cast shadows, per-channel blur for the light under the skin, a little gloss, red and yellow variation, age spots, bags,
   wrinkles that follow the face, pores. The eyes (iris fibres, lids, lashes), brows (hundreds of single hairs), lips and teeth are painted procedurally. Expressions change the lips,
   lids, brows and the creases.
@@ -26,7 +26,9 @@ A small offline renderer written with numpy / scipy / OpenCV, **not** a photo fi
 - **Beards** (`beard3.py`): a soft shade under the hairs, low-contrast fibres, patchy grey, thin coverage on the cheeks; short beards are thousands of tiny strokes.
 - **Clothes, glasses, kippah, earrings** are drawn with the colours of `30-looks.js`; `looks.json` is that data as JSON with a few portrait-only changes (the beard `stub` flag for stubble, thinner glasses frames).
 
-`spec.json` holds the per-person overrides (hair thinness, beard region, eye opening...).
+`spec.json` holds the per-person overrides, all optional: the eyes (`eye_open`, `hood` heavy lids, `puff` bags, `iris_k`, `iris_dark`, `sclera`, `lid_shadow`), the brows (`brow`: `k` size, `tilt`, `dy`),
+the strength of each group of wrinkles (`wr`: `fore`, `glab`, `crow`, `bag`, `nl`, `mar`, `chin`), marks on the skin (`blotch` red patches, `freckles`, `moles`, `scars`), `tilt` of the head,
+the smile (`smile_k`, `smile_teeth`), `hair` (`thin`, `shadow` ...), `beard` (`cheek` where the beard reaches up the cheeks, `off`, `dense`, `curl`) and `stache` (`w`, `h`, `taper`, `droop`, `alpha`).
 
 ## The faces of the 3D fighters
 

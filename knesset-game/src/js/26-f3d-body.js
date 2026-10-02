@@ -115,7 +115,7 @@ function skeleton3D(f, p, look) {
   };
   S.legN = leg(p.footF, true); S.legF = leg(p.footB, false);
   // head
-  const hc = [headCX, -headCY - 2 + LIFT, 0], k = HEAD_K * hs * (look.robot ? 1.3 : HEAD3);         // a caricature's head is big: the face stays readable on a phone
+  const hc = [headCX, -headCY - 2 + LIFT, 0], k = HEAD_K * hs * (look.robot ? 1.3 : HEAD3);         // natural head size for the people (HEAD3); the boss robot keeps its big head
   const roll = -p.headRot;
   S.headM = M4.mul(M4.translate(hc[0], hc[1], hc[2]), M4.mul(M4.rotZ(roll), M4.mul(M4.rotY(-YAW_H), M4.scale(k, k, k))));
   S.hc = hc; S.hk = k;

@@ -116,7 +116,10 @@ def draw_hair3(img, h, seed=5):
     skin_img = getattr(h, 'skin_img', None)
     if skin_img is not None: scalp = skin_img * w_skin[:, :, None] + under_dark * (1 - w_skin)[:, :, None]
     else: scalp = under_dark
-    scalp_a = smoothstep(0.50, 0.72, mk) * smoothstep(0.015, 0.06, mk)
+    # the scalp layer is solid right up to the exposed skin: the hair mass ends exactly where the skin starts, so blurring the mass alone left a 1-2 px see-through gap (a dark line) along the hairline
+    d_mask = cv2.distanceTransform((mask < 0.5).astype(np.uint8), cv2.DIST_L2, 5)
+    mk_s = blur(np.maximum(mask, ((h.m_head > 0.5) & (d_mask < 4.0)).astype(np.float32)), S.get('edge_blur', 3.4))
+    scalp_a = smoothstep(0.50, 0.72, mk_s) * smoothstep(0.015, 0.06, mk)
     img = over(img, scalp, scalp_a)
     alpha_hair = np.clip(a_edge * a_hl * cover, 0, 1)
     # ---- shadow of the hair on the skin below the hairline and at the temples
