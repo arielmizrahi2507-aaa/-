@@ -1,0 +1,70 @@
+{
+ "bibi": {
+  "hair": {
+   "thin": 0.25
+  }
+ },
+ "deri": {
+  "hair": {
+   "thin": 0.55
+  },
+  "beard": {
+   "curl": 0.4,
+   "grey": 0.5
+  }
+ },
+ "liberman": {
+  "hair": {
+   "thin": 0.6
+  },
+  "beard": {
+   "cheek": 0.05
+  }
+ },
+ "abbas": {
+  "hair": {
+   "thin": 0.3
+  },
+  "beard": {
+   "cheek": 0.1,
+   "dense": 0.8
+  }
+ },
+ "bennett": {
+  "dome_tint": 0.22
+ },
+ "abushehadeh": {
+  "dome_tint": 0.12
+ },
+ "maoz": {
+  "beard": {
+   "curl": -0.4
+  }
+ },
+ "ohana": {
+  "beard": {
+   "cheek": 0.12,
+   "dense": 0.85
+  }
+ },
+ "bengvir": {
+  "stubble_cheek": 0.16
+ },
+ "lapid": {
+  "eye_open": 0.72
+ },
+ "regev": {
+  "hair": {
+   "grey": 0.1,
+   "k_lock": 0.12,
+   "k_fine": 0.09
+  }
+ },
+ "gotliv": {
+  "hair": {
+   "grey": 0.1,
+   "k_lock": 0.12,
+   "k_fine": 0.09
+  }
+ }
+}

@@ -750,31 +750,35 @@ function drawPortrait(ctx, def, cx, cy, r, opt = {}) {
     bg.addColorStop(0, flashMix(opt.bg, 0.16)); bg.addColorStop(1, opt.bg);
     ctx.fillStyle = bg; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
   }
-  const k = r / 33 * (opt.zoom || 1);
-  ctx.translate(cx, cy + 0.6 * k);
-  ctx.scale(k * (opt.flip ? -1 : 1), k);
-  ctx.translate(-2, 0);
-  const C = (c) => c;
-  // portraits are the drawn caricatures (clear, and every face is built from the person's own numbers); the 3D bust is only used on request
-  const bust3 = !look.robot && opt.bust3d && F3D.active() ? F3D.bust(def, p.eyes, p.mouth, r * sc * (opt.zoom || 1) * 2) : null;
-  if (bust3) {
-    ctx.restore(); ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.clip();
-    if (opt.bg) {
-      const bg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r * 1.15);
-      bg.addColorStop(0, flashMix(opt.bg, 0.16)); bg.addColorStop(1, opt.bg);
-      ctx.fillStyle = bg; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  // the realistic faces rendered offline (21c-portrait-baked.js); the drawn caricature below is the fallback
+  const bakedDone = !look.robot && opt.view !== 'side' && !opt.bust3d && Baked.paint(ctx, def.id, p.eyes, p.mouth, cx, cy, r, opt);
+  if (!bakedDone) {
+    const k = r / 33 * (opt.zoom || 1);
+    ctx.translate(cx, cy + 0.6 * k);
+    ctx.scale(k * (opt.flip ? -1 : 1), k);
+    ctx.translate(-2, 0);
+    const C = (c) => c;
+    // portraits are the drawn caricatures (clear, and every face is built from the person's own numbers); the 3D bust is only used on request
+    const bust3 = !look.robot && opt.bust3d && F3D.active() ? F3D.bust(def, p.eyes, p.mouth, r * sc * (opt.zoom || 1) * 2) : null;
+    if (bust3) {
+      ctx.restore(); ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.clip();
+      if (opt.bg) {
+        const bg = ctx.createRadialGradient(cx, cy - r * 0.4, r * 0.1, cx, cy, r * 1.15);
+        bg.addColorStop(0, flashMix(opt.bg, 0.16)); bg.addColorStop(1, opt.bg);
+        ctx.fillStyle = bg; ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+      const z = 1.02 * (opt.zoom || 1);
+      ctx.translate(cx, cy + r * 0.02); ctx.scale(opt.flip ? -z : z, z);
+      ctx.drawImage(bust3, -r, -r, r * 2, r * 2);
+    } else if (look.robot) {
+      ctx.translate(0, 6); ctx.scale(0.62, 0.62); drawRobotHead(ctx, dummy, look, p, C);
+    } else if (opt.view === 'side') {
+      drawBust(ctx, look, C);
+      drawHead(ctx, dummy, look, p, C);
+    } else {
+      ctx.translate(2, 1); ctx.scale(0.8, 0.8);       // the side view is shifted to the left; the front view is centred and a little smaller so that the hair fits (see 21b-portrait-front.js)
+      drawFrontHead(ctx, look, p, C);
     }
-    const z = 1.02 * (opt.zoom || 1);
-    ctx.translate(cx, cy + r * 0.02); ctx.scale(opt.flip ? -z : z, z);
-    ctx.drawImage(bust3, -r, -r, r * 2, r * 2);
-  } else if (look.robot) {
-    ctx.translate(0, 6); ctx.scale(0.62, 0.62); drawRobotHead(ctx, dummy, look, p, C);
-  } else if (opt.view === 'side') {
-    drawBust(ctx, look, C);
-    drawHead(ctx, dummy, look, p, C);
-  } else {
-    ctx.translate(2, 1); ctx.scale(0.8, 0.8);       // the side view is shifted to the left; the front view is centred and a little smaller so that the hair fits (see 21b-portrait-front.js)
-    drawFrontHead(ctx, look, p, C);
   }
   ctx.restore();
   ctx.save();
