@@ -216,7 +216,7 @@ const Baked = (() => {
       const f0 = e0 - 0.28 * U0;                                      // the head fades out into the neck of the body from here
       const hh = keep ? im.height : Math.min(im.height, Math.ceil(e0 + 0.1 * U0));
       const c = document.createElement('canvas'); c.width = Math.round(im.width * sc); c.height = Math.round(hh * sc);
-      const x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+      const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';      // turnHead reads it
       x.drawImage(im, 0, 0, im.width, hh, 0, 0, c.width, c.height);
       // under the chin the picture shows the neck, the collar and the shoulders: keep the head (the jaw and the chin as a rounded shape), a long beard or long hair
       const yJaw = (2.1 + (lay ? lay.jaw_y : 1.7)) * U, yChin = (2.1 + chin) * U, jh = (lay ? lay.jaw_half : 1.25) * U * 1.12, cx = c.width / 2, yTop = yJaw - 0.05 * U;
@@ -250,7 +250,11 @@ const Baked = (() => {
       const dp = depthMap(id);
       if (!dp) return h;
       const k = (dir > 0 ? 'r' : 'l') + Baked.turn;
-      return h.turned[k] || (h.turned[k] = turnHead(h, dp, dir > 0 ? Baked.turn : -Baked.turn));
+      if (!h.turned[k]) {
+        try { h.turned[k] = turnHead(h, dp, dir > 0 ? Baked.turn : -Baked.turn); }
+        catch (e) { h.turned[k] = h; }                                       // a browser that does not give the pixels of a canvas: the front view stays
+      }
+      return h.turned[k];
     },
     // builds the heads of one fighter that a fight is going to ask for (every face, both ways), one at a time, so that no frame has to wait for them
     prewarm(id, look) {
