@@ -122,7 +122,7 @@ function emitLoft(mesh, path, rr, col, mat, o = {}) {
     let rx = 0, ry = 0, rz = 1; if (Math.abs(wz) > 0.85) { rx = 1; rz = 0; }
     let ux = wy * rz - wz * ry, uy = wz * rx - wx * rz, uz = wx * ry - wy * rx; const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
     const vx = wy * uz - wz * uy, vy = wz * ux - wx * uz, vz = wx * uy - wy * ux;
-    const ds = (arc[k1] - arc[k0]) || 1e-3, slope = -(((R[k1] + Z[k1]) - (R[k0] + Z[k0])) / 2) / ds;
+    const ds = (arc[k1] - arc[k0]) || 1e-3, slope = o.flatCaps && (k < c0 || k >= n - c1) ? 0 : -(((R[k1] + Z[k1]) - (R[k0] + Z[k0])) / 2) / ds;      // flatCaps: the round ends are lit like the tube (they hide inside a joint)
     const ck = cf ? cf(k, n) : col, ra = Math.max(R[k], 1e-3), rb = Math.max(Z[k], 1e-3), P = pts[k];
     for (let s = 0; s < cols; s++) {
       const cp = T.c[s % sides], sp = T.s[s % sides];

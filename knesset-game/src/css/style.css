@@ -263,6 +263,7 @@ body.canfs .row.fsonly { display: flex; }
 .panel { margin: 0 auto; padding: 1vmin 3vmin 4vmin; width: 100%; max-width: 620px; }
 .panel.wide { max-width: 1040px; }
 .row { display: flex; justify-content: space-between; align-items: center; padding: 1.1rem .6rem; border-bottom: 1px solid rgba(255,255,255,.14); font-weight: 700; gap: 1rem; }
+.row small { display: block; margin-top: .3em; font-weight: 500; font-size: .8em; opacity: .75; }
 .row input[type=range] { width: 50%; accent-color: var(--crimson); }
 .row input[type=checkbox] { width: 1.6em; height: 1.6em; accent-color: var(--crimson); }
 .row select { background: linear-gradient(180deg, #eef1f6, #b5bcc9); color: #0d0f13; border: 1px solid #07080b; border-radius: 5px; padding: .45em .7em; font-weight: 800; box-shadow: 0 0 0 1px rgba(255,255,255,.3), 0 2px 0 #050608; }

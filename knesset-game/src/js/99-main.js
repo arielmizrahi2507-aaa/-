@@ -39,5 +39,5 @@ if (/[?&]debug/.test(location.search)) {
 
 // The realistic portraits first (the select screen draws with them), but never wait long: without them the drawn faces are used.
 let booted = false;
-const boot = () => { if (booted) return; booted = true; Game.init(); Baked.loadRest(); };
+const boot = () => { if (booted) return; booted = true; Game.init(); Baked.loadRest(); Parts.load(); };
 Promise.race([Baked.loadBase(), new Promise((res) => setTimeout(res, 2500))]).then(boot, boot);

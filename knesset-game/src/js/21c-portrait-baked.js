@@ -134,14 +134,33 @@ const Baked = (() => {
       const im = m[fightKey(eyes, mouth)] || m.base;
       let h = headOf.get(im);
       if (h) return h;
-      const lay = LAYOUT[id], chin = lay ? lay.chin : 2.45, U0 = im.width / 5, sc = 0.5, U = U0 * sc;
+      const lay = LAYOUT[id], chin = lay ? lay.chin : 2.45, U0 = im.width / 5, sc = im.width > 300 ? 0.5 : 1, U = U0 * sc;      // the big faces are halved (the fight shows them smaller), the small hurt ones are not
       const bl = look && look.beard ? Math.max(0, look.beard.len || 0) : 0, longHair = look && look.hair && look.hair.len > 0;
       const keep = bl > 0.5 || longHair;                              // a long beard or long hair goes on below the chin: keep the picture to its lower edge, fade only the last bit
-      const f0 = (2.1 + chin + 0.05 + bl * 0.376) * U0;               // the neck and the collar fade out from just under the chin (or the end of the beard)
-      const hh = keep ? im.height : Math.min(im.height, Math.ceil(f0 + 0.24 * U0));
+      const e0 = (2.1 + chin + bl * 0.376) * U0;                      // the chin (or the end of a short beard)
+      const f0 = e0 - 0.28 * U0;                                      // the head fades out into the neck of the body from here
+      const hh = keep ? im.height : Math.min(im.height, Math.ceil(e0 + 0.1 * U0));
       const c = document.createElement('canvas'); c.width = Math.round(im.width * sc); c.height = Math.round(hh * sc);
       const x = c.getContext('2d'); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
       x.drawImage(im, 0, 0, im.width, hh, 0, 0, c.width, c.height);
+      // under the chin the picture shows the neck, the collar and the shoulders: keep the head (the jaw and the chin as a rounded shape), a long beard or long hair
+      const yJaw = (2.1 + (lay ? lay.jaw_y : 1.7)) * U, yChin = (2.1 + chin) * U, jh = (lay ? lay.jaw_half : 1.25) * U * 1.12, cx = c.width / 2, yTop = yJaw - 0.05 * U;
+      x.save(); x.globalCompositeOperation = 'destination-in'; x.fillStyle = '#000';
+      x.beginPath();
+      if (longHair || bl > 0.5) {                                                    // a straight cut, wide enough for the beard or the hair
+        const half = (longHair ? 2.1 : 1.35) * U;
+        x.rect(0, 0, c.width, yTop); x.rect(cx - half, yTop, 2 * half, c.height - yTop);
+      } else {
+        const nw = Math.min(U, Math.max(0.55 * U, 0.62 * jh)), yE = yChin - 0.1 * U, pts = [], n = 10;     // down the jaw to the chin (as wide as the chin of this face), round under it
+        for (let i = 0; i <= n; i++) { const t = i / n, e = t * t * (3 - 2 * t); pts.push([jh + (nw - jh) * e, yJaw + (yE - yJaw) * t]); }
+        x.moveTo(0, 0); x.lineTo(c.width, 0); x.lineTo(c.width, yTop); x.lineTo(cx + jh, yTop);
+        for (const q of pts) x.lineTo(cx + q[0], q[1]);
+        x.ellipse(cx, yE, nw, 0.2 * U, 0, 0, Math.PI, false);
+        for (let i = pts.length - 1; i >= 0; i--) x.lineTo(cx - pts[i][0], pts[i][1]);
+        x.lineTo(cx - jh, yTop); x.lineTo(0, yTop);
+      }
+      x.closePath(); x.fill();
+      x.restore();
       const g = x.createLinearGradient(0, keep ? c.height - 0.3 * U : f0 * sc, 0, c.height);
       g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
       x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);

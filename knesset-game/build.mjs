@@ -25,8 +25,21 @@ if (existsSync(portDir)) {
 const layoutFile = join(portDir, 'layout.json');
 const portData = `const PORTRAIT_DATA = ${JSON.stringify(portraits)};\nconst PORTRAIT_LAYOUT = ${existsSync(layoutFile) ? JSON.stringify(JSON.parse(readFileSync(layoutFile, 'utf8'))) : '{}'};`;
 
+// Sprite parts of the drawn (2D) fighters: src/assets/parts/<id>.<part>.webp + meta.json -> PARTS_DATA = { id: { part: dataURL } }, PARTS_META (see tools/body-bake)
+const partsDir = join(src, 'assets', 'parts');
+const parts = {};
+if (existsSync(partsDir)) {
+  for (const f of readdirSync(partsDir).sort()) {
+    const m = /^([a-z0-9]+)\.([a-z]+)\.webp$/.exec(f);
+    if (!m) continue;
+    (parts[m[1]] || (parts[m[1]] = {}))[m[2]] = 'data:image/webp;base64,' + readFileSync(join(partsDir, f)).toString('base64');
+  }
+}
+const partsMeta = join(partsDir, 'meta.json');
+const partsData = `const PARTS_DATA = ${JSON.stringify(parts)};\nconst PARTS_META = ${existsSync(partsMeta) ? JSON.stringify(JSON.parse(readFileSync(partsMeta, 'utf8'))) : '{}'};`;
+
 // The whole game lives in one IIFE so files can share top-level names without leaking globals.
-const bundle = `(function(){\n'use strict';\n${portData}\n${js}\n})();`;
+const bundle = `(function(){\n'use strict';\n${portData}\n${partsData}\n${js}\n})();`;
 
 const html = read('index.template.html')
   .replace('/*__CSS__*/', () => css)
@@ -34,4 +47,4 @@ const html = read('index.template.html')
 
 const out = process.argv[2] || join(root, 'index.html');      // optional: node build.mjs /path/to/copy.html
 writeFileSync(out, html);
-console.log(`built ${out.endsWith('index.html') ? 'index.html' : out}  (${(html.length / 1024).toFixed(0)} KB, ${jsFiles.length} js files, ${Object.keys(portraits).length} baked portraits)`);
+console.log(`built ${out.endsWith('index.html') ? 'index.html' : out}  (${(html.length / 1024).toFixed(0)} KB, ${jsFiles.length} js files, ${Object.keys(portraits).length} baked portraits, ${Object.keys(parts).length} sets of body parts)`);

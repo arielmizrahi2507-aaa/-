@@ -224,45 +224,50 @@ function emitRobotCore(mesh, S, L) {
 // radius profiles (before the thickness of the build) along a limb from the hip / shoulder to the ankle / wrist; the knee / elbow is at 0.5
 const LEG_PROF = [[0, 10.4], [0.10, 11.0], [0.30, 9.9], [0.47, 8.3], [0.55, 7.9], [0.72, 7.5], [0.90, 6.9], [1, 6.7]];
 const ARM_PROF = [[0, 7.0], [0.10, 8.7], [0.30, 8.4], [0.46, 7.1], [0.56, 7.0], [0.78, 6.3], [1, 5.6]];
-function limbRadii(prof, path, k) { return path.map((q, i) => profAt(prof, i / (path.length - 1)) * k); }
-
-function emitLeg(mesh, lg, look, lk) {
-  const far = !lg.near, nm = (m) => M4.normalMat(m);
-  const base = look.pants || look.suit, pc = far ? c3(base, 0.74) : c3(base);
-  const path = splinePath([lg.hp, lg.kn, lg.an], 19);
-  emitLoft(mesh, path, limbRadii(LEG_PROF, path, lk), pc, MAT_CLOTH, { sides: 14, tile: TILE, cap0: 2 });
-  const dl = V3.norm(V3.sub(lg.an, lg.kn));
-  emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, 1.6), 7.5 * Math.max(0.9, lk), 7.6 * Math.max(0.9, lk), far ? c3(base, 0.58) : c3(base, 0.8), MAT_CLOTH, { sides: 14, rings: 3, bulge: 0.0 });   // turn-up
-  const M = M4.mul(M4.translate(lg.an[0] + 1, lg.an[1] - 0.6, lg.an[2] + (far ? -0.5 : 0.5)), M4.rotZ(lg.ang));
-  stamp(mesh, shoeMesh(), M, nm(M), far ? c3(look.shoes || '#1d1b27', 0.75) : c3(look.shoes || '#1d1b27'), MAT_SHOE);
+const limbPath = (a, b, n) => { const o = []; for (let i = 0; i < n; i++) o.push(V3.lerp(a, b, i / (n - 1))); return o; };
+// one limb as a single smooth surface along its joints (seg undefined), or one half of it as a capsule with round ends (seg 0: hip / shoulder to knee / elbow, seg 1: the rest) for the baked sprite parts
+function limbMesh(mesh, a, m, b, prof, k, col, seg, o) {
+  if (seg === undefined) { const path = splinePath([a, m, b], 19); emitLoft(mesh, path, path.map((q, i) => profAt(prof, i / (path.length - 1)) * k), col, MAT_CLOTH, Object.assign({ sides: 14, tile: TILE }, o)); return; }
+  const n = 11, path = seg === 0 ? limbPath(a, m, n) : limbPath(m, b, n), t0 = seg === 0 ? 0 : 0.5;
+  emitLoft(mesh, path, path.map((q, i) => profAt(prof, t0 + 0.5 * i / (n - 1)) * k), col, MAT_CLOTH, { sides: 14, tile: TILE, cap0: 3, cap1: seg === 0 ? 3 : 0, flatCaps: true });
 }
 
-function emitArm(mesh, ar, look, pal, L, lk, p) {
+function emitLeg(mesh, lg, look, lk, part) {
+  const far = !lg.near, base = look.pants || look.suit, pc = far ? c3(base, 0.74) : c3(base), shoeC = far ? c3(look.shoes || '#1d1b27', 0.75) : c3(look.shoes || '#1d1b27');
+  if (part !== 'shoe') {
+    limbMesh(mesh, lg.hp, lg.kn, lg.an, LEG_PROF, lk, pc, part === 'thigh' ? 0 : part === 'shin' ? 1 : undefined, { cap0: 2 });
+    if (part !== 'thigh') {
+      const dl = V3.norm(V3.sub(lg.an, lg.kn));
+      emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, 1.6), 7.5 * Math.max(0.9, lk), 7.6 * Math.max(0.9, lk), far ? c3(base, 0.58) : c3(base, 0.8), MAT_CLOTH, { sides: 14, rings: 3, bulge: 0.0 });   // turn-up
+    }
+  }
+  if (part === undefined || part === 'shoe') {
+    const M = M4.mul(M4.translate(lg.an[0] + 1, lg.an[1] - 0.6, lg.an[2] + (far ? -0.5 : 0.5)), M4.rotZ(lg.ang));
+    stamp(mesh, shoeMesh(), M, M4.normalMat(M), shoeC, MAT_SHOE);
+  }
+}
+
+function emitArm(mesh, ar, look, pal, L, lk, p, part) {
   const far = !ar.near, sc = far ? c3(look.suit, 0.78) : c3(look.suit);
   const shirt = c3(look.shirt || '#ffffff'), shirtFar = c3(look.shirt || '#ffffff', 0.8), skin = c3(L.skin3 || pal.skin), skinFar = c3(L.skin3 || pal.skin, 0.8);
-  const path = splinePath([ar.sh, ar.el, ar.wr], 17);
-  emitLoft(mesh, path, limbRadii(ARM_PROF, path, lk), sc, MAT_CLOTH, { sides: 14, tile: TILE, cap0: 3 });
+  limbMesh(mesh, ar.sh, ar.el, ar.wr, ARM_PROF, lk, sc, part === 'uarm' ? 0 : part === 'farm' ? 1 : undefined, { cap0: 3 });
+  if (part === 'uarm') return;
   const d = ar.dir;
   emitTube(mesh, V3.madd(ar.wr, d, -6.5), V3.madd(ar.wr, d, -0.4), 6.8 * Math.max(0.9, lk), 6.5 * Math.max(0.9, lk), far ? shirtFar : shirt, MAT_CLOTH, { sides: 14, rings: 2, bulge: 0.0 });  // cuff
   const ex = d, ey = V3.norm(V3.cross([0, 0, 1], ex)), ez = V3.cross(ex, ey);
   const M = M4.basis(ex, V3.mul(ey, 1), ez, ar.fist);
   stamp(mesh, fistMesh(), M, M4.normalMat(M), far ? skinFar : skin, MAT_SKIN);
-  if (p.finger && ar.near) {
+  if (p && p.finger && ar.near) {
     const tip = V3.madd(ar.fist, ex, 13.5);
     emitTube(mesh, V3.madd(ar.fist, ex, 3), tip, 1.75, 1.45, skin, MAT_SKIN, { sides: 6, rings: 3, bulge: 0 });
     sphere(mesh, tip, 1.5, skin, MAT_SKIN, { nu: 6, nv: 5 });
   }
 }
 
-function emitBody(mesh, S, L, opt) {
-  const look = L.look, pal = L.pal, p = S.p, bw = S.bw, lk = limbK(look);        // lk: thick or thin arms and legs
+// the jacket (front half with the jacket texture, back half plain), the neck and the shirt collar
+function emitTorso(mesh, S, L) {
+  const look = L.look, pal = L.pal, bw = S.bw;
   const suit = c3(look.suit), shirt = c3(look.shirt || '#ffffff'), skin = c3(L.skin3 || pal.skin);
-
-  // legs
-  for (const lg of [S.legF, S.legN]) emitLeg(mesh, lg, look, lk);
-  if (look.robot) emitRobotCore(mesh, S, L);
-  else {
-  // torso (front half with the jacket texture, back half plain)
   {
     const rows = TORSO_ROWS.length, nA = 21, P = [];
     const belly = look.belly || 0, shoulders = look.shoulders || 0;                        // build: a belly (waist and stomach), broad (or narrow) shoulders
@@ -296,17 +301,29 @@ function emitBody(mesh, S, L, opt) {
   }
   // neck + collar
   {
-    const a = S.neckBase, b = S.neckTop;
-    const nk = faceK(look.neck, 'neck');
+    const a = S.neckBase, nk = faceK(look.neck, 'neck');
+    // the sprite part of the drawn fights (bakePart) has a front view of the face on top of it: its neck goes on up behind the chin
+    const ext = S.bake ? 8 : 0, d0 = V3.norm(V3.sub(S.neckTop, a)), b = ext ? V3.madd(S.neckTop, d0, ext) : S.neckTop, ek = 1 + ext / Math.max(1, V3.len(V3.sub(S.neckTop, a)));
     const nsk = hexRGB(L.skin3 || pal.skin), npath = splinePath([a, b], 6);          // the neck: narrower and darker towards the chin (the jaw casts a shadow on it)
-    emitLoft(mesh, npath, npath.map((q, i) => (7.0 - 1.9 * (i / 5)) * Math.pow(nk, 0.7)), (k, n) => { const m = 0.92 - 0.42 * (k / (n - 1)) ** 1.5; return packRGBA(nsk[0] * m, nsk[1] * m, nsk[2] * m, 1); }, MAT_SKIN, { sides: 14 });
+    emitLoft(mesh, npath, npath.map((q, i) => (7.0 - 1.9 * (i / 5) * ek) * Math.pow(nk, 0.7)), (k, n) => { const m = 0.92 - 0.5 * Math.min(1, (k / (n - 1)) * ek) ** 1.5; return packRGBA(nsk[0] * m, nsk[1] * m, nsk[2] * m, 1); }, MAT_SKIN, { sides: 14 });
     if (!look.open) {                                                      // the shirt collar (an open collar shows the skin of the V painted on the jacket)
       const d = V3.norm(V3.sub(b, a));
       emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.6 * Math.max(1, nk * 0.95), 8.0 * Math.max(1, nk * 0.9), shirt, MAT_CLOTH, { sides: 14, rings: 3, bulge: 0 });
     }
   }
+}
+
+function emitBody(mesh, S, L, opt) {
+  const look = L.look, pal = L.pal, p = S.p, lk = limbK(look);        // lk: thick or thin arms and legs
+  const only = opt && opt.only;                                          // one part only (the sprite parts of the drawn fights are baked from the 3D model)
+  if (only) {
+    if (only === 'torso') emitTorso(mesh, S, L);
+    else if (only === 'uarm' || only === 'farm') emitArm(mesh, S.armN, look, pal, L, lk, null, only);
+    else emitLeg(mesh, S.legN, look, lk, only);
+    return;
   }
-  // arms
+  for (const lg of [S.legF, S.legN]) emitLeg(mesh, lg, look, lk);
+  if (look.robot) emitRobotCore(mesh, S, L); else emitTorso(mesh, S, L);
   for (const ar of [S.armF, S.armN]) emitArm(mesh, ar, look, pal, L, lk, p);
 }
 
@@ -354,7 +371,7 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
   gl.enable(gl.BLEND); gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   const U = G3.U, LG = F3D.light;
-  const KEY = V3.norm([-0.22, 0.66, 0.72]), FILL = V3.norm([0.7, 0.1, 0.55]);
+  const KEY = V3.norm(opt && opt.key ? opt.key : [-0.22, 0.66, 0.72]), FILL = V3.norm([0.7, 0.1, 0.55]);
   gl.uniform3f(U.uKeyDir, ...KEY); gl.uniform3fv(U.uKeyCol, LG.key.map((v) => v * 1.3));
   gl.uniform3f(U.uFillDir, ...FILL); gl.uniform3fv(U.uFillCol, LG.fill.map((v) => v * 0.42));
   gl.uniform3fv(U.uTop, LG.top.map((v) => v * 0.85)); gl.uniform3fv(U.uBot, LG.bot.map((v) => v * 0.8)); gl.uniform3fv(U.uRim, LG.rim.map((v) => v * 1.1));
@@ -386,7 +403,7 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     gl.drawElements(gl.TRIANGLES, G3.dyn.ni, gl.UNSIGNED_SHORT, 0);
     F3D.stats.verts += G3.dyn.nv;
     // static head parts
-    if (L.gpu) {
+    if (L.gpu && !(opt && opt.only)) {
       const HM = M4.mul(M, S.headM), HP = M4.mul(P, HM), hn = M4.normalMat(HM);
       const HN = new Float32Array([hn[0], -hn[1], hn[2], hn[3], -hn[4], hn[5], hn[6], -hn[7], hn[8]]);
       gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix4fv(U.uM, false, HM); gl.uniformMatrix3fv(U.uNM, false, HN);
@@ -583,6 +600,31 @@ F3D.bust = function (def, eyes, mouth, px) {
     BUST_CACHE.set(key, c);
     return c;
   } catch (e) { F3D.failed = true; F3D.err = String(e && e.stack || e); return null; }
+};
+
+// One part of the body on its own, straight and hanging down, seen from the front with the 3D shader: the sprite parts of the drawn (2D) fights are baked from these
+// (tools/body-bake). part: 'torso' (jacket + neck, upright, anchored at the hips), 'uarm' / 'farm' (shoulder to elbow, elbow to fist), 'thigh' / 'shin' (hip to knee, knee to ankle), 'shoe'.
+// Returns { canvas, ax, ay, k } with the joint at (ax, ay) in canvas pixels and k pixels per rig unit.
+F3D.bakePart = function (look, part, pxu) {
+  pxu = pxu || 3;
+  if (!F3D.active()) return null;
+  const L = look3D(look), p = newPose(), S = skeleton3D({ face: 1 }, p, look);
+  const arm = { sh: [0, 0, 0], el: [0, -ARM_L, 0], wr: [0, -2 * ARM_L, 0], dir: [0, -1, 0], near: true }; arm.fist = [0, -2 * ARM_L - 4.6, 0];
+  const leg = { hp: [0, 0, 0], kn: [0, -LEG_L, 0], an: [0, -2 * LEG_L, 0], ang: 0, near: true };
+  const SB = Object.assign({}, S, { armN: arm, legN: leg, bake: true });
+  const opt = { only: part, key: part === 'torso' ? null : [-0.6, 0.12, 0.8] };
+  G3.dyn.reset(); emitBody(G3.dyn, SB, L, opt);
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+  for (let k = 0; k < G3.dyn.nv; k++) { const o = k * VW, x = G3.dyn.f[o], y = G3.dyn.f[o + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const anc = { torso: [S.O[0], S.O[1]], uarm: [0, 0], farm: [0, -ARM_L], thigh: [0, 0], shin: [0, -LEG_L], shoe: [0, -2 * LEG_L] }[part];
+  const m = 2.5, X0 = x0 - m, Y0 = -y1 - m, W_ = x1 - x0 + 2 * m, H_ = y1 - y0 + 2 * m, pw = Math.ceil(W_ * pxu), ph = Math.ceil(H_ * pxu);
+  const fig = { L, S: SB, M: M4.scale(1, -1, 1), gs: 1, face: 1, pts: [] }, saveLight = F3D.light;
+  F3D.light = STAGE_LIGHT.plenum;
+  drawFigs([fig], X0, Y0, W_, H_, pw, ph, opt);
+  F3D.light = saveLight;
+  const c = document.createElement('canvas'); c.width = pw; c.height = ph;
+  c.getContext('2d').drawImage(G3.cv, 0, G3.size - ph, pw, ph, 0, 0, pw, ph);
+  return { canvas: c, ax: (anc[0] - X0) * pxu, ay: (-anc[1] - Y0) * pxu, k: pxu };
 };
 
 // profiling helper (CPU side only): builds the skeleton and the streamed body mesh without touching the GPU

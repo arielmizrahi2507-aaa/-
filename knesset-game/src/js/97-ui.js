@@ -256,7 +256,7 @@ const UI = {
           <select id="set-song" class="nav"><option value="classic">הקלאסי</option><option value="new">החדש</option></select></label>
         <label class="row">רעידות מסך<input type="checkbox" id="set-shake" class="nav"></label>
         <label class="row">אפקטים מרוככים (פחות הבהובים)<input type="checkbox" id="set-calm" class="nav"></label>
-        <label class="row">דמויות תלת־ממדיות (מכבים אם המשחק איטי)<input type="checkbox" id="set-3d" class="nav"></label>
+        <label class="row"><span>דמויות תלת־ממדיות (מכבים אם המשחק איטי)<small id="set-3d-now"></small></span><input type="checkbox" id="set-3d" class="nav"></label>
         <label class="row">כפתורי מגע
           <select id="set-touch" class="nav"><option value="auto">אוטומטי</option><option value="on">תמיד</option><option value="off">כבוי</option></select></label>
         <label class="row touchonly">מצב רוחב (בטלפון שמוחזק לאורך)
@@ -463,9 +463,20 @@ const UI = {
     $('#set-back').textContent = inFight ? 'חזרה להפסקה' : 'חזרה';
     const s = Save.d.settings;
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
-    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false; $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false && Game.f3Why !== 'perf'; this.fxNow(); $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
     $('#set-song').value = s.lobbySong === 'new' ? 'new' : 'classic';
+  },
+  // which way the fighters are drawn right now, under the 3D switch of the settings
+  fxNow() {
+    const el = $('#set-3d-now');
+    if (!el) return;
+    const off = Save.d.settings.gfx3d === false;
+    const on = !off && Game.f3Why !== 'perf' && F3D.active();
+    el.textContent = on ? 'מוצג עכשיו: תלת־ממד'
+      : off ? 'מוצג עכשיו: דו־ממד (כבוי בהגדרות)'
+      : Game.f3Why === 'perf' ? 'מוצג עכשיו: דו־ממד (המשחק רץ לאט, אז כיבינו)'
+      : 'מוצג עכשיו: דו־ממד (המכשיר או הדפדפן לא תומכים בתלת־ממד)';
   },
   bindSettings() {
     const s = () => Save.d.settings;
@@ -475,7 +486,7 @@ const UI = {
     on('#set-song', 'change', (e) => { s().lobbySong = e.target.value === 'new' ? 'new' : 'classic'; Save.save(); Snd.init(); const n = Snd.music.name; if (n === 'menu' || n === 'menu2') Snd.playMusic('menu'); });
     on('#set-shake', 'change', (e) => { s().shake = e.target.checked; Save.save(); Game.applySettings(); });
     on('#set-calm', 'change', (e) => { s().calm = e.target.checked; Save.save(); Game.applySettings(); });
-    on('#set-3d', 'change', (e) => { s().gfx3d = e.target.checked; Save.save(); Game.applySettings(); });
+    on('#set-3d', 'change', (e) => { s().gfx3d = e.target.checked; Game.f3Why = null; Save.save(); Game.applySettings(); this.fxNow(); });
     on('#set-touch', 'change', (e) => { s().touch = e.target.value; Save.save(); Game.layout(); });
     on('#set-rotate', 'change', (e) => { Game.setRotate(e.target.value); });
     on('#set-rounds', 'change', (e) => { s().rounds = +e.target.value; Save.save(); });

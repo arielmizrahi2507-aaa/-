@@ -128,7 +128,7 @@ const Game = {
   applySettings() {
     const s = Save.d.settings;
     Fx.calm = s.calm; Fx.noShake = !s.shake;
-    F3D.off = s.gfx3d === false;
+    F3D.off = s.gfx3d === false || this.f3Why === 'perf';          // the power-saving mode keeps them off for the session, whatever else is changed in the settings
     Snd.setMuted(s.muted);
     Snd.setVol('sfx', s.sfx); Snd.setVol('music', s.music);
     UI.applyMuteIcon();
@@ -191,7 +191,8 @@ const Game = {
 
   // Screen geometry. With "landscape mode" on, a phone that the host keeps in portrait gets the whole UI turned by 90 degrees,
   // so it can be held sideways: everything below works in the rotated ("logical") size, and CSS uses --u-vw / --u-vh instead of vw / vh.
-  // Slow phones: if the first seconds of a fight run well below 60 fps, drop to a cheaper mode (lower resolution, no reflections) for the session.
+  // Slow phones: if the first seconds of a fight run well below 60 fps, drop to a cheaper mode for the session: first a lower resolution and no reflections,
+  // and only if that is still not enough the 3D figures go (the drawn ones have the same faces and the same bodies).
   perf(dt, kind) {
     const Q = this.qs || (this.qs = {});
     const q = Q[kind] || (Q[kind] = { n: 0, sum: 0, done: false });
@@ -202,8 +203,9 @@ const Game = {
     if (q.n >= 190) {
       q.done = true;
       if (q.sum / (q.n - 40) > 27) {
-        if (F3D.ok && !F3D.off) { F3D.off = true; q.done = false; q.n = 0; q.sum = 0; UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו כדי לשמור על חלקות. אפשר להדליק בהגדרות', 'unlock'); }
-        else if (kind === 'fight' && !Battle.lowFx) { Battle.lowFx = true; this.layout(); }
+        const again = () => { q.done = false; q.n = 0; q.sum = 0; };
+        if (!Battle.lowFx) { Battle.lowFx = true; this.layout(); again(); if (kind === 'fight') UI.toast('מצב חסכוני', 'הורדנו את הרזולוציה ואת ההשתקפויות כדי לשמור על חלקות', 'unlock'); }
+        else if (F3D.ok && !F3D.off) { F3D.off = true; this.f3Why = 'perf'; again(); UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו והן מצוירות בדו־ממד. אפשר להדליק בהגדרות', 'unlock'); }
       }
     }
   },

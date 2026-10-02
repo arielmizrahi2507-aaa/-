@@ -535,14 +535,14 @@ function drawFist(ctx, x, y, ux, uy, skin, ink, tint, back) {
 // profile body, a little narrower and shifted forward as if turned towards the opponent, and never mirrored. A hit flash or a ghost tint is applied to a scratch copy.
 const HEAD2D_IPD = 12.4;         // head drawing units per inter-eye distance (before the head size of the look)
 let HEAD_TMP = null;
-function drawBakedHead(ctx, f, look, p, flash, tint) {
+function drawBakedHead(ctx, f, look, p, flash, tint, eyeY) {
   const h = Baked.head2d(f.def.id, p.eyes, p.mouth, look);
   if (!h) return false;
   const k = HEAD2D_IPD * (look.head || 1) * 1.14 / h.U, w = h.c.width * k, hgt = h.c.height * k;
   ctx.save();
   ctx.translate(3.2, 0); ctx.scale(f.face * 0.95, 1);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  const x0 = -h.ex * k, y0 = -5.5 - h.ey * k;
+  const x0 = -h.ex * k, y0 = (eyeY === undefined ? -5.5 : eyeY) - h.ey * k;
   if (tint || flash > 0) {
     const t = HEAD_TMP || (HEAD_TMP = document.createElement('canvas'));
     if (t.width !== h.c.width || t.height !== h.c.height) { t.width = h.c.width; t.height = h.c.height; }
@@ -622,6 +622,11 @@ function drawFighter(ctx, f, opt = {}) {
     glow(ctx, 130, p.glow, 0.55 + Math.sin(f.clock * 0.3) * 0.15); ctx.restore();
   }
 
+  // ---- the body from baked sprite parts of the 3D model (and the realistic portrait as the head), or the cartoon body below when the parts are not there
+  const ps = look.robot ? null : Parts.draw(ctx, f, p, look, flash, tint);
+  if (ps) {
+    if (p.prop && !tint) drawProp(ctx, p.prop, ps.x, ps.y, p.propAng);
+  } else {
   // ---- back layer
   drawArm(p.handB, true);
   drawLeg(p.footB, true);
@@ -709,11 +714,13 @@ function drawFighter(ctx, f, opt = {}) {
   const armR = drawArm(p.handF, false);
   if (p.prop && !tint) drawProp(ctx, p.prop, armR.hx, armR.hy, p.propAng);
 
+  }
+
   // dizzy stars
   if (p.dizzy && !tint) {
     for (let i = 0; i < 3; i++) {
       const a = f.clock * 0.12 + (i * TAU) / 3;
-      const sx = headCX + Math.cos(a) * 24, sy = headCY - 30 + Math.sin(a) * 6;
+      const sx = (ps ? ps.hc[0] : headCX) + Math.cos(a) * 24, sy = (ps ? ps.hc[1] + 2 : headCY) - 30 + Math.sin(a) * 6;
       star(ctx, sx, sy, 5, 5.5, 2.4, a); ctx.fillStyle = '#ffe14a'; ctx.fill(); ctx.lineWidth = 1.2; ctx.strokeStyle = INK; ctx.stroke();
     }
   }

@@ -8,9 +8,11 @@ Six faces per fighter, because those are the ones the game asks for:
 
 | file | eyes + mouth | size | used for |
 | --- | --- | --- | --- |
-| `base` | open + smile | 512 | character select, results, ladder, the HUD badge |
-| `angry_shout`, `angry_grin` | angry + shout / grin | 512 | the fight intro and the versus screen |
-| `hurt_shout`, `hurt_sad`, `ko_sad` | eyes closed + shout / sad | 160 | the HUD badge when hit, low on health, knocked out |
+| `base` | open + smile | 512 | character select, results, ladder, the HUD badge, the head of the drawn (2D) fighter |
+| `angry_shout`, `angry_grin` | angry + shout / grin | 512 | the fight intro and the versus screen, the head of the drawn fighter when attacking |
+| `hurt_shout`, `hurt_sad`, `ko_sad` | eyes closed + shout / sad | 160 | the HUD badge when hit, low on health, knocked out; the head of the drawn fighter when hit or knocked out |
+
+The drawn (2D) fighters (no WebGL2, `?flat`, the power-saving mode) wear these same pictures as their heads (`Baked.head2d` cuts one along the jaw and rounds it under the chin; `drawBakedHead` in `21-fighter-render.js`), on bodies put together from pictures of the 3D model (`../body-bake/`).
 
 ## What the renderer is
 
