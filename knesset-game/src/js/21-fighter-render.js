@@ -534,13 +534,14 @@ function drawFist(ctx, x, y, ux, uy, skin, ink, tint, back) {
 // The head of the drawn (2D) fighter: the realistic portrait of the same person (the face the select screen shows), without the shoulders. It is a front view on the
 // profile body, a little narrower and shifted forward as if turned towards the opponent, and never mirrored. A hit flash or a ghost tint is applied to a scratch copy.
 const HEAD2D_IPD = 12.4;         // head drawing units per inter-eye distance (before the head size of the look)
+const HEAD2D_SHIFT = 3.2, HEAD2D_SQUEEZE = 0.95, HEAD2D_SHIFT_T = 0, HEAD2D_EYE_Y = -2.6;      // the portrait stands a little forward, a little narrower, and the eye line is this far from the middle of the head (bodies of baked parts)
 let HEAD_TMP = null;
 function drawBakedHead(ctx, f, look, p, flash, tint, eyeY) {
-  const h = Baked.head2d(f.def.id, p.eyes, p.mouth, look);
+  const h = Baked.headTurned(f.def.id, p.eyes, p.mouth, look, f.face);
   if (!h) return false;
-  const k = HEAD2D_IPD * (look.head || 1) * 1.14 / h.U, w = h.c.width * k, hgt = h.c.height * k;
+  const k = HEAD2D_IPD * (look.head || 1) * 1.14 / h.U, w = h.c.width * k, hgt = h.c.height * k, turned = h.yaw !== undefined;
   ctx.save();
-  ctx.translate(3.2, 0); ctx.scale(f.face * 0.95, 1);
+  ctx.translate(turned ? HEAD2D_SHIFT_T : HEAD2D_SHIFT, 0); ctx.scale(f.face * (turned ? 1 : HEAD2D_SQUEEZE), 1);
   ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const x0 = -h.ex * k, y0 = (eyeY === undefined ? -5.5 : eyeY) - h.ey * k;
   if (tint || flash > 0) {

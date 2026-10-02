@@ -14,6 +14,7 @@ const F3D = {
   good: 0,                // sprites rendered so far (the first few are checked for blank output)
   stats: { renders: 0, sprites: 0, ms: 0, verts: 0 },
   light: { key: [1, 0.93, 0.84], fill: [0.42, 0.5, 0.7], top: [0.5, 0.5, 0.56], bot: [0.24, 0.2, 0.24], rim: [0.55, 0.62, 0.9] },
+  noPortrait: /[?&]head3d\b/.test(location.search),       // ?head3d: the modelled 3D heads instead of the portraits (to compare)
 };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -75,9 +76,9 @@ function hexRGB(c) {                          // '#rrggbb' or 'rgb(...)' -> [0..
 // A growable mesh; used both for static meshes (heads: built once and uploaded to the GPU) and for the per-frame body.
 class Mesh {
   constructor(cap = 2048, icap = 8192) {
-    this.f = new Float32Array(cap * VW); this.u = new Uint32Array(this.f.buffer); this.i = new Uint16Array(icap); this.nv = 0; this.ni = 0;
+    this.f = new Float32Array(cap * VW); this.u = new Uint32Array(this.f.buffer); this.i = new Uint16Array(icap); this.nv = 0; this.ni = 0; this.mid = 0;
   }
-  reset() { this.nv = 0; this.ni = 0; }
+  reset() { this.nv = 0; this.ni = 0; this.mid = 0; }
   grow() {
     const nf = new Float32Array(this.f.length * 2); nf.set(this.f); this.f = nf; this.u = new Uint32Array(nf.buffer);
   }
@@ -156,10 +157,16 @@ void main() {
     h = lum + pore * 0.16 * near * face; amp = 0.7;
     mul = vec3(1.0 + (pore - 0.5) * 0.04 * near * face);
   } else if (cloth) {
-    vec2 cuv = vUV * ((layer == 1.0 || layer == 6.0) ? 3.5 : 1.0);
+    bool jacket = layer == 1.0 || layer == 6.0;
+    vec2 cuv = vUV * (jacket ? 3.5 : 1.0);
     float w = texture(uTex, vec3(cuv, 7.0)).r;
-    h = w + lum * 0.15; amp = 0.28 * (0.25 + 0.75 * near);
-    mul = vec3(0.86 + 0.3 * w);
+    // the drape: soft folds that run along a sleeve or a trouser leg (and down the jacket), and a finer crumple across them
+    vec2 fuv = jacket ? vec2(vUV.x * 5.0, vUV.y * 1.3) : vec2(vUV.x * 3.0, vUV.y * 0.5);
+    float fold = vnoise(fuv + 3.1) * 0.62 + vnoise(fuv * vec2(2.4, 1.9) + 9.7) * 0.38;
+    h = w + lum * 0.15 + fold * 18.0 * (0.4 + 0.6 * near); amp = 0.28 * (0.25 + 0.75 * near);
+    // a faint woven stripe along the cloth, as in a suit; it fades out when the stripes get thinner than a pixel or two
+    float sx = vUV.x * (jacket ? 30.0 : 28.0), stripe = smoothstep(0.38, 0.46, abs(fract(sx) - 0.5)) * (1.0 - smoothstep(0.25, 0.55, fwidth(sx)));
+    mul = vec3(0.86 + 0.3 * w) * (0.93 + 0.14 * fold) * (1.0 + 0.16 * stripe);
   } else if (hair) {
     h = lum; amp = 0.4;
   }
@@ -195,7 +202,7 @@ void main() {
     spc = uKeyCol * (vec3(s1 * 0.22) + s2 * 0.09 * (vec3(0.3) + alb * 2.0)) * (0.5 + spec) * lit;
   } else if (cloth) {
     float fr = 1.0 - clamp(N.z, 0.0, 1.0);
-    add = (uFillCol * 0.9 + uKeyCol * 0.25) * pow(fr, 3.0) * 0.35;     // soft sheen where the fabric turns away
+    add = (uFillCol * 0.9 + uKeyCol * 0.25) * pow(fr, 3.0) * 0.2;      // soft sheen where the fabric turns away
     spc = uKeyCol * pow(ndh, shin) * spec * lit;
   } else {
     spc = uKeyCol * pow(ndh, shin) * spec * lit;
@@ -216,10 +223,36 @@ void main() {
   else outColor = vec4(col * a, a);                                   // premultiplied
 }`;
 
+// The portrait head: the realistic face of the person as a flat picture that stands in the place of the 3D head (a textured quad with no lighting of its own).
+// It is drawn between the body and the near arm, so the arm still passes in front of the face and the far arm behind it.
+const Q_VS = `#version 300 es
+precision highp float;
+layout(location=0) in vec2 aPos;
+layout(location=1) in vec2 aUV;
+uniform mat4 uMVP;
+out vec2 vUV;
+void main() { gl_Position = uMVP * vec4(aPos, 0.0, 1.0); vUV = aUV; }`;
+const Q_FS = `#version 300 es
+precision highp float;
+uniform sampler2D uPic;
+uniform vec3 uShade;
+uniform vec4 uTint;
+uniform float uFlash, uAlpha;
+in vec2 vUV;
+out vec4 outColor;
+void main() {
+  vec4 t = texture(uPic, vUV);                                    // premultiplied
+  vec3 c = t.a > 0.002 ? t.rgb / t.a : vec3(0.0);
+  c = mix(c * uShade, uTint.rgb, uTint.a);
+  c = mix(c, vec3(1.0), uFlash);
+  float a = t.a * uAlpha;
+  outColor = vec4(c * a, a);
+}`;
+
 // ---------------------------------------------------------------------------------------------------------------
 // context
 // ---------------------------------------------------------------------------------------------------------------
-const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), vbo: null, ibo: null, vao: null, size: 1024, white: null, cache: new Map(), a2c: false };
+const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), vbo: null, ibo: null, vao: null, size: 1024, white: null, cache: new Map(), a2c: false, qprog: null, QU: {}, qvao: null, qvbo: null, ptex: new Map() };
 
 F3D.init = function () {
   if (G3.gl || F3D.failed) return F3D.ok;
@@ -230,7 +263,7 @@ F3D.init = function () {
     cv.width = cv.height = G3.size;
     const gl = cv.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, depth: true, stencil: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('no webgl2');
-    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); F3D.ok = false; F3D.failed = true; G3.gl = null; G3.cache.clear(); });
+    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); F3D.ok = false; F3D.failed = true; G3.gl = null; G3.cache.clear(); G3.ptex.clear(); });
     const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     const prog = gl.createProgram();
     gl.attachShader(prog, sh(gl.VERTEX_SHADER, F3D_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, F3D_FS));
@@ -240,6 +273,19 @@ F3D.init = function () {
     for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uNorm', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
     G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
     G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
+    try {                                                                 // the portrait heads are optional: without this program the modelled 3D heads stay
+      const qp = gl.createProgram();
+      gl.attachShader(qp, sh(gl.VERTEX_SHADER, Q_VS)); gl.attachShader(qp, sh(gl.FRAGMENT_SHADER, Q_FS));
+      gl.linkProgram(qp);
+      if (!gl.getProgramParameter(qp, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(qp));
+      for (const n of ['uMVP', 'uPic', 'uShade', 'uTint', 'uFlash', 'uAlpha']) G3.QU[n] = gl.getUniformLocation(qp, n);
+      G3.qvao = gl.createVertexArray(); G3.qvbo = gl.createBuffer();
+      gl.bindVertexArray(G3.qvao); gl.bindBuffer(gl.ARRAY_BUFFER, G3.qvbo); gl.bufferData(gl.ARRAY_BUFFER, 64, gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 16, 0);
+      gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 16, 8);
+      gl.bindVertexArray(null);
+      G3.qprog = qp;
+    } catch (e) { G3.qprog = null; }
     F3D.ok = true;
   } catch (e) {
     F3D.failed = true; F3D.ok = false; G3.gl = null;
@@ -296,6 +342,27 @@ F3D.uploadLayer = function (tex, layer, canvas, mips = true) {
   if (mips) gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
 };
 F3D.newTexArray = function () { return makeTexArray(G3.gl); };
+
+// a portrait head (a canvas) as a texture, premultiplied and mipmapped; the least recently used ones are dropped
+F3D.portraitTex = function (canvas) {
+  const gl = G3.gl, m = G3.ptex;
+  let e = m.get(canvas);
+  if (e) { m.delete(canvas); m.set(canvas, e); return e.tex; }
+  const tex = gl.createTexture();
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+  gl.generateMipmap(gl.TEXTURE_2D);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  gl.activeTexture(gl.TEXTURE0);
+  m.set(canvas, { tex });
+  if (m.size > 40) { const [k, v] = m.entries().next().value; gl.deleteTexture(v.tex); m.delete(k); }
+  return tex;
+};
 
 // ---------------------------------------------------------------------------------------------------------------
 // stage lighting: a warm key from the front-left, cool fill, and a coloured rim from behind

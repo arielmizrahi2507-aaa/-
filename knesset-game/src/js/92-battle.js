@@ -44,6 +44,7 @@ class Battle {
     this.dmgGhost = [1, 1];
     this.introQuote = this.f.map((f) => pick(f.def.quotes.intro));
     this.pk = [];
+    for (const f of this.f) if (f.def.id !== undefined) Baked.prewarm(f.def.id, f.def.look);       // the portrait heads of the fighters, turned both ways, are built while the fight begins
     this.startRound(true);
   }
 

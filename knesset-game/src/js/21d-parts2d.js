@@ -83,7 +83,7 @@ const Parts = (() => {
     // the head: the realistic portrait of this person, or the drawn head until the picture is in
     ctx.save();
     ctx.translate(X(S.hc), Y(S.hc)); ctx.rotate(p.headRot); ctx.scale(HEAD_K, HEAD_K);
-    if (!drawBakedHead(ctx, f, look, p, flash, tint, -2.6)) drawHead(ctx, f, look, p, tint ? () => tint : flash > 0 ? (c) => flashMix(c, flash) : (c) => c);
+    if (!drawBakedHead(ctx, f, look, p, flash, tint, HEAD2D_EYE_Y)) drawHead(ctx, f, look, p, tint ? () => tint : flash > 0 ? (c) => flashMix(c, flash) : (c) => c);
     ctx.restore();
     arm(S.armN);
     const fist = S.armN.fist;

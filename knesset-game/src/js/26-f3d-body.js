@@ -126,6 +126,7 @@ function skeleton3D(f, p, look) {
   const hc = [headCX, -headCY - 2 + LIFT, 0], k = HEAD_K * hs * (look.robot ? 1.3 : HEAD3);         // natural head size for the people (HEAD3); the boss robot keeps its big head
   const roll = -p.headRot;
   S.headM = M4.mul(M4.translate(hc[0], hc[1], hc[2]), M4.mul(M4.rotZ(roll), M4.mul(M4.rotY(-YAW_H), M4.scale(k, k, k))));
+  S.headQ = M4.mul(M4.translate(hc[0], hc[1], hc[2]), M4.mul(M4.rotZ(roll), M4.scale(HEAD_K, HEAD_K, 1)));       // the flat portrait head: upright, facing the camera
   S.hc = hc; S.hk = k;
   S.neckTop = M4.pt(S.headM, -2, -10.5, 0);              // the neck ends inside the head, under the jaw
   S.neckBase = at(52.5, 0, 0.2);
@@ -135,10 +136,10 @@ function skeleton3D(f, p, look) {
 // ---------------------------------------------------------------------------------------------------------------
 // body meshes
 // ---------------------------------------------------------------------------------------------------------------
-const MAT_CLOTH = packMat(0.07, 0.08, 0.45, LAYER.WHITE, CLS.CLOTH);
+const MAT_CLOTH = packMat(0.05, 0.08, 0.24, LAYER.WHITE, CLS.CLOTH);
 const MAT_SKIN = packMat(0.2, 0.28, 0.45, LAYER.WHITE, CLS.SKIN);
 const MAT_SHOE = packMat(0.75, 0.45, 0.35, LAYER.WHITE, CLS.SHOE);
-const MAT_TORSO = packMat(0.1, 0.1, 0.4, LAYER.TORSO, CLS.CLOTH);
+const MAT_TORSO = packMat(0.07, 0.1, 0.22, LAYER.TORSO, CLS.CLOTH);
 const TILE = [4, 11];                    // fabric weave on tubes: repeats around, world units per repeat along
 const c3 = (hex, k = 1) => { const v = hexRGB(hex); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
 const c3s = (css, k = 1) => { const v = hexRGB(css); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
@@ -302,10 +303,11 @@ function emitTorso(mesh, S, L) {
   // neck + collar
   {
     const a = S.neckBase, nk = faceK(look.neck, 'neck');
-    // the sprite part of the drawn fights (bakePart) has a front view of the face on top of it: its neck goes on up behind the chin
-    const ext = S.bake ? 8 : 0, d0 = V3.norm(V3.sub(S.neckTop, a)), b = ext ? V3.madd(S.neckTop, d0, ext) : S.neckTop, ek = 1 + ext / Math.max(1, V3.len(V3.sub(S.neckTop, a)));
+    // the sprite parts of the drawn fights (bakePart) and the fighters with a portrait head have a front view of the face on top: the neck goes on up behind the chin
+    const ext = S.bake || S.portrait ? 8 : 0, d0 = V3.norm(V3.sub(S.neckTop, a)), b = ext ? V3.madd(S.neckTop, d0, ext) : S.neckTop, ek = 1 + ext / Math.max(1, V3.len(V3.sub(S.neckTop, a)));
     const nsk = hexRGB(L.skin3 || pal.skin), npath = splinePath([a, b], 6);          // the neck: narrower and darker towards the chin (the jaw casts a shadow on it)
-    emitLoft(mesh, npath, npath.map((q, i) => (7.0 - 1.9 * (i / 5) * ek) * Math.pow(nk, 0.7)), (k, n) => { const m = 0.92 - 0.5 * Math.min(1, (k / (n - 1)) * ek) ** 1.5; return packRGBA(nsk[0] * m, nsk[1] * m, nsk[2] * m, 1); }, MAT_SKIN, { sides: 14 });
+    const front = ext > 0;                                                                // under a portrait the neck is the same width all the way and darker, in the shade of the head
+    emitLoft(mesh, npath, npath.map((q, i) => (front ? 6.9 - 1.0 * Math.min(1, (i / 5) * ek) : 7.0 - 1.9 * (i / 5)) * Math.pow(nk, 0.7)), (k, n) => { const t = Math.min(1, (k / (n - 1)) * ek), m = front ? 0.74 - 0.34 * t : 0.92 - 0.5 * t ** 1.5; return packRGBA(nsk[0] * m, nsk[1] * m, nsk[2] * m, 1); }, MAT_SKIN, { sides: 14 });
     if (!look.open) {                                                      // the shirt collar (an open collar shows the skin of the V painted on the jacket)
       const d = V3.norm(V3.sub(b, a));
       emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.6 * Math.max(1, nk * 0.95), 8.0 * Math.max(1, nk * 0.9), shirt, MAT_CLOTH, { sides: 14, rings: 3, bulge: 0 });
@@ -324,7 +326,9 @@ function emitBody(mesh, S, L, opt) {
   }
   for (const lg of [S.legF, S.legN]) emitLeg(mesh, lg, look, lk);
   if (look.robot) emitRobotCore(mesh, S, L); else emitTorso(mesh, S, L);
-  for (const ar of [S.armF, S.armN]) emitArm(mesh, ar, look, pal, L, lk, p);
+  emitArm(mesh, S.armF, look, pal, L, lk, p);
+  mesh.mid = mesh.ni;                                                     // the near arm comes last: the portrait head is drawn before it
+  emitArm(mesh, S.armN, look, pal, L, lk, p);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -357,6 +361,36 @@ function faceNorm(LG, KEY, FILL) {
     for (let c = 0; c < 3; c++) D[c] += 0.5 * (LG.key[c] * 1.3 * w + LG.fill[c] * 0.42 * f + (LG.bot[c] * 0.8 + LG.top[c] * 0.85) * 0.5);
   }
   return D.map((d) => 0.2 + 0.8 / Math.max(0.2, d));
+}
+
+// The head of a fighter who has a realistic portrait: the picture itself, upright and facing the camera like the head of the drawn fighter (21-fighter-render.js),
+// as a quad in the place of the 3D head. Returns { tex, v } (4 corners: x, y in head units, u, v) or null (no portrait yet, the boss, a minion, ?head3d).
+function portraitQuad(fx, p, look, S) {
+  if (look.robot || F3D.noPortrait || !G3.qprog || fx.def.id === undefined) return null;
+  const h = Baked.headTurned(fx.def.id, p.eyes, p.mouth, look, fx.face);
+  if (!h) return null;
+  const turned = h.yaw !== undefined, kq = HEAD2D_IPD * S.hs * 1.14 / h.U, w = h.c.width * kq, hg = h.c.height * kq;
+  const x0 = -h.ex * kq, y0 = HEAD2D_EYE_Y - h.ey * kq, fs = fx.face * (turned ? 1 : HEAD2D_SQUEEZE), sh = turned ? HEAD2D_SHIFT_T : HEAD2D_SHIFT;
+  const xa = sh + fs * x0, xb = sh + fs * (x0 + w);
+  return { tex: F3D.portraitTex(h.c), v: new Float32Array([xa, -y0, 0, 0, xb, -y0, 1, 0, xa, -(y0 + hg), 0, 1, xb, -(y0 + hg), 1, 1]) };
+}
+// a little of the colour of the stage light on the picture, so that the head does not look pasted on the body
+function stageShade(LG) {
+  const t = [0, 1, 2].map((c) => LG.key[c] * 0.7 + LG.fill[c] * 0.3 + LG.top[c] * 0.2), m = Math.max(t[0], t[1], t[2]) || 1;
+  return t.map((v) => 0.55 + 0.45 * v / m);
+}
+function drawPortraitQuad(gl, fg, P) {
+  const q = fg.pq, QU = G3.QU;
+  gl.useProgram(G3.qprog);
+  gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
+  gl.uniformMatrix4fv(QU.uMVP, false, M4.mul(P, M4.mul(fg.M, fg.S.headQ)));
+  gl.uniform3fv(QU.uShade, stageShade(F3D.light));
+  gl.uniform4f(QU.uTint, ...(fg.tint || [0, 0, 0, 0])); gl.uniform1f(QU.uFlash, fg.flash || 0); gl.uniform1f(QU.uAlpha, fg.alpha === undefined ? 1 : fg.alpha);
+  gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, q.tex); gl.uniform1i(QU.uPic, 1);
+  gl.bindVertexArray(G3.qvao); gl.bindBuffer(gl.ARRAY_BUFFER, G3.qvbo); gl.bufferSubData(gl.ARRAY_BUFFER, 0, q.v);
+  gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  gl.activeTexture(gl.TEXTURE0);
+  gl.useProgram(G3.prog); gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE);
 }
 
 // The GL pass: draw the figures into the top-left pw x ph pixels of the GL canvas, seen through the world window (X0,Y0,W_,H_).
@@ -400,10 +434,15 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     gl.frontFace(fg.face < 0 ? gl.CW : gl.CCW);
     gl.uniformMatrix4fv(U.uMVP, false, MVP); gl.uniformMatrix4fv(U.uM, false, M); gl.uniformMatrix3fv(U.uNM, false, NM);
     gl.uniform4f(U.uTint, ...(fg.tint || [0, 0, 0, 0])); gl.uniform1f(U.uFlash, fg.flash || 0); gl.uniform1f(U.uAlpha, fg.alpha === undefined ? 1 : fg.alpha); gl.uniform1f(U.uCover, 0);
-    gl.drawElements(gl.TRIANGLES, G3.dyn.ni, gl.UNSIGNED_SHORT, 0);
+    const mid = fg.pq && G3.dyn.mid > 0 ? G3.dyn.mid : G3.dyn.ni;
+    gl.drawElements(gl.TRIANGLES, mid, gl.UNSIGNED_SHORT, 0);
+    if (fg.pq) {                                                          // the portrait head, then the near arm in front of it
+      drawPortraitQuad(gl, fg, P);
+      if (G3.dyn.ni > mid) { gl.bindVertexArray(G3.vao); gl.drawElements(gl.TRIANGLES, G3.dyn.ni - mid, gl.UNSIGNED_SHORT, mid * 2); }
+    }
     F3D.stats.verts += G3.dyn.nv;
     // static head parts
-    if (L.gpu && !(opt && opt.only)) {
+    if (L.gpu && !fg.pq && !(opt && opt.only)) {
       const HM = M4.mul(M, S.headM), HP = M4.mul(P, HM), hn = M4.normalMat(HM);
       const HN = new Float32Array([hn[0], -hn[1], hn[2], hn[3], -hn[4], hn[5], hn[6], -hn[7], hn[8]]);
       gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix4fv(U.uM, false, HM); gl.uniformMatrix3fv(U.uNM, false, HN);
@@ -468,6 +507,7 @@ F3D.render = function (ctx, f, opt, figs) {
 // ---------------------------------------------------------------------------------------------------------------
 // public API
 // ---------------------------------------------------------------------------------------------------------------
+F3D.yaw = function (torso, head) { YAW_T = torso; YAW_H = head; };      // how far the torso and the head are turned towards the camera (a test hook)
 const LOOK_IDS = new WeakMap();
 let lookIdSeq = 0;
 const lookId = (l) => { let v = LOOK_IDS.get(l); if (!v) LOOK_IDS.set(l, (v = ++lookIdSeq)); return v; };
@@ -481,8 +521,9 @@ function poseKey(p) {
 function buildFigs(f, p, look, L, opt) {
   const figs = [];
   const push = (fx, pose, extra) => {
-    const S = skeleton3D(fx, pose, look), M = modelMatrix(fx, pose, look);
-    figs.push(Object.assign({ L, S, M, gs: (look.h || 1) * BODY_S * (fx.scale || 1), face: fx.face, pts: skelPoints(S) }, extra));
+    const S = skeleton3D(fx, pose, look), M = modelMatrix(fx, pose, look), pq = portraitQuad(fx, pose, look, S), pts = skelPoints(S);
+    if (pq) { S.portrait = true; for (let i = 0; i < 4; i++) pts.push(M4.pt(S.headQ, pq.v[i * 4], pq.v[i * 4 + 1], 0)); }
+    figs.push(Object.assign({ L, S, M, gs: (look.h || 1) * BODY_S * (fx.scale || 1), face: fx.face, pts, pq }, extra));
   };
   if (opt.ghosts) for (const g of opt.ghosts) push(g.f, g.f.pose, { tint: g.tint, alpha: g.alpha });
   push(f, p, { flash: opt.flash || 0, alpha: 1 });

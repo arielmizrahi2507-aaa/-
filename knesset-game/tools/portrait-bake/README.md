@@ -52,6 +52,13 @@ cp OUTDIR/* ../../src/assets/portraits/ && node ../../build.mjs
 `KOUT` / `KIN` (default 1.6 / 1.3) are the exaggeration of the outline (jaw, chin, cheeks, forehead) and of the inside of the face (eyes, nose, mouth) against the cast average, used by `bake.py` and `bake3d.py` alike so that the
 portraits and the 3D heads show the same face.
 
+## The depth of the portraits (the heads turned towards the opponent)
+
+`depthmap.py` writes, per fighter, `<id>.depth.webp` (lossless, 128 x 128, the square of the portrait: 5 eye distances wide, the eye line 2.1 from the top; grey 0..255 = 0..2 eye distances):
+how far each picture element of the head stands out of the rim plane of the head (its widest part, about the plane of the ears): the inflated skull and the measured relief of the face from `rend2.build_height`,
+and a rounded volume for the hair and the beard from the silhouette of the finished portrait. The game turns the front view about the vertical axis of the head with it (`turnHead` in `21c-portrait-baked.js`),
+so that the fighters look at each other and not into the camera. `python3 depthmap.py OUTDIR [ids]`, then `cp OUTDIR/*.depth.webp ../../src/assets/portraits/` (the PNGs it writes next to them are for looking at).
+
 ## Inputs that are not in the repository
 
 The reference photos are the author's and stay private. The renderer needs three things derived from them, in a folder `data/` (or wherever `PORTRAIT_DATA` points):
