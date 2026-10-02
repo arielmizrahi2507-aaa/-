@@ -1,11 +1,18 @@
 // ===== Baked front portraits =====
 // The realistic faces are rendered offline (tools/portrait-bake) and embedded by build.mjs as PORTRAIT_DATA = { id: { base, angry_shout, ... } } (WebP data URLs).
 // drawPortrait() uses them for the front view; the drawn faces in 21b-portrait-front.js stay as the fallback (a browser that cannot show WebP, a fighter without a baked face).
+// The face of a 3D head is a picture flattened onto it from the front: lateral +-20 head units, from the height FACE_YT down FACE_YH units (tools/portrait-bake/facetex.py)
+const FACE_YT = 18.5, FACE_YH = 47.0;
 const Baked = (() => {
   const data = (typeof PORTRAIT_DATA !== 'undefined' && PORTRAIT_DATA) || {};
   const imgs = {};                        // id -> key -> HTMLImageElement
   const mipOf = new WeakMap();
   const KEYS = ['base', 'angry_shout', 'angry_grin', 'hurt_shout', 'hurt_sad', 'ko_sad'];
+  // The 3D heads wear a face texture of their own (the face without hair accessories, flattened onto the head from the front): one per state of the face
+  const KEYS3 = ['t_rest', 't_blink', 't_angry', 't_shout', 't_hurt', 't_ko', 't_happy', 't_relief'];
+  const RELIEF_RANGE = 10.6;                 // head units that a relief value of +-127 stands for (tools/portrait-bake/facetex.py)
+  const rfs = {}, skins = {};
+  const LAYOUT = (typeof PORTRAIT_LAYOUT !== 'undefined' && PORTRAIT_LAYOUT) || {};      // where the features of each face sit (eye distances below the eye line)
   // The images are 5 inter-eye distances (units) wide; the eye line is 2.1 units from the top. The circle shows SPAN units across and the eye line sits EYE_Y radii above its centre.
   const SPAN = 4.1, EYE_Y = 0.02;
 
@@ -14,6 +21,17 @@ const Baked = (() => {
     if (eyes === 'ko') return 'ko_sad';
     if (eyes === 'hurt') return mouth === 'shout' ? 'hurt_shout' : 'hurt_sad';
     return 'base';
+  }
+
+  // which of the 3D face textures a pose asks for (eyes and mouth as the pose system names them)
+  function state3(eyes, mouth) {
+    if (eyes === 'ko') return 't_ko';
+    if (eyes === 'hurt') return 't_hurt';
+    if (eyes === 'happy' || mouth === 'grin') return 't_happy';
+    if (mouth === 'shout' || mouth === 'open') return 't_shout';
+    if (eyes === 'angry') return 't_angry';
+    if (eyes === 'blink' || eyes === 'squint' || mouth === 'o') return 't_blink';
+    return 't_rest';
   }
 
   // a copy of the image that is not much bigger than it will be drawn (a 512 px face squeezed into a 70 px HUD badge would shimmer)
@@ -59,9 +77,46 @@ const Baked = (() => {
   return {
     has(id) { return !!(imgs[id] && imgs[id].base); },
     count() { return Object.keys(imgs).length; },
-    loadBase() { return load(['base']); },
+    loadBase() { return load(['base', 't_rest', 't_relief']); },
     // the expressions are not needed before a fight (and a slow device may still be decoding the plain faces); when everything is in, cached portraits made earlier are dropped
-    loadRest() { return load(KEYS).then(() => { PORT_CACHE.clear(); portCache.clear(); }); },
+    loadRest() { return load(KEYS.concat(KEYS3)).then(() => { PORT_CACHE.clear(); portCache.clear(); if (F3D.invalidateFaces) F3D.invalidateFaces(); }); },
+    // the shape of the face (nose, brows, sockets, lips, cheeks, chin) of the 3D head: (z, y) in head units -> height above the smooth skull in head units
+    relief(id) {
+      if (rfs[id]) return rfs[id];
+      const m = imgs[id];
+      if (!m || !m.t_relief) return null;
+      const n = 128, c = document.createElement('canvas'); c.width = c.height = n;
+      const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(m.t_relief, 0, 0, n, n);
+      const d = x.getImageData(0, 0, n, n).data, H = new Float32Array(n * n);
+      for (let i = 0; i < n * n; i++) H[i] = (d[i * 4] - 128) / 127 * RELIEF_RANGE;
+      return (rfs[id] = (z, y) => {
+        const fx = ((20 - z) / 40) * n - 0.5, fy = ((FACE_YT - y) / FACE_YH) * n - 0.5;
+        if (fx < -1 || fy < -1 || fx > n || fy > n) return 0;
+        const x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
+        const g = (i, j) => (i < 0 || j < 0 || i >= n || j >= n) ? 0 : H[j * n + i];
+        return (g(x0, y0) * (1 - tx) + g(x0 + 1, y0) * tx) * (1 - ty) + (g(x0, y0 + 1) * (1 - tx) + g(x0 + 1, y0 + 1) * tx) * ty;
+      });
+    },
+    ready3d(id) { const m = imgs[id]; return !!(m && m.t_rest && m.t_relief); },
+    // the colour of the cheeks of the realistic face (what the skin of the neck, hands and ears has to match), '#rrggbb'
+    skin3d(id) {
+      if (skins[id]) return skins[id];
+      const m = imgs[id];
+      if (!m || !m.t_rest) return null;
+      const c = document.createElement('canvas'); c.width = c.height = 256;
+      const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(m.t_rest, 0, 0, 256, 256);
+      let r = 0, g = 0, b = 0, n = 0;
+      const row0 = Math.round((FACE_YT - (EYE3 - 0.85 * K3)) / FACE_YH * 256), row1 = Math.round((FACE_YT - (EYE3 - 0.40 * K3)) / FACE_YH * 256);
+      for (const sg of [-1, 1]) {
+        const c0 = Math.round((20 + sg * 0.85 * K3) / 40 * 256), c1 = Math.round((20 + sg * 0.5 * K3) / 40 * 256);
+        const d = x.getImageData(Math.min(c0, c1), row0, Math.abs(c1 - c0), row1 - row0).data;
+        for (let i = 0; i < d.length; i += 4) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
+      }
+      const h = (v) => Math.round(v / n).toString(16).padStart(2, '0');
+      return (skins[id] = '#' + h(r) + h(g) + h(b));
+    },
+    layout(id) { return (data[id] && data[id].t_rest && LAYOUT[id]) || null; },
+    face3d(id, eyes, mouth) { const m = imgs[id]; return (m && (m[state3(eyes, mouth)] || m.t_rest)) || null; },
     paint(ctx, id, eyes, mouth, cx, cy, r, opt) {
       const m = imgs[id];
       if (!m || !m.base) return false;

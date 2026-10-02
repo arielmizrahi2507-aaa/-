@@ -94,13 +94,42 @@ def profile_mask(prof, smooth=5.0, y_first=None):
     m = (np.abs(XX - CX) <= p[:, None]).astype(np.float32)
     return clean(m, 3, 1, 1.3, keep_largest=False)
 
+_OW = None
+def _outline_weight():
+    """per landmark: 0 inside the face, 1 on its outline (from the mean mesh): where to exaggerate the face shape"""
+    global _OW
+    if _OW is None:
+        M = geom.MEAN[:, :2]
+        poly = M[OVAL]; c = np.array([0.0, 0.75])
+        ang = np.arctan2(poly[:, 1] - c[1], poly[:, 0] - c[0]); rad = np.hypot(poly[:, 0] - c[0], poly[:, 1] - c[1])
+        o = np.argsort(ang); ang, rad = ang[o], rad[o]
+        ang = np.concatenate([ang - 2 * np.pi, ang, ang + 2 * np.pi]); rad = np.concatenate([rad, rad, rad])
+        d = M - c; a = np.arctan2(d[:, 1], d[:, 0]); ratio = np.hypot(d[:, 0], d[:, 1]) / np.interp(a, ang, rad)
+        _OW = smoothstep(0.62, 0.95, ratio).astype(np.float32)
+    return _OW
+
 class Head:
     """everything derived from the photo for one person: landmarks, masks, colours"""
     def __init__(self, id):
         self.id = id; self.L = LOOKS[id]; self.age = float(self.L.get('age', 0.4))
         Ms = geom.SYM[id].copy()
+        # a face that looks into the camera keeps its own asymmetry (a higher brow, a lopsided mouth); a turned one is symmetrised from its visible half
+        self.asym_keep = T('asym', 1.0) * float(np.clip((0.22 - abs(geom.info[id]['asym'])) / 0.12, 0, 1))
+        asym_vec = self.asym_keep * (geom.RAW[id] - Ms) * 0.8
+        # caricature of the measured face: the outline (jaw, chin, cheeks, forehead) is exaggerated more than the inside (eyes, nose, mouth), which keeps its measured place;
+        # photos of turned heads and faces hidden by a beard are less certain, so they are exaggerated less
         self.K = float(os.environ.get('KMESH', '1.1'))
-        self.M = geom.MEAN + self.K * (Ms - geom.MEAN) if abs(self.K - 1.0) > 1e-3 else Ms
+        K_out = float(os.environ.get('KOUT', T('kout', 2.4))); K_in = float(os.environ.get('KIN', T('kin', 1.5)))
+        asym = abs(geom.info[id]['asym']); rel = 1.0 if asym < 0.2 else (0.85 if asym < 0.5 else 0.7)
+        bd = self.L.get('beard')
+        if bd and not bd.get('stub') and float(bd.get('len', 0)) > -0.2: rel *= 0.8
+        rel *= float(self.L.get('kscale', 1.0))
+        w_out = _outline_weight()
+        Kp = (K_in + (K_out - K_in) * w_out)
+        Kp = 1.0 + (Kp - 1.0) * rel
+        Ky = 1.0 + (Kp - 1.0) * T('ky', 0.5)                                                  # the length of the face is exaggerated less than its width (a very long face looks wrong)
+        D_ = Ms - geom.MEAN
+        self.M = geom.MEAN + np.stack([Kp * D_[:, 0], Ky * D_[:, 1], Kp * D_[:, 2]], 1) + asym_vec      # the shape is exaggerated, the natural asymmetry is not
         self.M[:, 2] = Ms[:, 2]
         ax = np.abs(self.M[:, 0]); wide = 1 + 0.05 * smoothstep(0.7, 1.2, ax) + 0.05 * smoothstep(0.7, 1.6, self.M[:, 1]) * smoothstep(0.3, 1.0, ax)
         self.M[:, 0] = self.M[:, 0] * wide
@@ -135,6 +164,15 @@ class Head:
         hp = json.load(open(os.path.join(HERE, 'hp.json'))).get(id)
         if hp:                                                    # a hand-made parametric silhouette replaces the parsed one
             import hairmodel as HM
+            hp = dict(hp)
+            ov = smooth_curve(P[OVAL][:, :2], 300, closed=True); fwh = 0.0                     # the hair outline must stay outside a wider face
+            for yy_ in (-0.25, 0.0, 0.3):
+                xs = []
+                for p0, p1 in zip(ov[:-1], ov[1:]):
+                    if (p0[1] - (EY + yy_ * I)) * (p1[1] - (EY + yy_ * I)) <= 0 and p0[1] != p1[1]:
+                        t_ = ((EY + yy_ * I) - p0[1]) / (p1[1] - p0[1]); xs.append(abs(p0[0] + t_ * (p1[0] - p0[0]) - CX))
+                if xs: fwh = max(fwh, max(xs) / I)
+            hp['w'] = max(hp['w'], fwh + 0.10)
             mk = HM.build_masks(hp, P)
             self.m_head, self.m_hair, self.m_skullhair = mk['head'], mk['hair'], mk['skullhair']
             self.top_y = float(np.nonzero(self.m_skullhair.max(1) > 0.5)[0].min())
@@ -193,6 +231,7 @@ def build_height(h):
     infl = blur(R * np.sqrt(np.clip(1 - (1 - np.minimum(D, R) / R) ** 2, 0, 1)) * 0.52, 5)
     rel, wface = mesh_relief(h)
     Z = infl + rel * 0.95
+    h.Z_infl = infl
     # the neck is set back behind the jaw
     nonly = np.clip(nk - h.m_head, 0, 1)
     Z -= 70 * blur(nonly, 12) * smoothstep(P[152, 1] - 0.45 * I, P[152, 1] + 0.1 * I, YY)
@@ -314,6 +353,7 @@ def lips_shape(mp, mood=0.0, n=60, open_=0.0, narrow=1.0):
 EXPR_MOUTH = {
     'closed': dict(mood=0.0, open=0.0, narrow=1.0), 'smile': dict(mood=0.55, open=0.0, narrow=1.0), 'sad': dict(mood=-0.7, open=0.0, narrow=0.95),
     'grin': dict(mood=0.95, open=0.115, narrow=1.0), 'shout': dict(mood=0.15, open=0.34, narrow=0.92), 'o': dict(mood=0.0, open=0.15, narrow=0.50),
+    'open': dict(mood=0.10, open=0.22, narrow=0.96),
 }
 EXPR_EYES = {
     'open': dict(open=1.0), 'squint': dict(open=0.55), 'angry': dict(open=0.60, brow_in=0.115, brow_out=-0.025), 'blink': dict(closed=True), 'happy': dict(closed=True, arch=0.05, brow_in=-0.01, brow_out=-0.03),
@@ -690,11 +730,6 @@ def calib_scale(img, mask, target_rgb, lo=0.55, hi=1.7):
 # ---------------------------------------------------------------------------------------------------------------- hair
 import strands as ST
 
-
-
-
-
-# ---------------------------------------------------------------------------------------------------------------- clothes
 def tri_mask(pts, blur_s=1.0): return poly_mask(np.asarray(pts, float), blur_s)
 
 def draw_clothes(h):
@@ -805,7 +840,19 @@ def beard_flow(curl=0.0):
         return np.cos(a), np.sin(a)
     return f
 
-
+def draw_stubble(img, h, amount, seed=3):
+    L = h.L; hr = L.get('hair') or {}
+    col = hexlin(hr.get('color', '#333333')) * 0.5
+    if L.get('beard'): col = hexlin(L['beard']['color']) * 0.5
+    rng = np.random.RandomState(seed)
+    reg = beard_polygon(h, cheek=float(h.spec.get('stubble_cheek', -0.10)), ext=0.0, off=0.0) * h.m_head
+    reg = np.clip(reg * (0.7 + 0.3 * smoothstep(EY + 0.3 * I, EY + 1.1 * I, YY)), 0, 1)
+    dots = (noise(91, 1) > (1.2 - 1.4 * amount)).astype(np.float32) * (noise(92, 2) > -0.2)
+    dots = blur(dots, 0.5)
+    mu = hexlin(L['skin']) * 0.55
+    img = over(img, col, np.clip(dots * reg * (0.35 + 0.9 * amount), 0, 1))
+    img = over(img, mu, blur(reg, 8) * 0.10 * amount)
+    return img
 
 def draw_stache(img, h, color, seed=31):
     sp = h.spec.get('stache', {})

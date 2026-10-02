@@ -54,7 +54,7 @@ def caricature_warp(P, A, M_src, K):
 
 EXPO = 0.80
 
-def render_portrait(id, K=1.0, seed=0, verbose=True, eyes='open', mouth='smile'):
+def render_portrait(id, K=1.0, seed=0, verbose=True, eyes='open', mouth='smile', skip=()):
     t0 = time.time()
     h = Head(id); h.spec = default_spec(h.L); h.spec.update(SPEC.get(id, {}))
     L = h.L
@@ -69,8 +69,9 @@ def render_portrait(id, K=1.0, seed=0, verbose=True, eyes='open', mouth='smile')
     head_a = np.clip(h.m_head + h.m_neck + ear_alpha(h), 0, 1)
     cv = Canvas()
     cv.over(skin, head_a)
-    cloth, cloth_a = draw_clothes(h)
-    cv.over(cloth, cloth_a * (1 - h.m_head))
+    if 'clothes' not in skip:
+        cloth, cloth_a = draw_clothes(h)
+        cv.over(cloth, cloth_a * (1 - h.m_head))
     # facial hair
     bd = L.get('beard')
     if bd:
@@ -80,10 +81,11 @@ def render_portrait(id, K=1.0, seed=0, verbose=True, eyes='open', mouth='smile')
     st = L.get('stache') or (bd and bd.get('color'))
     if L.get('stache'):
         cv.P, a = draw_stache(cv.P, h, L['stache']); cv.add_alpha(a)
-    cv.P = draw_glasses(cv.P, h)
+    if 'glasses' not in skip: cv.P = draw_glasses(cv.P, h)
     cv.P, a = H3.draw_hair3(cv.P, h, seed=5 + seed); cv.add_alpha(a)
-    cv.P, a = draw_kippah(cv.P, h); cv.add_alpha(a)
-    cv.P = draw_earring(cv.P, h)
+    if 'kippah' not in skip:
+        cv.P, a = draw_kippah(cv.P, h); cv.add_alpha(a)
+    if 'earring' not in skip: cv.P = draw_earring(cv.P, h)
     if verbose: print(id, 'rendered', round(time.time() - t0, 1), 's')
     P, A = caricature_warp(cv.P, cv.A, h.M, K)
     return P, A, h

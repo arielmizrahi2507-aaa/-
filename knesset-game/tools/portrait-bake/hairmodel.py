@@ -15,8 +15,15 @@ def superellipse_outline(top, w, yw, n, y_side, k=60):
     pts = [(w * 0.985, y_side), (w, yw)] + pts[1:-1] + [(-w, yw), (-w * 0.985, y_side)]
     return np.array(pts)
 
-def hairline_curve(hl, k=80, x_end=1.06):
-    xs = np.array([0.0, 0.35, 0.70, 1.00, x_end]); ys = np.array(list(hl) + [hl[-1] + 0.10])
+def hairline_curve(hl, k=120, x_end=1.9):
+    """hairline y for |x| = 0 .. x_end (IPD units): the four given heights (x = 0 .. 1), then down towards the ear for a wider face"""
+    xs = [0.0, 0.35, 0.70, 1.00]; ys = list(hl); y3 = hl[-1]
+    for xk, dy in ((1.15, 0.10), (1.40, 0.32), (1.9, 0.85)):
+        if xk < x_end - 0.02: xs.append(xk); ys.append(min(y3 + dy, -0.02))
+    if x_end <= 1.0:
+        xs = [x for x in xs if x < x_end - 0.02]; ys = ys[:len(xs)]
+    xs.append(x_end); ys.append(min(y3 + 0.08 + 0.5 * max(0.0, x_end - 1.0), -0.02) if x_end > 1.0 else float(np.interp(x_end, [0.0, 0.35, 0.70, 1.00], hl)))
+    xs = np.array(xs); ys = np.maximum.accumulate(np.array(ys))
     f = PchipInterpolator(xs, ys); xx = np.linspace(-x_end, x_end, k)
     return xx, f(np.abs(xx))
 
@@ -45,10 +52,19 @@ def build_masks(hp, P):
             hair = bandm * ramp * fade_dn * outer_h * (1 - 0.9 * blur(oval, 1.5))
             skullhair = np.maximum(outer_h, head)
     else:
-        hx, hy = hairline_curve(hp['hl'])
-        ptsF = np.vstack([np.stack(px_(hx, hy), 1), np.stack(px_(hx[::-1], np.full_like(hx, -0.30)), 1)])
+        # the forehead reaches sideways as far as the face just below it (the temples): never as far as the outer silhouette, which leaves room for the hair at the temples
+        ov = smooth_curve(P[OVAL][:, :2], 300, closed=True); xt = 0.0
+        for yy_ in (-0.62, -0.5, -0.38, -0.26):
+            xs_ = []
+            for p0, p1 in zip(ov[:-1], ov[1:]):
+                if (p0[1] - (EY + yy_ * I)) * (p1[1] - (EY + yy_ * I)) <= 0 and p0[1] != p1[1]:
+                    t_ = ((EY + yy_ * I) - p0[1]) / (p1[1] - p0[1]); xs_.append(abs(p0[0] + t_ * (p1[0] - p0[0]) - CX))
+            if xs_: xt = max(xt, max(xs_) / I)
+        x_lim = float(np.clip(xt - 0.02, 0.95, 1.5))
+        hx, hy = hairline_curve(hp['hl'], x_end=x_lim)
+        ptsF = np.vstack([np.stack(px_(hx, hy), 1), np.stack(px_(hx[::-1], np.full_like(hx, -0.10)), 1)])
         forehead = poly_mask(smooth_curve(ptsF, 160, closed=True), 1.0)
-        yy_h = np.interp(np.abs((XX - CX) / I), hx[hx >= 0], hy[hx >= 0])
+        hx2, hy2 = hairline_curve(hp['hl'], x_end=2.2); yy_h = np.interp(np.abs((XX - CX) / I), hx2[hx2 >= 0], hy2[hx2 >= 0])
         below_hl = (YY > EY + yy_h * I).astype(np.float32)
         head = np.clip(forehead * outer + oval * below_hl, 0, 1)
         hair = np.clip(outer - head, 0, 1) * (YY < EY + sb * I + 2)

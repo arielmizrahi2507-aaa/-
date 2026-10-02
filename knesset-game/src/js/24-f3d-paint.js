@@ -394,8 +394,9 @@ function paintTorso(c, look, pal) {
 // ---------------------------------------------------------------------------------------------------------------
 // HAIR / BEARD strands, KIPPAH knit, WHITE
 // ---------------------------------------------------------------------------------------------------------------
-function paintStrands(c, color, seed, dense) {
+function paintStrands(c, color, seed, dense, mix) {
   const base = HEX.test(color) ? color : '#333333', rng = seededRng(seed), v = rgb(base), lum = (v[0] * 0.3 + v[1] * 0.59 + v[2] * 0.11) / 255;
+  const grey = mix && HEX.test(mix) ? mix : null;                                        // look.hair.mix: the grey (or white) strands among the coloured ones
   const pale = lum > 0.6;
   c.fillStyle = darken(base, pale ? 0.16 : 0.1); c.fillRect(0, 0, TEXN, TEXN);
   // clumps: wide soft bands running along the strands, alternately lighter and darker (the texture tiles, so bands are drawn wrapped)
@@ -409,10 +410,12 @@ function paintStrands(c, color, seed, dense) {
   }
   // single strands: long, slightly wavy, some very bright (shine), some dark (gaps)
   const cols = [lighten(base, 0.26), lighten(base, 0.14), darken(base, 0.2), darken(base, 0.36)];
+  const gcols = grey ? [grey, lighten(grey, 0.12), darken(grey, 0.12)] : null;
   c.lineCap = 'round';
   for (let i = 0; i < (dense || 700) * 1.6; i++) {
     const x = rng() * TEXN, y0 = rng() * TEXN, len = 40 + rng() * 150, w = 0.5 + rng() * 0.9, dx1 = (rng() - 0.5) * 8, dx2 = (rng() - 0.5) * 5;
-    c.strokeStyle = cols[(rng() * cols.length) | 0]; c.globalAlpha = 0.1 + rng() * 0.24; c.lineWidth = w;
+    const gs = gcols && rng() < 0.34;                                                     // about a third of the strands are grey
+    c.strokeStyle = gs ? gcols[(rng() * gcols.length) | 0] : cols[(rng() * cols.length) | 0]; c.globalAlpha = gs ? 0.3 + rng() * 0.3 : 0.1 + rng() * 0.24; c.lineWidth = gs ? w * 1.1 : w;
     for (const oy of [0, -TEXN, TEXN]) {
       if (y0 + len + oy < 0 || y0 + oy > TEXN) continue;
       c.beginPath(); c.moveTo(x, y0 + oy); c.quadraticCurveTo(x + dx1, y0 + oy + len * 0.5, x + dx2, y0 + oy + len); c.stroke();

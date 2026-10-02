@@ -2,11 +2,13 @@
 
 let YAW_T = 0.55;                    // torso turned this much towards the camera (3/4 view)
 let YAW_H = 0.95;                     // head turned further, so both eyes show
-const ARM_L = 31, LEG_L = 38;
+const ARM_L = 32.5, LEG_L = 41;
+const HEAD3 = 1.0;                   // head size of the 3D figures (1 = the size of the drawn head in the rig)
+const LIFT = 6;                      // the 3D hips sit this much higher than the rig's: longer legs and a smaller head make a more natural figure
 
 // Torso cross-sections: [height above the hip pivot, lateral half-width, forward half-depth, forward offset]
 const TORSO_RINGS = [
-  [-7.5, 17.8, 11.8, -0.4], [-3, 19.4, 12.6, 0], [4, 20.0, 13.0, 0], [12, 18.8, 12.2, 0.2], [20, 19.8, 12.8, 0.6], [28, 21.4, 14.0, 1.0], [35, 23.0, 14.8, 1.4],
+  [-9, 20.2, 13.2, -0.4], [-3, 20.4, 13.4, 0], [4, 20.4, 13.4, 0], [12, 18.8, 12.2, 0.2], [20, 19.8, 12.8, 0.6], [28, 21.4, 14.0, 1.0], [35, 23.0, 14.8, 1.4],
   [41, 24.2, 14.2, 1.0], [45.5, 21.2, 12.6, 0.4], [49, 15.4, 10.6, 0], [51.8, 9.8, 8.6, -0.2], [54.2, 7.6, 7.4, -0.3],
 ];
 
@@ -15,7 +17,11 @@ const TORSO_RINGS = [
 // ---------------------------------------------------------------------------------------------------------------
 function look3D(look) {
   let L = G3.cache.get(look);
-  if (L) { G3.cache.delete(look); G3.cache.set(look, L); return L; }      // keep the most recently used at the end
+  if (L) {
+    G3.cache.delete(look); G3.cache.set(look, L);                          // keep the most recently used at the end
+    if (!L.real && !look.robot && layOf(look)) buildHeadGpu(L);            // the realistic face finished loading after this head was first built as a plain one
+    return L;
+  }
   const gl = G3.gl, g = geo(look), pal = g.pal;
   L = { look, pal, tex: F3D.newTexArray(), faceKey: '', face: texCanvas(), gpu: null };
   L.faceCtx = L.face.getContext('2d');
@@ -27,15 +33,12 @@ function look3D(look) {
     const t2 = texCanvas(), c2 = t2.getContext('2d'); c2.translate(TEXN, 0); c2.scale(-1, 1); c2.drawImage(tc, 0, 0);
     F3D.uploadLayer(L.tex, LAYER.TORSO2, t2, false);
   }
-  paintStrands(c, look.hair ? look.hair.color : '#333333', 11, 700); F3D.uploadLayer(L.tex, LAYER.HAIR, tc, false);
-  paintStrands(c, look.beard ? look.beard.color : (look.stache || '#333333'), 29, 900); F3D.uploadLayer(L.tex, LAYER.BEARD, tc, false);
+  paintStrands(c, look.hair ? look.hair.color : '#333333', 11, 700, look.hair && look.hair.mix); F3D.uploadLayer(L.tex, LAYER.HAIR, tc, false);
+  paintStrands(c, look.beard ? look.beard.color : (look.stache || '#333333'), 29, 900, look.beard && look.beard.mix); F3D.uploadLayer(L.tex, LAYER.BEARD, tc, false);
   paintKnit(c, look.kippah); F3D.uploadLayer(L.tex, LAYER.KNIT, tc, false);
   F3D.uploadLayer(L.tex, LAYER.CLOTH, clothCanvas(), false);
   setFace3D(L, 'open', 'closed');
-  if (!look.robot) {
-    const m = buildHeadMeshes(look, pal);
-    L.gpu = { skin: uploadStatic(gl, m.skin), hair: uploadStatic(gl, m.hair), acc: uploadStatic(gl, m.acc) };
-  }
+  if (!look.robot) buildHeadGpu(L);
   if (G3.cache.size >= 16) {                         // evict the least recently used person (textures + head meshes live on the GPU)
     const [k, v] = G3.cache.entries().next().value;
     gl.deleteTexture(v.tex);
@@ -45,16 +48,25 @@ function look3D(look) {
   G3.cache.set(look, L);
   return L;
 }
+function buildHeadGpu(L) {
+  const gl = G3.gl;
+  if (L.gpu) for (const m of [L.gpu.skin, L.gpu.hair, L.gpu.acc]) { gl.deleteVertexArray(m.vao); gl.deleteBuffer(m.vbo); gl.deleteBuffer(m.ibo); }
+  const m = buildHeadMeshes(L.look, L.pal);
+  L.gpu = { skin: uploadStatic(gl, m.skin), hair: uploadStatic(gl, m.hair), acc: uploadStatic(gl, m.acc) };
+  L.real = !!layOf(L.look); L.faceKey = ''; L.skin3 = L.real ? Baked.skin3d(L.look.id) : null;
+}
 let CLOTH_CV = null;
 function clothCanvas() {
   if (!CLOTH_CV) { CLOTH_CV = texCanvas(); paintCloth(CLOTH_CV.getContext('2d')); }
   return CLOTH_CV;
 }
 function setFace3D(L, eyes, mouth) {
-  const key = eyes + '|' + mouth;
+  const baked = L.look.robot ? null : Baked.face3d(L.look.id, eyes, mouth);       // the realistic face of this person, if it is loaded
+  const key = baked || eyes + '|' + mouth;          // the image itself is the key for a realistic face
   if (L.faceKey === key) return;
   L.faceKey = key;
   if (L.look.robot) paintRobotFace(L.faceCtx, L.look, eyes, mouth);
+  else if (baked) { L.faceCtx.clearRect(0, 0, TEXN, TEXN); L.faceCtx.drawImage(baked, 0, 0, TEXN, TEXN); }
   else {
     if (!L.faceBase) { L.faceBase = texCanvas(); paintFaceBase(L.faceBase.getContext('2d', { willReadFrequently: true }), L.look, L.pal); }
     L.faceCtx.clearRect(0, 0, TEXN, TEXN); L.faceCtx.drawImage(L.faceBase, 0, 0);
@@ -62,6 +74,7 @@ function setFace3D(L, eyes, mouth) {
   }
   F3D.uploadLayer(L.tex, LAYER.FACE, L.face, true);
 }
+F3D.invalidateFaces = function () { for (const L of G3.cache.values()) L.faceKey = ''; };      // the realistic faces finished loading: repaint
 
 // ---------------------------------------------------------------------------------------------------------------
 // skeleton: everything in model space (x forward, y up, z to the camera), derived from the same pose numbers as the 2D rig
@@ -71,9 +84,9 @@ function skeleton3D(f, p, look) {
   const hipX = p.hx, hipY = p.hy, TL = 50;
   const cl = Math.cos(p.lean), sl = Math.sin(p.lean);
   const shX = hipX + sl * TL, shY = hipY - cl * TL;
-  const headCX = shX + 2 + p.headX, headCY = shY - 30 + p.headY;
+  const headCX = shX + 2 + p.headX, headCY = shY - (look.robot ? 30 : 25.5) + p.headY;
   const S = { bw, hs, p, faceDir: f.face };
-  S.O = [hipX, -hipY, 0];
+  S.O = [hipX, -hipY + LIFT, 0];
   const eu = [sl, cl, 0], ef = [cl, -sl, 0], ez = [0, 0, 1], cy = Math.cos(YAW_T), sy = Math.sin(YAW_T);
   S.eu = eu;
   S.ff = [ef[0] * cy + ez[0] * sy, ef[1] * cy + ez[1] * sy, ef[2] * cy + ez[2] * sy];        // forward, turned to the camera
@@ -94,7 +107,7 @@ function skeleton3D(f, p, look) {
   // legs
   const leg = (target, near) => {
     const sgn = near ? 1 : -1;
-    const hp = [hipX - sgn * Math.sin(YAW_T) * 7, -(hipY + 3), sgn * Math.cos(YAW_T) * 7];
+    const hp = [hipX - sgn * Math.sin(YAW_T) * 7, -(hipY + 3) + LIFT, sgn * Math.cos(YAW_T) * 7];
     const r = ik(hp[0], -hp[1], target[0], target[1], LEG_L, LEG_L, -1);
     const zs = hp[2], an = [r.ex, -r.ey, zs + sgn * 2.5], kn = [r.jx, -r.jy, zs + sgn * 1.6];
     const sa = Math.atan2(r.ey - r.jy, r.ex - r.jx) - Math.PI / 2;
@@ -102,7 +115,7 @@ function skeleton3D(f, p, look) {
   };
   S.legN = leg(p.footF, true); S.legF = leg(p.footB, false);
   // head
-  const hc = [headCX, -headCY - 2, 0], k = HEAD_K * hs * 1.3;         // a caricature's head is big: the face stays readable on a phone
+  const hc = [headCX, -headCY - 2 + LIFT, 0], k = HEAD_K * hs * (look.robot ? 1.3 : HEAD3);         // a caricature's head is big: the face stays readable on a phone
   const roll = -p.headRot;
   S.headM = M4.mul(M4.translate(hc[0], hc[1], hc[2]), M4.mul(M4.rotZ(roll), M4.mul(M4.rotY(-YAW_H), M4.scale(k, k, k))));
   S.hc = hc; S.hk = k;
@@ -203,19 +216,19 @@ function emitRobotCore(mesh, S, L) {
 function emitBody(mesh, S, L, opt) {
   const look = L.look, pal = L.pal, p = S.p, bw = S.bw, lk = limbK(look);        // lk: thick or thin arms and legs
   const suit = c3(look.suit), suitFar = c3(look.suit, 0.78), pants = c3(look.pants || look.suit), pantsFar = c3(look.pants || look.suit, 0.74);
-  const shirt = c3(look.shirt || '#ffffff'), shirtFar = c3(look.shirt || '#ffffff', 0.8), skin = c3(pal.skin), skinFar = c3(pal.skin, 0.8), shoe = c3(look.shoes || '#1d1b27');
+  const shirt = c3(look.shirt || '#ffffff'), shirtFar = c3(look.shirt || '#ffffff', 0.8), skin = c3(L.skin3 || pal.skin), skinFar = c3(L.skin3 || pal.skin, 0.8), shoe = c3(look.shoes || '#1d1b27');
   const nm = (m) => M4.normalMat(m);
 
   // ----- back layer first is irrelevant (depth buffer), so just emit everything
   // legs
   for (const lg of [S.legF, S.legN]) {
     const far = !lg.near, pc = far ? pantsFar : pants;
-    emitTube(mesh, lg.hp, lg.kn, 9.6 * lk, 7.9 * lk, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    emitTube(mesh, lg.kn, lg.an, 7.8 * lk, 6.0 * lk, pc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    sphere(mesh, lg.hp, 9.9 * lk, pc, MAT_CLOTH, { nu: 10, nv: 7 });
-    sphere(mesh, lg.kn, 7.9 * lk, pc, MAT_CLOTH, { nu: 10, nv: 7 });
+    emitTube(mesh, lg.hp, lg.kn, 10.9 * lk, 8.6 * lk, pc, MAT_CLOTH, { sides: 12, rings: 5, tile: TILE, bulge: 0.05 });
+    emitTube(mesh, lg.kn, lg.an, 8.5 * lk, 6.3 * lk, pc, MAT_CLOTH, { sides: 12, rings: 5, tile: TILE, bulge: 0.10 });
+    sphere(mesh, lg.hp, 9.8 * lk, pc, MAT_CLOTH, { nu: 12, nv: 8 });
+    sphere(mesh, lg.kn, 8.6 * lk, pc, MAT_CLOTH, { nu: 12, nv: 8 });
     const dl = V3.norm(V3.sub(lg.an, lg.kn));
-    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, -1.5), 6.95 * Math.max(0.9, lk), 6.75 * Math.max(0.9, lk), far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.04 });   // turn-up
+    emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, 1.6), 7.4 * Math.max(0.9, lk), 7.5 * Math.max(0.9, lk), far ? c3(look.pants || look.suit, 0.58) : c3(look.pants || look.suit, 0.8), MAT_CLOTH, { sides: 12, rings: 3, bulge: 0.0 });   // turn-up
     const M = M4.mul(M4.translate(lg.an[0] + 1, lg.an[1] - 0.6, lg.an[2] + (far ? -0.5 : 0.5)), M4.rotZ(lg.ang));
     stamp(mesh, shoeMesh(), M, nm(M), far ? c3(look.shoes || '#1d1b27', 0.75) : shoe, MAT_SHOE);
   }
@@ -228,7 +241,7 @@ function emitBody(mesh, S, L, opt) {
     for (let j = 0; j < rows; j++) {
       const [u, A0, B0, off0] = TORSO_RINGS[j];
       const bel = belly * bump(u, 10, 11), sho = shoulders * bump(u, 38, 9);
-      const A = A0 * (1 + sho * 0.16 + bel * 0.12), B = B0 * (1 + bel * 0.4), off = off0 + bel * 3.4;
+      const A = A0 * 1.05 * (1 + sho * 0.16 + bel * 0.12), B = B0 * 1.06 * (1 + bel * 0.4), off = off0 + bel * 3.4;
       const c = S.at(u, 0, off), fw = V3.mul(S.ff, B), ax = V3.mul(S.ll, A * bw);
       for (let i = 0; i < nA; i++) {
         const th = -Math.PI / 2 + Math.PI * (i / (nA - 1)) * 2;    // -90 .. +270 degrees
@@ -248,7 +261,7 @@ function emitBody(mesh, S, L, opt) {
       return { uv: [3.5 * (27 - A * bw * Math.sin(th)) / 54, 3.5 * (56 - u) / 64], col: suit, mat: MAT_CLOTH };
     }, [0, frontMax, nA - 1]);
     // caps: hem (dark inside) and neck hole
-    const topC = S.at(54.2, 0, -0.3), hemC = S.at(-7.5, 0, -0.4);
+    const topC = S.at(54.2, 0, -0.3), hemC = S.at(-9, 0, -0.4);
     const ringTop = P.slice((rows - 1) * nA, rows * nA - 1), ringHem = P.slice(0, nA - 1);
     emitCap(mesh, ringTop, topC, S.eu, shirt, MAT_CLOTH);
     emitCap(mesh, ringHem, hemC, V3.mul(S.eu, -1), c3(look.suit, 0.5), MAT_CLOTH);
@@ -256,7 +269,7 @@ function emitBody(mesh, S, L, opt) {
   // neck + collar
   {
     const a = S.neckBase, b = S.neckTop;
-    emitTube(mesh, a, b, 7.7 * faceK(look.neck, 'neck'), 7.1 * faceK(look.neck, 'neck'), skin, MAT_SKIN, { sides: 12, rings: 4, bulge: 0 });
+    emitTube(mesh, a, b, 9.0 * faceK(look.neck, 'neck'), 7.2 * faceK(look.neck, 'neck'), L.skin3 ? c3(L.skin3, 0.9) : skin, MAT_SKIN, { sides: 14, rings: 5, bulge: 0 });          // the neck is in the shade of the jaw
     const d = V3.norm(V3.sub(b, a));
     emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.5, 8.0, look.open ? skin : shirt, look.open ? MAT_SKIN : MAT_CLOTH, { sides: 12, rings: 3, bulge: 0 });
   }
@@ -264,12 +277,12 @@ function emitBody(mesh, S, L, opt) {
   // arms
   for (const ar of [S.armF, S.armN]) {
     const far = !ar.near, sc = far ? suitFar : suit;
-    sphere(mesh, ar.sh, 7.7 * lk, sc, MAT_CLOTH, { nu: 12, nv: 8 });
-    emitTube(mesh, ar.sh, ar.el, 7.6 * lk, 6.4 * lk, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    emitTube(mesh, ar.el, ar.wr, 6.4 * lk, 5.3 * lk, sc, MAT_CLOTH, { sides: 10, rings: 4, tile: TILE });
-    sphere(mesh, ar.el, 6.5 * lk, sc, MAT_CLOTH, { nu: 10, nv: 7 });
+    sphere(mesh, ar.sh, 8.7 * lk, sc, MAT_CLOTH, { nu: 14, nv: 9 });
+    emitTube(mesh, ar.sh, ar.el, 8.5 * lk, 7.1 * lk, sc, MAT_CLOTH, { sides: 12, rings: 5, tile: TILE, bulge: 0.08 });
+    emitTube(mesh, ar.el, ar.wr, 7.1 * lk, 5.7 * lk, sc, MAT_CLOTH, { sides: 12, rings: 5, tile: TILE, bulge: 0.06 });
+    sphere(mesh, ar.el, 7.1 * lk, sc, MAT_CLOTH, { nu: 12, nv: 8 });
     const d = ar.dir;
-    emitTube(mesh, V3.madd(ar.wr, d, -7), V3.madd(ar.wr, d, -0.5), 6.35 * Math.max(0.9, lk), 6.05 * Math.max(0.9, lk), far ? shirtFar : shirt, MAT_CLOTH, { sides: 10, rings: 2, bulge: 0.03 });  // cuff
+    emitTube(mesh, V3.madd(ar.wr, d, -6.5), V3.madd(ar.wr, d, -0.4), 6.9 * Math.max(0.9, lk), 6.5 * Math.max(0.9, lk), far ? shirtFar : shirt, MAT_CLOTH, { sides: 12, rings: 2, bulge: 0.0 });  // cuff
     // fist
     const ex = d, ey = V3.norm(V3.cross([0, 0, 1], ex)), ez = V3.cross(ex, ey);
     const M = M4.basis(ex, V3.mul(ey, 1), ez, ar.fist);

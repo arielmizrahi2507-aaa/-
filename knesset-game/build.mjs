@@ -22,7 +22,8 @@ if (existsSync(portDir)) {
     (portraits[m[1]] || (portraits[m[1]] = {}))[m[2]] = 'data:image/webp;base64,' + readFileSync(join(portDir, f)).toString('base64');
   }
 }
-const portData = `const PORTRAIT_DATA = ${JSON.stringify(portraits)};`;
+const layoutFile = join(portDir, 'layout.json');
+const portData = `const PORTRAIT_DATA = ${JSON.stringify(portraits)};\nconst PORTRAIT_LAYOUT = ${existsSync(layoutFile) ? JSON.stringify(JSON.parse(readFileSync(layoutFile, 'utf8'))) : '{}'};`;
 
 // The whole game lives in one IIFE so files can share top-level names without leaking globals.
 const bundle = `(function(){\n'use strict';\n${portData}\n${js}\n})();`;

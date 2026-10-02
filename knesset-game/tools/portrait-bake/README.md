@@ -28,6 +28,26 @@ A small offline renderer written with numpy / scipy / OpenCV, **not** a photo fi
 
 `spec.json` holds the per-person overrides (hair thinness, beard region, eye opening...).
 
+## The faces of the 3D fighters
+
+The same renderer makes the faces of the 3D heads (`25-f3d-head.js`, `26-f3d-body.js`). `facetex.py` renders the head without glasses, kippah, earring and clothes (those are 3D geometry in the game) and flattens it onto the face space of
+the 3D head (a picture projected from the front: lateral +-20 head units, from the height 18.5 down 47 units, 256 x 256, with the eye line at -1 and 12.6 head units per distance between the eyes; the edges fade into the skin tone so
+there is no seam at the back of the head). `bake3d.py` writes, per fighter:
+
+| file | what |
+| --- | --- |
+| `t_rest`, `t_blink`, `t_angry`, `t_shout`, `t_hurt`, `t_ko`, `t_happy` | the face in the poses the fight asks for (eyes + mouth: open+closed, blink+closed, angry+closed, angry+shout, hurt+shout, ko+sad, happy+grin); `state3()` in `21c-portrait-baked.js` maps every pose to one of them |
+| `t_relief` | 128 x 128, 8 bit, 128 = flat: the shape of the face (nose, brows, eye sockets, lips, cheeks, chin) without the broad dome of the head, so the skull is pushed out by it |
+| `layout.json` (one file) | where the brows, nose, lips, chin, jaw, cheeks and the hairline of each face are, in eye distances below the eye line (`layout()` in `facetex.py`); the 3D head takes its width, the length of the lower face and the heights of its bumps from it |
+
+```
+PORTRAIT_DATA=/path/to/data python3 bake3d.py OUTDIR            # all fighters (7 faces + the relief each); python3 layout_only.py OUTDIR  refreshes layout.json only
+cp OUTDIR/* ../../src/assets/portraits/ && node ../../build.mjs
+```
+
+`KOUT` / `KIN` (default 1.6 / 1.3) are the exaggeration of the outline (jaw, chin, cheeks, forehead) and of the inside of the face (eyes, nose, mouth) against the cast average, used by `bake.py` and `bake3d.py` alike so that the
+portraits and the 3D heads show the same face.
+
 ## Inputs that are not in the repository
 
 The reference photos are the author's and stay private. The renderer needs three things derived from them, in a folder `data/` (or wherever `PORTRAIT_DATA` points):
@@ -42,10 +62,10 @@ Without them the code is a reference of how the images were made; the images the
 
 ```
 pip install numpy scipy opencv-python-headless pillow
-PORTRAIT_DATA=/path/to/data KMESH=1.1 python3 bake.py OUTDIR            # all fighters; or: python3 bake.py OUTDIR bibi,gantz
+PORTRAIT_DATA=/path/to/data python3 bake.py OUTDIR            # all fighters; or: python3 bake.py OUTDIR bibi,gantz
 cp OUTDIR/*.webp ../../src/assets/portraits/ && node ../../build.mjs
 ```
 
-`KMESH` is the exaggeration of the measured face against the cast average (1 = as measured, the baked set uses 1.1). `TUNE='{"spec":0.5,"red":0.6}'` overrides the global look settings (see `T(...)` in `rend2.py`:
+`TUNE='{"spec":0.5,"red":0.6}'` overrides the global look settings (see `T(...)` in `rend2.py`:
 `spec` gloss, `red` blood colour, `blue` skin tone, `lkx/lky/lkz` light direction, `nosek` nose relief, `neckw/neckdrop` neck width and where the collar starts ...).
 Add a fighter: a row in `looks.json` (colours, hair style, beard, glasses ...; `30-looks.js` is the source), a silhouette in `hp.json`, optional overrides in `spec.json`.

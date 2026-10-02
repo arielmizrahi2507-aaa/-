@@ -138,6 +138,8 @@ void main() {
   float lw = floor(vMat.w * 255.0 + 0.5);
   float cls = floor(lw / 32.0);
   float layer = lw - cls * 32.0;
+  float real = step(7.5, layer);                                    // layers 8+: the same textures, but the realistic face (already has its own pores)
+  layer -= real * 8.0;
   vec3 dpx = dFdx(vP), dpy = dFdy(vP);
   vec2 dux = dFdx(vUV), duy = dFdy(vUV);
   float px = max(length(dpx), length(dpy));                         // world units per pixel
@@ -148,7 +150,7 @@ void main() {
   float lum = dot(t.rgb, vec3(0.299, 0.587, 0.114));
   float h = 0.0, amp = 0.0;
   vec3 mul = vec3(1.0);
-  float face = 1.0 - step(0.5, layer);                              // 1 on the painted face layer
+  float face = (1.0 - step(0.5, layer)) * (1.0 - 0.8 * real);       // 1 on the painted face layer
   if (skin) {
     float pore = vnoise(vUV * 300.0) * 0.6 + vnoise(vUV * 120.0) * 0.4;
     h = lum + pore * 0.16 * near * face; amp = 0.7;

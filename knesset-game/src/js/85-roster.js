@@ -27,7 +27,7 @@ const PARTIES = {
 
 function fighterDef(d) {
   const p = PARTIES[d.party];
-  d.color = p.color; d.partyName = p.name; d.bloc = p.bloc || ''; d.look = LOOKS[d.id];
+  d.color = p.color; d.partyName = p.name; d.bloc = p.bloc || ''; d.look = LOOKS[d.id]; if (d.look) d.look.id = d.id;
   d.moves = Object.assign(normals(d.normals), { sp1: d.sp1, sp2: d.sp2, sup: d.sup });
   d.stats = Object.assign({ hp: 118, spd: 1, pow: 1, def: 1, jump: 1, meter: 1 }, d.stats);
   d.passive = d.passive || {};
