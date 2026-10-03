@@ -1,6 +1,6 @@
 # face-fit: fit the face numbers of `src/js/30-looks.js` to reference photos
 
-The photos are the author's and are **not** part of the repository; only the numbers measured on them are kept (in `30-looks.js`).
+The photos are **not** part of the repository (the author does not hold the rights to them); only the numbers measured on them are kept (in `30-looks.js`).
 This folder is the way those numbers were made, in case a fighter or a photo changes.
 
 1. `pairs.json` (not committed): a list of `{ "id": "<fighter id>", "photo": "<file name>", "box": [x, y, w, h] }`, where `box` is a rough

@@ -64,7 +64,7 @@ so that the fighters look at each other and not into the camera. `python3 depthm
 
 ## Inputs that are not in the repository
 
-The reference photos are the author's and stay private. The renderer needs three things derived from them, in a folder `data/` (or wherever `PORTRAIT_DATA` points):
+The reference photos are not in the repository and nothing of them is in the game (the author does not hold the rights to them, so no pixel, colour or texture of a photo is copied into any image; the images are renderings from numbers). The renderer needs three things derived from them, in a folder `data/` (or wherever `PORTRAIT_DATA` points):
 
 - `lm.json`: the 478 landmarks of every face, made by `../face-fit/landmarks.py` (`{ "<fighter id>": [[x, y, z] * 478], ... }`, in photo pixels);
 - `front_info.json`: per fighter `{ "asym": <how much the head is turned, -1..1>, "scale": ... }`, from the same landmarks (used by `geom.py` to decide which half of the face is symmetrised into the other);
