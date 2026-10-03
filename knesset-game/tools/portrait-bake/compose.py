@@ -106,6 +106,20 @@ def crop_final(img, A, size=512):
     c = np.where(a[:, :, None] > 1e-3, c / np.maximum(a[:, :, None], 1e-3), 0)
     return np.clip(c, 0, 1), a
 
+def photo_finish(c, a, seed=0, grain=0.008, sharp=0.55, local=0.35):
+    """a little of what a photograph has and a render does not: local contrast (two scales of unsharp mask, computed with the alpha as weight so that the edge of the figure gets no halo),
+    film grain (stronger in the lights) and a mild S curve; c = straight sRGB colour, a = alpha"""
+    a3 = a[:, :, None]; w = np.maximum(a3, 1e-3)
+    bl = lambda s: cv2.GaussianBlur(c * a3, (0, 0), s) / np.maximum(cv2.GaussianBlur(a3.astype(np.float32), (0, 0), s)[:, :, None], 1e-3)
+    b1, b2 = bl(1.3), bl(6.0)
+    v = c + sharp * (c - b1) + local * (b1 - b2)
+    lum = (0.299 * v[..., 0] + 0.587 * v[..., 1] + 0.114 * v[..., 2])[..., None]
+    rng = np.random.RandomState(1000 + seed)
+    v = v + rng.randn(*c.shape[:2])[..., None].astype(np.float32) * grain * (0.4 + lum)
+    v = np.clip(v, 0, 1)
+    v = v * v * (3 - 2 * v) * 0.35 + v * 0.65
+    return np.where(a3 > 1e-3, np.clip(v, 0, 1), c)
+
 def preview(id, K=1.0, name=None, eyes='open', mouth='smile'):
     """the 512 px portrait composited on a dark gradient, plus the straight colour and the alpha"""
     P, A, h = render_portrait(id, K, eyes=eyes, mouth=mouth)

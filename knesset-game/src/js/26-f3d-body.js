@@ -502,7 +502,8 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     gl.frontFace(fg.face < 0 ? gl.CW : gl.CCW);
     gl.uniformMatrix4fv(U.uMVP, false, MVP); gl.uniformMatrix4fv(U.uM, false, M); gl.uniformMatrix3fv(U.uNM, false, NM);
     gl.uniform4f(U.uTint, ...(fg.tint || [0, 0, 0, 0])); gl.uniform1f(U.uFlash, fg.flash || 0); gl.uniform1f(U.uAlpha, fg.alpha === undefined ? 1 : fg.alpha); gl.uniform1f(U.uCover, 0);
-    const oc = fg.occ && !(opt && opt.only) ? fg.occ : null;
+    gl.uniform1f(U.uLite, F3D.lite && !(opt && opt.only) ? 1 : 0);
+    const oc = fg.occ && !(opt && opt.only) && !F3D.lite ? fg.occ : null;
     if (oc) {
       gl.uniform1i(U.uOccN, oc.n); gl.uniform3fv(U.uOccC, oc.C); gl.uniformMatrix3fv(U.uOccS, false, oc.M);
       gl.uniform3f(U.uOccL, NM[0] * KEY[0] + NM[1] * KEY[1] + NM[2] * KEY[2], NM[3] * KEY[0] + NM[4] * KEY[1] + NM[5] * KEY[2], NM[6] * KEY[0] + NM[7] * KEY[1] + NM[8] * KEY[2]);
@@ -535,7 +536,8 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
 F3D.render = function (ctx, f, opt, figs) {
   const gl = G3.gl, cvs = G3.cv;
   const T = ctx.getTransform();
-  const sc = Math.hypot(T.a, T.b) || 1;
+  const rq = F3D.res || 1;                                    // a slow device draws the figures smaller and stretches the picture back
+  const sc = (Math.hypot(T.a, T.b) || 1) * rq;
   // bounding box of everything that is going to be drawn (world units)
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for (const fg of figs) {
@@ -546,7 +548,7 @@ F3D.render = function (ctx, f, opt, figs) {
   x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
   // snap to the device pixel grid so the sprite is drawn 1:1
   let X0 = x0, Y0 = y0, W_ = x1 - x0, H_ = y1 - y0, res = sc;
-  const aligned = !opt.noAlign && Math.abs(T.b) < 1e-6 && Math.abs(T.c) < 1e-6 && T.a > 0 && T.d > 0;
+  const aligned = !opt.noAlign && rq === 1 && Math.abs(T.b) < 1e-6 && Math.abs(T.c) < 1e-6 && T.a > 0 && T.d > 0;
   if (aligned) {
     const dx0 = Math.floor(T.a * x0 + T.e), dy0 = Math.floor(T.d * y0 + T.f), dx1 = Math.ceil(T.a * x1 + T.e), dy1 = Math.ceil(T.d * y1 + T.f);
     X0 = (dx0 - T.e) / T.a; Y0 = (dy0 - T.f) / T.d; W_ = (dx1 - dx0) / T.a; H_ = (dy1 - dy0) / T.d;
@@ -618,7 +620,7 @@ F3D.prepare = function (ctx, f, opt = {}) {
     const spr = F3D.render(ctx, f, opt, figs);
     f._sprStamp = F3D.stamp; f._sprKey = key; f._skel = figs[figs.length - 1].S;
     return spr;
-  } catch (e) { F3D.failed = true; F3D.err = String(e && e.stack || e); return null; }
+  } catch (e) { F3D.fail(e); return null; }
 };
 
 function overlays3D(ctx, f, p, S) {
@@ -678,7 +680,7 @@ F3D.draw = function (ctx, f, opt = {}) {
     F3D.stats.ms += performance.now() - t0;
     return true;
   } catch (e) {
-    F3D.failed = true; F3D.err = String(e && e.stack || e);
+    F3D.fail(e);
     return false;
   }
 };
@@ -713,7 +715,7 @@ F3D.bust = function (def, eyes, mouth, px) {
     if (BUST_CACHE.size > 48) BUST_CACHE.delete(BUST_CACHE.keys().next().value);
     BUST_CACHE.set(key, c);
     return c;
-  } catch (e) { F3D.failed = true; F3D.err = String(e && e.stack || e); return null; }
+  } catch (e) { F3D.fail(e); return null; }
 };
 
 // One part of the body on its own, straight and hanging down, seen from the front with the 3D shader: the sprite parts of the drawn (2D) fights are baked from these

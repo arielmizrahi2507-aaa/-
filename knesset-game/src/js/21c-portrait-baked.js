@@ -98,6 +98,16 @@ const Baked = (() => {
     const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(m.depth, 0, 0, n, n);
     const px = x.getImageData(0, 0, n, n).data, f = new Float32Array(n * n), hair = new Float32Array(n * n);
     for (let i = 0; i < n * n; i++) { f[i] = px[i * 4] / 255 * DEPTH_RANGE; hair[i] = px[i * 4 + 1] / 255; }      // red: the depth, green: the alpha of the hair alone
+    // a turned head keeps the face of the portrait: the depth is blurred a little (a sharp nose would be sheared into a beak) and scaled
+    const bl = Baked.depthBlur | 0, gk = Baked.depthGain;
+    if (bl > 0) {
+      const t = new Float32Array(n * n);
+      for (let pass = 0; pass < bl; pass++) {
+        for (let y = 0; y < n; y++) for (let xx = 0; xx < n; xx++) { let s = 0, c = 0; for (let d = -1; d <= 1; d++) { const q = xx + d; if (q >= 0 && q < n) { s += f[y * n + q]; c++; } } t[y * n + xx] = s / c; }
+        for (let y = 0; y < n; y++) for (let xx = 0; xx < n; xx++) { let s = 0, c = 0; for (let d = -1; d <= 1; d++) { const q = y + d; if (q >= 0 && q < n) { s += t[q * n + xx]; c++; } } f[y * n + xx] = s / c; }
+      }
+    }
+    if (gk !== 1) for (let i = 0; i < n * n; i++) f[i] *= gk;
     return (depthOf[id] = { f, n, hair });
   }
   function turnHead(h, dp, yaw) {
@@ -159,6 +169,7 @@ const Baked = (() => {
 
   return {
     turn: 0.7,                                // how far the heads of the fighters are turned from the camera towards the opponent (radians)
+    depthGain: 0.55, depthBlur: 2,               // the depth picture of a head as the turn uses it: scaled, and blurred that many times
     has(id) { return !!(imgs[id] && imgs[id].base); },
     count() { return Object.keys(imgs).length; },
     loadBase() { return load(['base', 't_rest', 't_relief', 'depth']); },

@@ -148,7 +148,7 @@ precision highp sampler2DArray;
 uniform sampler2DArray uTex;
 uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim, uNorm;
 uniform vec4 uTint;
-uniform float uFlash, uAlpha, uCover;
+uniform float uFlash, uAlpha, uCover, uLite;
 in vec3 vN; in vec3 vP; in vec2 vUV; in vec4 vCol; in vec4 vMat; in vec2 vOcc;
 out vec4 outColor;
 
@@ -195,7 +195,7 @@ void main() {
   }
   float dhx = dFdx(h), dhy = dFdy(h);
   vec3 Ng = normalize(vN), N = Ng;
-  if (amp > 0.0) {
+  if (amp > 0.0 && uLite < 0.5) {                                   // (uLite: a slow device draws the relief of the cloth and the skin flat)
     vec3 r1 = cross(dpy, N), r2 = cross(N, dpx);
     float det = dot(dpx, r1);
     vec3 pert = amp * (sign(det) * (dhx * r1 + dhy * r2)) / max(abs(det), 1e-7);
@@ -280,6 +280,7 @@ const G3 = { gl: null, cv: null, prog: null, U: {}, dyn: new Mesh(6000, 24000), 
 
 F3D.init = function () {
   if (G3.gl || F3D.failed) return F3D.ok;
+  if (F3D.retryAt && performance.now() < F3D.retryAt) return false;           // the context was taken away a moment ago: not yet
   try {
     if (/[?&](flat|safe)\b/.test(location.search)) throw new Error('flat requested');
     try { localStorage.setItem('ks_3d', '1'); } catch (e) { /* storage blocked */ }     // cleared again once a few frames were drawn fine (see Game.loop)
@@ -287,14 +288,18 @@ F3D.init = function () {
     cv.width = cv.height = G3.size;
     const gl = cv.getContext('webgl2', { alpha: true, antialias: true, premultipliedAlpha: true, preserveDrawingBuffer: true, depth: true, stencil: false, powerPreference: 'high-performance' });
     if (!gl) throw new Error('no webgl2');
-    cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); F3D.ok = false; F3D.failed = true; G3.gl = null; G3.cache.clear(); G3.ptex.clear(); });
+    cv.addEventListener('webglcontextlost', (e) => {                 // it happens on phones when the browser is in the background: the 3D fighters come back with a new context, a few times
+      e.preventDefault(); F3D.ok = false; G3.gl = null; G3.vao = null; G3.cache.clear(); G3.ptex.clear();
+      F3D.lost = (F3D.lost || 0) + 1;
+      if (F3D.lost > 4) F3D.failed = true; else F3D.retryAt = performance.now() + 300;
+    });
     const sh = (type, src) => { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)); return s; };
     const prog = gl.createProgram();
     gl.attachShader(prog, sh(gl.VERTEX_SHADER, F3D_VS)); gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, F3D_FS));
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
-    G3.gl = gl; G3.cv = cv; G3.prog = prog;
-    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uNorm', 'uTint', 'uFlash', 'uAlpha', 'uCover', 'uOccN', 'uOccC', 'uOccS', 'uOccL']) G3.U[n] = gl.getUniformLocation(prog, n);
+    G3.gl = gl; G3.cv = cv; G3.prog = prog; G3.vao = null;
+    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uNorm', 'uTint', 'uFlash', 'uAlpha', 'uCover', 'uLite', 'uOccN', 'uOccC', 'uOccS', 'uOccL']) G3.U[n] = gl.getUniformLocation(prog, n);
     G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
     G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
     try {                                                                 // the portrait heads are optional: without this program the modelled 3D heads stay
@@ -310,13 +315,29 @@ F3D.init = function () {
       gl.bindVertexArray(null);
       G3.qprog = qp;
     } catch (e) { G3.qprog = null; }
-    F3D.ok = true;
+    F3D.ok = true; F3D.good = 0; F3D.retryAt = 0;
   } catch (e) {
-    F3D.failed = true; F3D.ok = false; G3.gl = null;
+    F3D.ok = false; G3.gl = null;
     F3D.err = String(e && e.message || e);
+    // a start that fails after a loss of the context (the browser may not give a new one at once) is tried again a few times; a first start that fails is final
+    if (F3D.lost && (F3D.tries = (F3D.tries || 0) + 1) <= 5) F3D.retryAt = performance.now() + 1200 * F3D.tries; else F3D.failed = true;
   }
   return F3D.ok;
 };
+
+// An error while drawing a figure: that figure is drawn in 2D this frame; only when it keeps happening (6 times within a few seconds, not a one-off) the drawn fighters take over for good.
+F3D.fail = function (e) {
+  F3D.err = String(e && e.stack || e);
+  const now = performance.now();
+  F3D.errs = now - (F3D.errAt || 0) > 4000 ? 1 : (F3D.errs || 0) + 1;
+  F3D.errAt = now;
+  if (F3D.errs >= 6) F3D.failed = true;
+};
+
+// How much the 3D figures cost, in three steps that keep them 3D: 0 full; 1 the relief of the cloth and the skin is drawn flat, no occlusion, the picture is a fifth smaller; 2 and a third smaller.
+// The power-saving mode of the game goes up these steps when the frames run slow; it never turns the 3D fighters off.
+F3D.setQuality = function (q) { F3D.quality = q; F3D.lite = q >= 1; F3D.res = q >= 2 ? 0.66 : q >= 1 ? 0.8 : 1; };
+F3D.quality = 0; F3D.lite = false; F3D.res = 1;
 
 F3D.active = function () { return !F3D.off && !F3D.failed && (F3D.ok || F3D.init()); };
 F3D.beginFrame = function () { F3D.stamp++; };

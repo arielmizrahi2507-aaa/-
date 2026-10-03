@@ -22,6 +22,7 @@ def one(args):
         P, A, h = C.render_portrait(id, 1.0, eyes=eyes, mouth=mouth, verbose=False)
         img, a = C.to_srgb_rgba(P, A)
         c, a2 = C.crop_final(img, a, 512)
+        c = C.photo_finish(c.astype(np.float32), a2.astype(np.float32), seed=sum(map(ord, id)))
         if size != 512:
             cp = cv2.resize(c * a2[:, :, None], (size, size), interpolation=cv2.INTER_AREA); a2 = cv2.resize(a2, (size, size), interpolation=cv2.INTER_AREA)
             c = np.where(a2[:, :, None] > 1e-3, cp / np.maximum(a2[:, :, None], 1e-3), 0)

@@ -463,7 +463,7 @@ const UI = {
     $('#set-back').textContent = inFight ? 'חזרה להפסקה' : 'חזרה';
     const s = Save.d.settings;
     $('#set-sfx').value = Math.round(s.sfx * 100); $('#set-music').value = Math.round(s.music * 100);
-    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false && Game.f3Why !== 'perf'; this.fxNow(); $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
+    $('#set-shake').checked = s.shake; $('#set-calm').checked = s.calm; $('#set-3d').checked = s.gfx3d !== false && !Game.f3Why; this.fxNow(); $('#set-touch').value = s.touch; $('#set-rotate').value = s.rotateSet ? (s.rotate || 'auto') : 'auto';
     $('#set-rounds').value = String(s.rounds); $('#set-timer').value = String(s.timer);
     $('#set-song').value = s.lobbySong === 'new' ? 'new' : 'classic';
   },
@@ -472,10 +472,11 @@ const UI = {
     const el = $('#set-3d-now');
     if (!el) return;
     const off = Save.d.settings.gfx3d === false;
-    const on = !off && Game.f3Why !== 'perf' && F3D.active();
-    el.textContent = on ? 'מוצג עכשיו: תלת־ממד'
+    const on = !off && !Game.f3Why && F3D.active();
+    el.textContent = on ? (F3D.quality ? 'מוצג עכשיו: תלת־ממד (איכות מופחתת כדי לשמור על חלקות)' : 'מוצג עכשיו: תלת־ממד')
       : off ? 'מוצג עכשיו: דו־ממד (כבוי בהגדרות)'
-      : Game.f3Why === 'perf' ? 'מוצג עכשיו: דו־ממד (המשחק רץ לאט, אז כיבינו)'
+      : Game.f3Why === 'safe' ? 'מוצג עכשיו: דו־ממד (מצב בטוח, רק בהפעלה הזאת; בהפעלה הבאה התלת־ממד יחזור)'
+      : Game.f3Why === 'crash' ? 'מוצג עכשיו: דו־ממד (ההפעלה הקודמת נתקעה; בהפעלה הבאה התלת־ממד יחזור)'
       : 'מוצג עכשיו: דו־ממד (המכשיר או הדפדפן לא תומכים בתלת־ממד)';
   },
   bindSettings() {

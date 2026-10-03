@@ -40,7 +40,7 @@ const Game = {
       // in the background. A fight that was on comes back as the pause card. A flicker of the page (fullscreen / rotation changes) is not a trip away.
       window.addEventListener('pagehide', () => { this.clear3dFlag(); this.leave(1); });
       window.addEventListener('pageshow', () => this.back(1));
-      document.addEventListener('visibilitychange', () => { if (document.hidden) this.leave(1); else this.back(1); });
+      document.addEventListener('visibilitychange', () => { if (document.hidden) { this.clear3dFlag(); this.leave(1); } else this.back(1); });
       document.addEventListener('freeze', () => this.leave(1));
       document.addEventListener('resume', () => this.back(1));
       let blurT = 0;
@@ -54,7 +54,7 @@ const Game = {
     this.last = performance.now();
     requestAnimationFrame((t) => this.loop(t));
     UI.show('title');
-    if (this.bootNote) setTimeout(() => UI.toast('שינינו הגדרה', this.bootNote, 'unlock'), 900);
+    if (this.bootNote) setTimeout(() => UI.toast('הפעלה זהירה', this.bootNote, 'unlock'), 900);
     try { if (window.__ks) window.__ks.ready(); } catch (e) { /* the boot guard is optional */ }
   },
 
@@ -116,19 +116,20 @@ const Game = {
   // Safe mode (?safe) and crash recovery: if the last run died while it was starting the 3D renderer, start without it this time.
   bootChecks(s) {
     let note = '';
-    if (/[?&]safe\b/.test(location.search)) { s.gfx3d = false; Battle.lowFx = true; note = 'מצב בטוח: בלי דמויות תלת־ממדיות ועם פחות אפקטים. אפשר להדליק בהגדרות.'; }
+    if (s.gfx3dFix !== 2) { s.gfx3d = true; s.gfx3dFix = 2; Save.save(); }          // once: earlier versions could leave the 3D switch off by themselves (the safe mode of the boot guard, a crash flag, the power-saving mode)
+    if (/[?&]safe\b/.test(location.search)) { this.f3Why = 'safe'; Battle.lowFx = true; note = 'מצב בטוח: בלי דמויות תלת־ממדיות ועם פחות אפקטים, רק בהפעלה הזאת. אפשר להדליק בהגדרות, ובהפעלה הבאה הכול חוזר.'; }      // (the setting itself is never changed by a safe or a recovery start)
     try {
-      if (localStorage.getItem('ks_3d') === '1') { s.gfx3d = false; note = note || 'הפעם הקודמת נתקעה בזמן שהדמויות התלת־ממדיות עלו, אז כיבינו אותן. אפשר להדליק בהגדרות.'; }
+      if (localStorage.getItem('ks_3d') === '1') { this.f3Why = 'crash'; note = note || 'הפעם הקודמת נתקעה בזמן שהדמויות התלת־ממדיות עלו, אז הפעם הן כבויות. בהפעלה הבאה הן יחזרו (או: הגדרות ← תלת־ממד).'; }      // this run only: the setting itself stays as the player left it
       localStorage.setItem('ks_3d', '0');
     } catch (e) { /* storage blocked */ }
-    if (note) { Save.save(); this.bootNote = note; }
+    if (note) this.bootNote = note;
   },
   clear3dFlag() { try { localStorage.setItem('ks_3d', '0'); } catch (e) { /* ignore */ } },
 
   applySettings() {
     const s = Save.d.settings;
     Fx.calm = s.calm; Fx.noShake = !s.shake;
-    F3D.off = s.gfx3d === false || this.f3Why === 'perf';          // the power-saving mode keeps them off for the session, whatever else is changed in the settings
+    F3D.off = s.gfx3d === false || !!this.f3Why;                   // a safe start, or a start after a crash while they started: off for this run only, whatever else is changed in the settings
     Snd.setMuted(s.muted);
     Snd.setVol('sfx', s.sfx); Snd.setVol('music', s.music);
     UI.applyMuteIcon();
@@ -186,28 +187,36 @@ const Game = {
     B.render(c);
     if (sc.kind !== 'preview') Stages.vignette(c);
     if (sc.kind === 'fight') { TouchUI.updateHints(B); FightUI.tick(B); }
-    if (!this.f3ok && (F3D.good >= 60 || F3D.failed)) { this.f3ok = true; this.clear3dFlag(); }
+    if (!this.f3ok && (F3D.good >= 3 || F3D.failed)) { this.f3ok = true; this.clear3dFlag(); }          // three good frames: the start did not hang
   },
 
   // Screen geometry. With "landscape mode" on, a phone that the host keeps in portrait gets the whole UI turned by 90 degrees,
   // so it can be held sideways: everything below works in the rotated ("logical") size, and CSS uses --u-vw / --u-vh instead of vw / vh.
-  // Slow phones: if the first seconds of a fight run well below 60 fps, drop to a cheaper mode for the session: first a lower resolution and no reflections,
-  // and only if that is still not enough the 3D figures go (the drawn ones have the same faces and the same bodies).
+  // Slow devices: if the first seconds of a fight (or of the menu backdrop) run well below 60 fps, the quality goes down a step at a time: first a lower resolution of the canvas and no reflections,
+  // then the 3D figures are drawn flat-shaded (no relief of the cloth, no occlusion) and a fifth smaller, then a third smaller. THE 3D FIGURES THEMSELVES ARE NEVER TURNED OFF BY THE GAME:
+  // if it is still slow the player is only told that the drawn ones can be switched on in the settings. A screen that gives a steady 30 frames a second (a power saver) is not slow:
+  // the fixed-step loop catches up, so nothing is done there.
   perf(dt, kind) {
-    const Q = this.qs || (this.qs = {});
-    const q = Q[kind] || (Q[kind] = { n: 0, sum: 0, done: false });
+    const q = this.pq || (this.pq = { n: 0, sum: 0, sq: 0, step: 0, done: false });
     if (q.done) return;
     if (kind === 'attract' && !(F3D.ok && !F3D.off)) return;      // the menu backdrop only matters while it is drawn in 3D
     if (++q.n <= 40) return;                  // skip the warm-up (stage bitmaps are painted on the first frames)
-    q.sum += Math.min(dt, 80);
-    if (q.n >= 190) {
+    const d = Math.min(dt, 80);
+    q.sum += d; q.sq += d * d;
+    if (q.n < 190) return;
+    const n = q.n - 40, m = q.sum / n, sd = Math.sqrt(Math.max(0, q.sq / n - m * m));
+    const steady30 = Math.abs(m - 33.3) < 2.5 && sd < 3.5;
+    q.n = 0; q.sum = 0; q.sq = 0;
+    if (m <= 27 || steady30) { q.done = true; return; }
+    q.step++;
+    if (q.step === 1) { Battle.lowFx = true; this.layout(); if (kind === 'fight') UI.toast('מצב חסכוני', 'הורדנו את הרזולוציה ואת ההשתקפויות כדי לשמור על חלקות', 'unlock'); }
+    else if (q.step === 2) F3D.setQuality(1);
+    else if (q.step === 3) F3D.setQuality(2);
+    else {
       q.done = true;
-      if (q.sum / (q.n - 40) > 27) {
-        const again = () => { q.done = false; q.n = 0; q.sum = 0; };
-        if (!Battle.lowFx) { Battle.lowFx = true; this.layout(); again(); if (kind === 'fight') UI.toast('מצב חסכוני', 'הורדנו את הרזולוציה ואת ההשתקפויות כדי לשמור על חלקות', 'unlock'); }
-        else if (F3D.ok && !F3D.off) { F3D.off = true; this.f3Why = 'perf'; again(); UI.toast('מצב חסכוני', 'הדמויות התלת־ממדיות כובו והן מצוירות בדו־ממד. אפשר להדליק בהגדרות', 'unlock'); }
-      }
+      if (kind === 'fight') UI.toast('המשחק רץ לאט', 'הדמויות נשארות תלת־ממדיות. אם זה עדיין לא חלק: הגדרות ← תלת־ממד ← כבוי', 'unlock');
     }
+    if (UI.fxNow) UI.fxNow();
   },
 
   layout() {

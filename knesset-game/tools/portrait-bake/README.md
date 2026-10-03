@@ -14,6 +14,8 @@ Six faces per fighter, because those are the ones the game asks for:
 
 The drawn (2D) fighters (no WebGL2, `?flat`, the power-saving mode) wear these same pictures as their heads (`Baked.head2d` cuts one along the jaw and rounds it under the chin; `drawBakedHead` in `21-fighter-render.js`), on bodies put together from pictures of the 3D model (`../body-bake/`).
 
+`bake.py` ends every portrait with `compose.photo_finish`: local contrast at two scales (computed with the alpha as weight, so the edge of the figure gets no halo), a little grain and a mild S curve. It is the same for everybody and costs about a fifth more bytes.
+
 ## What the renderer is
 
 A small offline renderer written with numpy / scipy / OpenCV, **not** a photo filter: no pixel of any photo ends up in an image.
