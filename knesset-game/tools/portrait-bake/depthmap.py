@@ -1,7 +1,7 @@
 # The depth of every portrait: how far each picture element of the head stands out of the rim plane of the head (its widest part, about the plane of the ears): the skull, the relief
 # of the face, the volume of the hair and the beard. The game turns the portrait towards the opponent with it (the drawn and the 3D fighters look at each other, not into the camera).
 # python3 depthmap.py OUTDIR [id1,id2,...]  ->  OUTDIR/<id>.depth.webp (lossless, 8 bit, 128 x 128, the same square as the portraits: 5 inter-eye distances wide, the eye line 2.1 from the top;
-#                                              0..255 = 0..DEPTH_RANGE inter-eye distances) for the game, and <id>.depth.png / .npy to look at
+#                                              red: 0..255 = 0..DEPTH_RANGE inter-eye distances; green: the alpha of the hair alone) for the game, and <id>.depth.png / .npy to look at
 import sys, os, json, numpy as np, cv2
 from multiprocessing import Pool
 import compose as C
@@ -29,11 +29,13 @@ def one(args):
     id, outdir = args
     P, A, h = C.render_portrait(id, 1.0, eyes='open', mouth='smile', verbose=False)
     Z = full_depth(h, A)
+    HA = np.clip(getattr(h, 'hair_a', np.zeros((SS, SS), np.float32)), 0, 1).astype(np.float32)
     tilt = float(h.spec.get('tilt', 0.0))
     if abs(tilt) > 1e-3:
         R_ = cv2.getRotationMatrix2D((CX, EY + 2.2 * I), tilt, 1.0)
         Z = cv2.warpAffine(Z, R_, (SS, SS), flags=cv2.INTER_LINEAR)
         A = cv2.warpAffine(A, R_, (SS, SS), flags=cv2.INTER_LINEAR)
+        HA = cv2.warpAffine(HA, R_, (SS, SS), flags=cv2.INTER_LINEAR)
     x0, x1 = int(CX - 2.5 * I), int(CX + 2.5 * I); y0 = int(EY - 2.1 * I); y1 = y0 + (x1 - x0)
     z = Z[y0:y1, x0:x1]; a = A[y0:y1, x0:x1]
     # the depth outside the picture is the depth at its edge (the warp samples a little beyond the silhouette)
@@ -45,7 +47,9 @@ def one(args):
     g = np.clip(zz * 255 + 0.5, 0, 255).astype(np.uint8)
     cv2.imwrite(os.path.join(outdir, id + '.depth.png'), g)
     from PIL import Image
-    Image.fromarray(np.stack([g, g, g], -1)).save(os.path.join(outdir, id + '.depth.webp'), 'WEBP', lossless=True, method=6)
+    ha = cv2.resize(HA[y0:y1, x0:x1], (OUT, OUT), interpolation=cv2.INTER_AREA)                  # green: the alpha of the hair alone (the game keeps long hair below the chin with it)
+    gh = np.clip(ha * 255 + 0.5, 0, 255).astype(np.uint8)
+    Image.fromarray(np.stack([g, gh, g], -1)).save(os.path.join(outdir, id + '.depth.webp'), 'WEBP', lossless=True, method=6)
     np.save(os.path.join(outdir, id + '.depth.npy'), zz.astype(np.float32))
     print(id, 'depth max %.2f IPD' % (zz.max() * DEPTH_RANGE), flush=True)
     return id

@@ -136,10 +136,11 @@ function skeleton3D(f, p, look) {
 // ---------------------------------------------------------------------------------------------------------------
 // body meshes
 // ---------------------------------------------------------------------------------------------------------------
-const MAT_CLOTH = packMat(0.05, 0.08, 0.24, LAYER.WHITE, CLS.CLOTH);
+const MAT_CLOTH = packMat(0.035, 0.08, 0.2, LAYER.WHITE, CLS.CLOTH);
 const MAT_SKIN = packMat(0.2, 0.28, 0.45, LAYER.WHITE, CLS.SKIN);
 const MAT_SHOE = packMat(0.75, 0.45, 0.35, LAYER.WHITE, CLS.SHOE);
-const MAT_TORSO = packMat(0.07, 0.1, 0.22, LAYER.TORSO, CLS.CLOTH);
+const MAT_SOLE = packMat(0.12, 0.2, 0.1, LAYER.WHITE, CLS.SHOE);
+const MAT_TORSO = packMat(0.05, 0.1, 0.2, LAYER.TORSO, CLS.CLOTH);
 const TILE = [4, 11];                    // fabric weave on tubes: repeats around, world units per repeat along
 const c3 = (hex, k = 1) => { const v = hexRGB(hex); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
 const c3s = (css, k = 1) => { const v = hexRGB(css); return packRGBA(Math.min(1, v[0] * k), Math.min(1, v[1] * k), Math.min(1, v[2] * k), 1); };
@@ -147,27 +148,52 @@ const c3s = (css, k = 1) => { const v = hexRGB(css); return packRGBA(Math.min(1,
 let SHOE = null, FIST = null;
 function shoeMesh() {
   if (SHOE) return SHOE;
-  const m = new Mesh(400, 1500), n = 12, rings = [];
-  // x from heel (-8) to toe (22): [x, half-width, top, bottom]
-  const prof = [[-8.4, 3.6, 4.5, -5.8], [-6.5, 5.4, 6.2, -6], [-2, 6.2, 6.8, -6], [4, 6.0, 4.6, -6], [10, 5.6, 2.6, -5.8], [16, 4.9, 0.6, -5.4], [20.4, 3.4, -1.2, -4.6], [22.2, 1.4, -2.6, -3.8]];
+  const m = new Mesh(900, 3400), n = 14;
+  // an oxford shoe, from the heel (-8) to the toe (24): [x, half-width, top, bottom]; the foot stands on y = -6, the arch is raised, the toe springs up a little
+  const prof = [[-8.2, 3.2, 3.6, -5.5], [-7.5, 4.6, 5.6, -5.95], [-5, 5.6, 6.9, -6.0], [-1.5, 6.0, 6.8, -6.0], [2.5, 6.0, 5.8, -5.5], [6, 5.9, 4.0, -5.0], [10, 5.7, 2.4, -5.0], [14, 5.5, 1.2, -5.2], [17, 5.2, 0.5, -5.4], [19.6, 4.7, -0.1, -5.5],
+    [21.6, 3.9, -0.7, -5.3], [23, 2.8, -1.4, -4.9], [23.8, 1.6, -2.2, -4.5], [24.1, 0.5, -3.0, -4.2]];
   const P = [];
   for (const [x, w, top, bot] of prof) for (let i = 0; i < n; i++) {
-    const a = (i / n) * TAU, cs = Math.cos(a), sn = Math.sin(a), sq = 0.75;
+    const a = (i / n) * TAU, cs = Math.cos(a), sn = Math.sin(a), sq = 0.62;
     const ux = Math.sign(cs) * Math.pow(Math.abs(cs), sq), uy = Math.sign(sn) * Math.pow(Math.abs(sn), sq);
     P.push([x, (top + bot) / 2 + uy * (top - bot) / 2, ux * w]);
   }
-  gridSurface(m, P, n, prof.length, true, [7, -1, 0], { uv: WHITE_UV, col: packRGBA(1, 1, 1, 1), mat: MAT_SHOE });
+  const shade = (k) => packRGBA(k, k, k, 1);
+  gridSurface(m, P, n, prof.length, true, [7, -1, 0], (i, j) => {
+    const sn = Math.sin((i / n) * TAU), x = prof[j][0];
+    let k = 1;
+    if (sn < -0.5 && x < 20) k = 0.55;                                    // the sole and the welt are darker, the heel is a block of its own
+    else if (x > 15.4 && x < 18.4) k = 0.82;                              // the seam of the toe cap
+    if (sn < -0.5 && x < -3.5) k = 0.42;
+    return { uv: WHITE_UV, col: shade(k), mat: sn < -0.5 && x < 20 ? MAT_SOLE : MAT_SHOE };
+  });
   return (SHOE = m);
 }
 function fistMesh() {
   if (FIST) return FIST;
-  const m = new Mesh(500, 2000), col = packRGBA(1, 1, 1, 1), mat = MAT_SKIN;
-  emitEllipsoid(m, [0, 0, 0], [5.9, 0, 0], [0, 5.3, 0], [0, 0, 4.6], col, mat, { nu: 10, nv: 7 });         // palm/fingers
-  for (let k = 0; k < 4; k++) sphere(m, [3.6, 3.2 - k * 2.3, 1.2], 1.9, packRGBA(0.97, 0.92, 0.9, 1), mat, { nu: 6, nv: 5 });   // knuckles
-  emitEllipsoid(m, [-0.8, 2.6, 3.4], [3.4, 0, 0], [0, 1.9, 0], [0, 0, 1.9], col, mat, { nu: 8, nv: 6 });    // thumb
+  // a closed fist in its own frame: x along the fingers, y across them (the index at +y), z towards the palm (the thumb side). The back of the hand, four fingers that bend at two knuckles
+  // and tuck their tips into the palm, and the thumb across them.
+  const m = new Mesh(1400, 6000), col = packRGBA(1, 1, 1, 1), dk = packRGBA(0.88, 0.80, 0.78, 1), mat = MAT_SKIN;
+  emitEllipsoid(m, [-1.0, 0, -0.3], [5.4, 0, 0], [0, 5.0, 0], [0, 0, 3.7], col, mat, { nu: 12, nv: 8 });            // the back of the hand and the palm
+  const ys = [3.2, 1.1, -1.0, -3.0], rr = [1.36, 1.42, 1.34, 1.16];
+  ys.forEach((y, k) => {
+    const r = rr[k], tilt = k * 0.12;
+    const k1 = [3.5, y, -0.5], k2 = [5.9 - tilt, y, 1.5], k3 = [4.9 - tilt, y, 3.7], k4 = [2.8, y, 3.6];            // knuckle, first joint, second joint, the fingertip tucked in
+    emitTube(m, k1, k2, r, r * 0.96, col, mat, { sides: 8, rings: 3, bulge: 0.05 });
+    sphere(m, k2, r * 0.97, col, mat, { nu: 8, nv: 6 });
+    emitTube(m, k2, k3, r * 0.96, r * 0.9, dk, mat, { sides: 8, rings: 3, bulge: 0.05 });
+    sphere(m, k3, r * 0.9, dk, mat, { nu: 8, nv: 6 });
+    emitTube(m, k3, k4, r * 0.88, r * 0.78, dk, mat, { sides: 7, rings: 3, bulge: 0 });
+    sphere(m, k1, r * 1.02, col, mat, { nu: 8, nv: 6 });                                                              // the knuckle
+  });
+  const t0 = [-1.2, 4.3, 0.9], t1 = [1.9, 4.5, 3.7], t2 = [4.6, 2.2, 4.6];                                          // the thumb folds over the middle joints of the fingers
+  emitTube(m, t0, t1, 1.95, 1.6, col, mat, { sides: 8, rings: 3, bulge: 0.06 });
+  sphere(m, t1, 1.6, col, mat, { nu: 8, nv: 6 });
+  emitTube(m, t1, t2, 1.55, 1.3, col, mat, { sides: 8, rings: 3, bulge: 0 });
+  sphere(m, t2, 1.3, col, mat, { nu: 8, nv: 6 });
+  emitEllipsoid(m, [-3.4, 0, 0.0], [2.8, 0, 0], [0, 3.6, 0], [0, 0, 2.7], col, mat, { nu: 8, nv: 6 });               // the wrist
   return (FIST = m);
 }
-
 
 // The boss: a boxy ballot-box torso with a label, a light lid, and a big robot head with a visor.
 function seVal(v, e) { return Math.sign(v) * Math.pow(Math.abs(v), e); }
@@ -228,7 +254,18 @@ const ARM_PROF = [[0, 7.0], [0.10, 8.7], [0.30, 8.4], [0.46, 7.1], [0.56, 7.0], 
 const limbPath = (a, b, n) => { const o = []; for (let i = 0; i < n; i++) o.push(V3.lerp(a, b, i / (n - 1))); return o; };
 // one limb as a single smooth surface along its joints (seg undefined), or one half of it as a capsule with round ends (seg 0: hip / shoulder to knee / elbow, seg 1: the rest) for the baked sprite parts
 function limbMesh(mesh, a, m, b, prof, k, col, seg, o) {
-  if (seg === undefined) { const path = splinePath([a, m, b], 19); emitLoft(mesh, path, path.map((q, i) => profAt(prof, i / (path.length - 1)) * k), col, MAT_CLOTH, Object.assign({ sides: 14, tile: TILE }, o)); return; }
+  if (seg === undefined) {
+    const path = splinePath([a, m, b], 31), d1 = V3.norm(V3.sub(m, a)), d2 = V3.norm(V3.sub(b, m)), bend = Math.acos(Math.max(-1, Math.min(1, V3.dot(d1, d2))));
+    let rmod = null;
+    if (bend > 0.3) {                                // a bent elbow or knee: the cloth bunches up in pleats across the inside of the bend and stays smooth on the outside
+      const inner = V3.norm(V3.sub(V3.lerp(a, b, 0.5), m)), amp = 0.075 * Math.min(1, (bend - 0.3) / 1.0);
+      rmod = (kk, nn, dx, dy, dz) => {
+        const t = kk / (nn - 1), win = Math.exp(-(((t - 0.5) / 0.13) ** 2)), side = Math.max(0, dx * inner[0] + dy * inner[1] + dz * inner[2]);
+        return 1 + amp * win * (0.18 + 0.82 * side) * Math.cos(((t - 0.5) / 0.062) * TAU);
+      };
+    }
+    emitLoft(mesh, path, path.map((q, i) => profAt(prof, i / (path.length - 1)) * k), col, MAT_CLOTH, Object.assign({ sides: 14, tile: TILE, rmod }, o)); return;
+  }
   const n = 11, path = seg === 0 ? limbPath(a, m, n) : limbPath(m, b, n), t0 = seg === 0 ? 0 : 0.5;
   emitLoft(mesh, path, path.map((q, i) => profAt(prof, t0 + 0.5 * i / (n - 1)) * k), col, MAT_CLOTH, { sides: 14, tile: TILE, cap0: 3, cap1: seg === 0 ? 3 : 0, flatCaps: true });
 }
@@ -239,7 +276,7 @@ function emitLeg(mesh, lg, look, lk, part) {
     limbMesh(mesh, lg.hp, lg.kn, lg.an, LEG_PROF, lk, pc, part === 'thigh' ? 0 : part === 'shin' ? 1 : undefined, { cap0: 2 });
     if (part !== 'thigh') {
       const dl = V3.norm(V3.sub(lg.an, lg.kn));
-      emitTube(mesh, V3.madd(lg.an, dl, -9), V3.madd(lg.an, dl, 1.6), 7.5 * Math.max(0.9, lk), 7.6 * Math.max(0.9, lk), far ? c3(base, 0.58) : c3(base, 0.8), MAT_CLOTH, { sides: 14, rings: 3, bulge: 0.0 });   // turn-up
+      emitTube(mesh, V3.madd(lg.an, dl, -7), V3.madd(lg.an, dl, 1.2), 7.5 * Math.max(0.9, lk), 7.6 * Math.max(0.9, lk), far ? c3(base, 0.68) : c3(base, 0.9), MAT_CLOTH, { sides: 14, rings: 3, bulge: 0.0 });   // the hem of the trousers
     }
   }
   if (part === undefined || part === 'shoe') {
@@ -271,15 +308,16 @@ function emitTorso(mesh, S, L) {
   const suit = c3(look.suit), shirt = c3(look.shirt || '#ffffff'), skin = c3(L.skin3 || pal.skin);
   {
     const rows = TORSO_ROWS.length, nA = 21, P = [];
-    const belly = look.belly || 0, shoulders = look.shoulders || 0;                        // build: a belly (waist and stomach), broad (or narrow) shoulders
+    const belly = look.belly || 0, shoulders = look.shoulders || 0, fem = look.female ? 1 : 0;       // build: a belly (waist and stomach), broad (or narrow) shoulders; a woman: narrower shoulders, a waist, hips, a bust
     for (let j = 0; j < rows; j++) {
       const [u, A0, B0, off0] = TORSO_ROWS[j];
-      const bel = belly * bump(u, 10, 11), sho = shoulders * bump(u, 38, 9);
-      const A = A0 * 1.05 * (1 + sho * 0.16 + bel * 0.12), B = B0 * 1.06 * (1 + bel * 0.4), off = off0 + bel * 3.4;
+      const bel = belly * bump(u, 10, 11), sho = shoulders * bump(u, 38, 9) - fem * 0.45 * bump(u, 38, 8);
+      const wst = fem * bump(u, 14, 6), hip = fem * bump(u, -3, 6), bst = fem * bump(u, 33.5, 4.4);
+      const A = A0 * 1.05 * (1 + sho * 0.16 + bel * 0.12 - wst * 0.11 + hip * 0.07), B = B0 * 1.06 * (1 + bel * 0.4 - wst * 0.05), off = off0 + bel * 3.4 + bst * 0.8;
       const fl = (1 - sstep(-9.5, -2, u));                                                 // the hem of the jacket dips a little at the front and the back
       for (let i = 0; i < nA; i++) {
         const th = -Math.PI / 2 + Math.PI * (i / (nA - 1)) * 2;    // -90 .. +270 degrees
-        const cs = Math.cos(th), sn = Math.sin(th), c = S.at(u - 2.6 * fl * cs * cs, 0, off), fw = V3.mul(S.ff, B), ax = V3.mul(S.ll, A * bw);
+        const cs = Math.cos(th), sn = Math.sin(th), c = S.at(u - 2.6 * fl * cs * cs, 0, off), fw = V3.mul(S.ff, B * (1 + 0.13 * bst * Math.max(0, cs))), ax = V3.mul(S.ll, A * bw);
         P.push([c[0] + fw[0] * cs + ax[0] * sn, c[1] + fw[1] * cs + ax[1] * sn, c[2] + fw[2] * cs + ax[2] * sn]);
       }
     }
@@ -289,7 +327,7 @@ function emitTorso(mesh, S, L) {
       const th = -Math.PI / 2 + Math.PI * (i / (nA - 1)) * 2, isFront = i < frontMax || (i === frontMax && side <= 0);
       if (isFront) {
         const lat = A * bw * Math.sin(th);
-        return { uv: [(27 - lat) / 54, (56 - u) / 64], col: packRGBA(1, 1, 1, 1), mat: MAT_TORSO };
+        return { uv: [(27 - lat) / 54, (56 - Math.max(u, -7.6)) / 64], col: packRGBA(1, 1, 1, 1), mat: MAT_TORSO };      // (the rows of the hem below the picture take its last row, they must not wrap round to the shirt)
       }
       return { uv: [3.5 * (27 - A * bw * Math.sin(th)) / 54, 3.5 * (56 - u) / 64], col: suit, mat: MAT_CLOTH };
     }, [0, frontMax, nA - 1]);
@@ -313,6 +351,36 @@ function emitTorso(mesh, S, L) {
       emitTube(mesh, V3.madd(a, d, -1.5), V3.madd(a, d, 3.4), 8.6 * Math.max(1, nk * 0.95), 8.0 * Math.max(1, nk * 0.9), shirt, MAT_CLOTH, { sides: 14, rings: 3, bulge: 0 });
     }
   }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// occluders: the parts of the body as ellipsoids, for the ambient occlusion and the soft shadows of the vertex shader (see F3D_VS)
+// ---------------------------------------------------------------------------------------------------------------
+const OCC_MAX = 16;
+function bodyOccluders(S, look) {
+  const C = new Float32Array(OCC_MAX * 3), Mt = new Float32Array(OCC_MAX * 9);
+  let n = 0;
+  const put = (c, a0, r0, a1, r1, a2, r2) => {                          // three orthonormal axes with their radii
+    if (n >= OCC_MAX) return;
+    C[n * 3] = c[0]; C[n * 3 + 1] = c[1]; C[n * 3 + 2] = c[2];
+    for (let r = 0; r < 3; r++) for (let q = 0; q < 3; q++) Mt[n * 9 + q * 3 + r] = a0[r] * a0[q] / r0 + a1[r] * a1[q] / r1 + a2[r] * a2[q] / r2;
+    n++;
+  };
+  const rod = (a, b, rad, hl) => {                                      // a limb segment: round in the cross-section, half length hl * its length
+    const d = V3.sub(b, a), l = V3.len(d) || 1e-3, ax = V3.mul(d, 1 / l), t = Math.abs(ax[2]) > 0.85 ? [1, 0, 0] : [0, 0, 1];
+    const u = V3.norm(V3.cross(ax, t)), v = V3.cross(ax, u);
+    put(V3.lerp(a, b, 0.5), ax, l * 0.5 * hl, u, rad, v, rad);
+  };
+  const lk = limbK(look), bw = S.bw, belly = look.belly || 0, sho = look.shoulders || 0;
+  const eu = S.eu, ll = S.ll, ff = S.ff;
+  put(S.at(35, 0, 1.0), ll, 25.5 * bw * (1 + sho * 0.16), eu, 14, ff, 16);                          // chest and shoulders
+  put(S.at(15, 0, 0.3 + belly * 3.4), ll, 21 * bw * (1 + belly * 0.12), eu, 13, ff, 14 * (1 + belly * 0.4));      // waist
+  put(S.at(-3, 0, 0), ll, 22 * bw, eu, 9.5, ff, 14.5);                                                // hips
+  const hk = S.hk || 1, hx = [1, 0, 0], hy = [0, 1, 0], hz = [0, 0, 1];
+  put(S.hc, hx, 16 * hk, hy, 20 * hk, hz, 15 * hk);                                                    // head
+  for (const ar of [S.armN, S.armF]) { rod(ar.sh, ar.el, 8.2 * lk, 1.0); rod(ar.el, ar.wr, 6.6 * lk, 1.0); put(ar.fist, hx, 5.2, hy, 5.2, hz, 5.2); }
+  for (const lg of [S.legN, S.legF]) { rod(lg.hp, lg.kn, 10.6 * lk, 1.0); rod(lg.kn, lg.an, 7.4 * lk, 1.0); }
+  return { n, C, M: Mt };
 }
 
 function emitBody(mesh, S, L, opt) {
@@ -434,6 +502,11 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     gl.frontFace(fg.face < 0 ? gl.CW : gl.CCW);
     gl.uniformMatrix4fv(U.uMVP, false, MVP); gl.uniformMatrix4fv(U.uM, false, M); gl.uniformMatrix3fv(U.uNM, false, NM);
     gl.uniform4f(U.uTint, ...(fg.tint || [0, 0, 0, 0])); gl.uniform1f(U.uFlash, fg.flash || 0); gl.uniform1f(U.uAlpha, fg.alpha === undefined ? 1 : fg.alpha); gl.uniform1f(U.uCover, 0);
+    const oc = fg.occ && !(opt && opt.only) ? fg.occ : null;
+    if (oc) {
+      gl.uniform1i(U.uOccN, oc.n); gl.uniform3fv(U.uOccC, oc.C); gl.uniformMatrix3fv(U.uOccS, false, oc.M);
+      gl.uniform3f(U.uOccL, NM[0] * KEY[0] + NM[1] * KEY[1] + NM[2] * KEY[2], NM[3] * KEY[0] + NM[4] * KEY[1] + NM[5] * KEY[2], NM[6] * KEY[0] + NM[7] * KEY[1] + NM[8] * KEY[2]);
+    } else gl.uniform1i(U.uOccN, 0);
     const mid = fg.pq && G3.dyn.mid > 0 ? G3.dyn.mid : G3.dyn.ni;
     gl.drawElements(gl.TRIANGLES, mid, gl.UNSIGNED_SHORT, 0);
     if (fg.pq) {                                                          // the portrait head, then the near arm in front of it
@@ -445,7 +518,7 @@ function drawFigs(figs, X0, Y0, W_, H_, pw, ph, opt) {
     if (L.gpu && !fg.pq && !(opt && opt.only)) {
       const HM = M4.mul(M, S.headM), HP = M4.mul(P, HM), hn = M4.normalMat(HM);
       const HN = new Float32Array([hn[0], -hn[1], hn[2], hn[3], -hn[4], hn[5], hn[6], -hn[7], hn[8]]);
-      gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix4fv(U.uM, false, HM); gl.uniformMatrix3fv(U.uNM, false, HN);
+      gl.uniformMatrix4fv(U.uMVP, false, HP); gl.uniformMatrix4fv(U.uM, false, HM); gl.uniformMatrix3fv(U.uNM, false, HN); gl.uniform1i(U.uOccN, 0);
       gl.bindVertexArray(L.gpu.skin.vao); gl.drawElements(gl.TRIANGLES, L.gpu.skin.n, gl.UNSIGNED_SHORT, 0);
       gl.bindVertexArray(L.gpu.acc.vao); gl.drawElements(gl.TRIANGLES, L.gpu.acc.n, gl.UNSIGNED_SHORT, 0);
       if (G3.a2c) { gl.disable(gl.BLEND); gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE); }
@@ -523,7 +596,7 @@ function buildFigs(f, p, look, L, opt) {
   const push = (fx, pose, extra) => {
     const S = skeleton3D(fx, pose, look), M = modelMatrix(fx, pose, look), pq = portraitQuad(fx, pose, look, S), pts = skelPoints(S);
     if (pq) { S.portrait = true; for (let i = 0; i < 4; i++) pts.push(M4.pt(S.headQ, pq.v[i * 4], pq.v[i * 4 + 1], 0)); }
-    figs.push(Object.assign({ L, S, M, gs: (look.h || 1) * BODY_S * (fx.scale || 1), face: fx.face, pts, pq }, extra));
+    figs.push(Object.assign({ L, S, M, gs: (look.h || 1) * BODY_S * (fx.scale || 1), face: fx.face, pts, pq, occ: look.robot ? null : bodyOccluders(S, look) }, extra));
   };
   if (opt.ghosts) for (const g of opt.ghosts) push(g.f, g.f.pose, { tint: g.tint, alpha: g.alpha });
   push(f, p, { flash: opt.flash || 0, alpha: 1 });

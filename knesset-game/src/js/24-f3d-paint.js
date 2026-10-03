@@ -324,68 +324,95 @@ const rgbHex = (c) => { const m = String(c).match(/[\d.]+/g); if (c[0] === '#') 
 // TORSO FRONT (jacket, shirt, tie, lapels), planar from the front
 // ---------------------------------------------------------------------------------------------------------------
 function paintTorso(c, look, pal) {
+  // Painted like a photograph, not like a drawing: no outlines, but soft contact shadows where one layer lies on another, pressed edges with a light lip, stitching, dimensional buttons.
   c.clearRect(0, 0, TEXN, TEXN);
-  c.fillStyle = pal.suit; c.fillRect(0, 0, TEXN, TEXN);
+  const hex = (v) => (v[0] === '#' ? v : rgbHex(v));
+  const suit = hex(pal.suit), shirt = hex(pal.shirt), open = !!look.open;
+  const sv = rgb(suit), slum = (sv[0] * 0.3 + sv[1] * 0.59 + sv[2] * 0.11) / 255, dark = slum < 0.2;      // a black suit needs its edges lit, or the lapels, the collar and the pockets melt into one shape
   const P = (l, u) => [TOR_X(l), TOR_Y(u)];
-  const poly = (pts, fill, stroke, lw) => {
-    c.beginPath(); pts.forEach(([l, u], i) => { const [x, y] = P(l, u); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.closePath();
-    if (fill) { c.fillStyle = fill; c.fill(); }
-    if (stroke) { c.lineWidth = lw || 1.4; c.strokeStyle = stroke; c.lineJoin = 'round'; c.stroke(); }
-  };
-  const open = !!look.open, INKC = 'rgba(15,8,30,.55)';
-  // shirt V
-  poly([[-6.6, 54.5], [6.6, 54.5], [0, 25.5]], pal.shirt, INKC, 1.3);
-  if (open) poly([[-4.6, 54.5], [4.6, 54.5], [0, 39]], pal.skin, 'rgba(60,25,15,.4)', 1);
-  // collar wings
-  poly([[-6.6, 54.5], [-1.4, 49], [-9.6, 46.4]], pal.shirt, INKC, 1.2);
-  poly([[6.6, 54.5], [1.4, 49], [9.6, 46.4]], pal.shirt, INKC, 1.2);
+  const path = (pts, close) => { c.beginPath(); pts.forEach(([l, u], i) => { const [x, y] = P(l, u); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); if (close !== false) c.closePath(); };
+  const cast = (pts, fill, a, blur, dx, dy) => { c.save(); c.shadowColor = `rgba(0,0,0,${a})`; c.shadowBlur = blur; c.shadowOffsetX = dx; c.shadowOffsetY = dy; path(pts); c.fillStyle = fill; c.fill(); c.restore(); };
+  const stroke = (pts, col, w) => { c.save(); c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = col; c.lineWidth = w; path(pts, false); c.stroke(); c.restore(); };
+  const groove = (pts, w, a) => { stroke(pts, `rgba(0,0,0,${a * 0.16})`, w * 4); stroke(pts, `rgba(0,0,0,${a * 0.3})`, w * 2); stroke(pts, `rgba(0,0,0,${a * 0.55})`, w * 0.8); };
+  const lip = (pts, w, a) => stroke(pts, `rgba(255,255,255,${a})`, w);
+  const mirror = (pts, s) => pts.map(([l, u]) => [l * s, u]);
+  const hiA = dark ? 0.30 : 0.14;
+  c.fillStyle = suit; c.fillRect(0, 0, TEXN, TEXN);
+  // the jacket hangs: darker towards the hem and in the hollow of the waist, a little lighter over the chest
+  { const [, y0] = P(0, 40), [, y1] = P(0, -8), g = c.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, 'rgba(255,255,255,.05)'); g.addColorStop(0.45, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.24)'); c.fillStyle = g; c.fillRect(0, 0, TEXN, TEXN); }
+  // the shirt between the lapels: lit in the middle, in the shade of the jacket towards its edges
+  const V = [[-6.6, 55], [6.6, 55], [0, 25.5]];
+  { const g = c.createLinearGradient(P(-8, 0)[0], 0, P(8, 0)[0], 0), sd = darken(shirt, 0.24); g.addColorStop(0, sd); g.addColorStop(0.5, shirt); g.addColorStop(1, sd); path(V); c.fillStyle = g; c.fill(); }
+  if (open) {                                                                           // an open collar: the chest, a little in the shade
+    const sk = hex(pal.skin); path([[-4.8, 55], [4.8, 55], [0, 38.5]]);
+    const g = c.createLinearGradient(0, P(0, 55)[1], 0, P(0, 38)[1]); g.addColorStop(0, darken(sk, 0.28)); g.addColorStop(0.6, sk); g.addColorStop(1, darken(sk, 0.1)); c.fillStyle = g; c.fill();
+    groove([[-4.8, 55], [0, 38.5]], 0.5, 0.5); groove([[4.8, 55], [0, 38.5]], 0.5, 0.5);
+  } else {                                                                              // the placket of the shirt and its buttons
+    groove([[0, 49], [0, 25.5]], 0.35, 0.35);
+  }
+  // collar wings of the shirt
+  for (const s of [-1, 1]) {
+    const w = [[6.6, 54.5], [1.4, 49], [9.6, 46.4]].map(([l, u]) => [l * s, u]);
+    cast(w, shirt, 0.45, 4, 0, 2);
+    path(w); { const g = c.createLinearGradient(...P(s * 2, 52), ...P(s * 9, 46)); g.addColorStop(0, shirt); g.addColorStop(1, darken(shirt, 0.16)); c.fillStyle = g; c.fill(); }
+    stroke([[s * 6.6, 54.5], [s * 9.6, 46.4], [s * 1.4, 49]], 'rgba(0,0,0,.18)', 0.9);
+  }
   // tie
   if (look.tie && !open) {
-    const tc = look.tie, td = darken(tc, 0.3);
-    const [x0] = P(-3, 0), [x1] = P(3, 0);
-    const g = c.createLinearGradient(x0, 0, x1, 0); g.addColorStop(0, td); g.addColorStop(0.5, tc); g.addColorStop(1, td);
-    poly([[-2.6, 49], [2.6, 49], [3.7, 33], [0, 25.2], [-3.7, 33]], g, INKC, 1.2);
-    poly([[-3.4, 53.6], [3.4, 53.6], [3, 49], [-3, 49]], tc, INKC, 1.2);
-  }
-  if (look.tie && !open) {                                   // repp stripes and a satin sheen on the tie, a shadowed knot
-    c.save(); c.beginPath(); [[-2.6, 49], [2.6, 49], [3.7, 33], [0, 25.2], [-3.7, 33]].forEach(([l, u], i) => { const [x, y] = P(l, u); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.closePath(); c.clip();
-    c.strokeStyle = 'rgba(255,255,255,.09)'; c.lineWidth = 1.4;
+    const tc = hex(look.tie), td = hex(darken(tc, 0.34)), tl = hex(lighten(tc, 0.22));
+    const blade = [[-2.6, 49], [2.6, 49], [3.7, 33], [0, 25.2], [-3.7, 33]], knot = [[-3.4, 53.6], [3.4, 53.6], [3, 49.4], [-3, 49.4]];
+    const gx = c.createLinearGradient(P(-3.8, 0)[0], 0, P(3.8, 0)[0], 0); gx.addColorStop(0, td); gx.addColorStop(0.38, tc); gx.addColorStop(0.55, tl); gx.addColorStop(1, td);
+    cast(blade, gx, 0.55, 6, 1, 3);
+    path(blade); c.fillStyle = gx; c.fill();
+    c.save(); path(blade); c.clip();                                                    // repp stripes, a satin sheen
+    c.strokeStyle = 'rgba(255,255,255,.07)'; c.lineWidth = 1.2;
     for (let k = -20; k < 30; k++) { const [x0, y0] = P(-6, 26 + k * 2.6), [x1, y1] = P(6, 30 + k * 2.6); c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke(); }
-    const [sx0, sy0] = P(-1.2, 45), [sx1, sy1] = P(-0.2, 30); const sg = c.createLinearGradient(sx0, sy0, sx1, sy1); sg.addColorStop(0, 'rgba(255,255,255,.24)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = sg; c.fillRect(0, 0, TEXN, TEXN);
+    const [sx0, sy0] = P(-1.4, 46), [sx1, sy1] = P(-0.4, 29); const sg = c.createLinearGradient(sx0, sy0, sx1, sy1); sg.addColorStop(0, 'rgba(255,255,255,.26)'); sg.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = sg; c.fillRect(0, 0, TEXN, TEXN);
     c.restore();
-    const [kx, ky] = P(0, 49.2); const kg = c.createRadialGradient(kx, ky, 1, kx, ky, 12); kg.addColorStop(0, 'rgba(0,0,0,.34)'); kg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = kg; c.fillRect(kx - 14, ky - 6, 28, 22);
+    cast(knot, gx, 0.6, 5, 0, 2); path(knot); c.fillStyle = gx; c.fill();
+    const [kx, ky] = P(0, 49.4); const kg = c.createRadialGradient(kx, ky, 1, kx, ky, 11); kg.addColorStop(0, 'rgba(0,0,0,.42)'); kg.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = kg; c.fillRect(kx - 14, ky - 4, 28, 22);   // the knot casts a shadow on the blade
+    groove([[0, 49.2], [0, 47.4]], 0.5, 0.8);
   }
   // lapels
-  const lap = pal.suitL;
-  poly([[-6.6, 54.5], [-14.8, 46.6], [-11.4, 33], [0, 25.5], [-5, 34], [-4.6, 47.8]], lap, INKC, 1.3);
-  poly([[6.6, 54.5], [14.8, 46.6], [11.4, 33], [0, 25.5], [5, 34], [4.6, 47.8]], lap, INKC, 1.3);
-  {                                                            // pressed edge (highlight) and stitching along the lapels
-    c.save(); c.lineJoin = 'round';
-    for (const s of [-1, 1]) {
-      const edge = [[6.6, 54.5], [14.8, 46.6], [11.4, 33], [0, 25.5]].map(([l, u]) => [l * s, u]);
-      c.strokeStyle = 'rgba(255,255,255,.13)'; c.lineWidth = 1.1; c.beginPath(); edge.forEach(([l, u], i) => { const [x, y] = P(l * 0.96, u - 0.7); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.stroke();
-      c.setLineDash([2.2, 2.2]); c.strokeStyle = 'rgba(255,255,255,.16)'; c.lineWidth = 0.7;
-      c.beginPath(); edge.forEach(([l, u], i) => { const [x, y] = P(l * 0.9 - s * 0.3, u - 1.5); if (i) c.lineTo(x, y); else c.moveTo(x, y); }); c.stroke();
-      c.setLineDash([]);
+  const lapc = hex(dark ? lighten(suit, 0.14) : lighten(suit, 0.05));
+  for (const s of [-1, 1]) {
+    const L = mirror([[6.6, 54.5], [14.8, 46.6], [11.4, 33], [0, 25.5], [5, 34], [4.6, 47.8]], s);
+    cast(L, lapc, 0.6, 7, -s * 1.2, 3);
+    path(L); { const g = c.createLinearGradient(...P(s * 4, 48), ...P(s * 14, 38)); g.addColorStop(0, hex(darken(lapc, 0.16))); g.addColorStop(0.5, lapc); g.addColorStop(1, hex(lighten(lapc, 0.05))); c.fillStyle = g; c.fill(); }
+    lip(mirror([[6.9, 54], [14.5, 46.4], [11.2, 33.2], [0.3, 25.9]], s), 1.1, hiA);                  // the pressed outer edge
+    groove(mirror([[4.6, 47.8], [5, 34], [0.6, 26.4]], s), 0.8, 0.7);                                // the roll of the lapel
+    c.save(); c.setLineDash([2.0, 2.2]); stroke(mirror([[6.1, 52.6], [13.4, 46.2], [10.2, 33.8], [0.8, 27.4]], s), `rgba(255,255,255,${hiA * 0.8})`, 0.7); c.restore();   // stitching
+  }
+  { const [x, y] = P(-11, 43.6); c.save(); c.translate(x, y); c.rotate(-0.5); c.fillStyle = 'rgba(0,0,0,.55)'; c.beginPath(); c.ellipse(0, 0, 3.4, 0.9, 0, 0, TAU); c.fill(); c.restore(); }    // the buttonhole in the lapel
+  // closing of the jacket: a seam, the shadow of the overlapping front, two buttons
+  { const [ax, ay] = P(0, 25.5), [bx, by] = P(0, -8), g = c.createLinearGradient(ax, 0, ax + 9, 0); g.addColorStop(0, 'rgba(0,0,0,.20)'); g.addColorStop(1, 'rgba(0,0,0,0)'); c.fillStyle = g; c.fillRect(ax, ay, 9, by - ay); }
+  groove([[0, 25.5], [0, 12], [0, -8]], 0.55, 0.8); lip([[-0.5, 24], [-0.5, 0]], 0.8, hiA * 0.6);
+  { const bc = hex(darken(suit, dark ? 0.0 : 0.38)), bl = dark ? '#555560' : hex(lighten(bc, 0.35));
+    for (const u of [20, 8]) {
+      const [x, y] = P(1.2, u);
+      c.save(); c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 3; c.shadowOffsetY = 1.5;
+      const g = c.createRadialGradient(x - 1.1, y - 1.1, 0.4, x, y, 3.4); g.addColorStop(0, bl); g.addColorStop(1, bc); c.fillStyle = g; c.beginPath(); c.arc(x, y, 3.1, 0, TAU); c.fill(); c.restore();
+      c.strokeStyle = 'rgba(0,0,0,.4)'; c.lineWidth = 0.7; c.beginPath(); c.arc(x, y, 1.9, 0, TAU); c.stroke();
+      c.fillStyle = 'rgba(0,0,0,.55)'; for (const [dx, dy] of [[-0.7, -0.7], [0.7, 0.7], [-0.7, 0.7], [0.7, -0.7]]) { c.beginPath(); c.arc(x + dx, y + dy, 0.28, 0, TAU); c.fill(); }
     }
-    c.restore();
   }
-  // centre line + buttons + hem shadow
-  c.strokeStyle = 'rgba(0,0,0,.35)'; c.lineWidth = 1.2; c.beginPath(); const [ax, ay] = P(0, 25.5), [bx, by] = P(0, -8); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke();
-  c.fillStyle = pal.suitDD;
-  for (const u of [20, 8]) { const [x, y] = P(1.2, u); c.beginPath(); c.arc(x, y, 3, 0, TAU); c.fill(); c.lineWidth = 0.8; c.strokeStyle = 'rgba(255,255,255,.25)'; c.stroke(); }
-  // pocket square + pin
-  c.strokeStyle = 'rgba(0,0,0,.3)'; c.lineWidth = 1.1; const [px, py] = P(-16, 33.6), [px2] = P(-9.8, 0); c.beginPath(); c.moveTo(px, py); c.lineTo(px2, py - 1.5); c.stroke();
-  poly([[-15.6, 34], [-13.2, 37.6], [-10.4, 34.4]], look.tie || '#ffffff', INKC, 0.9);
-  if (look.pin) { const [x, y] = P(11.8, 43.4); c.beginPath(); c.arc(x, y, 3.2, 0, TAU); c.fillStyle = look.pin; c.fill(); c.lineWidth = 0.9; c.strokeStyle = INKC; c.stroke(); }
-  // fabric folds
-  c.strokeStyle = 'rgba(0,0,0,.14)'; c.lineWidth = 1.6; c.lineCap = 'round';
-  for (const [l0, u0, l1, u1, ql, qu] of [[-15, 17, -3, 14, -9, 12.5], [4, 15, 15, 17, 9.5, 13], [-14, 30, -9, 22, -12.5, 25], [13.5, 30, 10, 21, 12.6, 25]]) {
-    const [x0, y0] = P(l0, u0), [x1, y1] = P(l1, u1), [xq, yq] = P(ql, qu); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(xq, yq, x1, y1); c.stroke();
+  // chest pocket with a welt and a pocket square, and the flaps of the hip pockets
+  { const pw = [[-16, 33.4], [-9.8, 34.9]]; groove(pw, 0.8, 0.9); lip([[-16, 34.2], [-9.8, 35.7]], 1.0, hiA);
+    const sq = [[-15.4, 34.2], [-14.3, 37.4], [-12.9, 35.9], [-11.8, 38], [-10.4, 35.2]];
+    cast(sq, '#ffffff', 0.45, 3, 0, 1.5); path(sq); c.fillStyle = look.tie ? hex(lighten(look.tie, 0.2)) : '#f1f1f1'; c.fill(); stroke([[-14.3, 37.4], [-13.6, 35]], 'rgba(0,0,0,.2)', 0.7); }
+  for (const s of [-1, 1]) {
+    const f = mirror([[5.5, 4.6], [15.6, 3.2], [15.9, -0.2], [5.9, 1.2]], s);
+    cast(f, suit, 0.5, 4, 0, 2.5); path(f); c.fillStyle = suit; c.fill();
+    lip(mirror([[5.6, 4.7], [15.6, 3.3]], s), 1.0, hiA); groove(mirror([[5.9, 1.2], [15.9, -0.2]], s), 0.8, 0.9);
   }
-  c.strokeStyle = 'rgba(255,255,255,.08)'; c.lineWidth = 1.2;
-  for (const [l0, u0, l1, u1, ql, qu] of [[-15, 19, -3, 16, -9, 14.5], [4, 17, 15, 19, 9.5, 15]]) {
-    const [x0, y0] = P(l0, u0), [x1, y1] = P(l1, u1), [xq, yq] = P(ql, qu); c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(xq, yq, x1, y1); c.stroke();
+  // the pin on the lapel
+  if (look.pin) { const [x, y] = P(11.8, 43.4); c.save(); c.shadowColor = 'rgba(0,0,0,.5)'; c.shadowBlur = 3; c.shadowOffsetY = 1.5; const g = c.createRadialGradient(x - 1, y - 1, 0.4, x, y, 3.6); g.addColorStop(0, hex(lighten(look.pin, 0.5))); g.addColorStop(0.5, look.pin); g.addColorStop(1, hex(darken(look.pin, 0.4))); c.fillStyle = g; c.beginPath(); c.arc(x, y, 3.2, 0, TAU); c.fill(); c.restore(); }
+  // the folds of the cloth: pulls from the button, drape across the belly
+  for (const [l0, u0, l1, u1, ql, qu, a] of [[-15, 17, -3, 14, -9, 12.5, 0.55], [4, 15, 15, 17, 9.5, 13, 0.55], [-14, 30, -9, 22, -12.5, 25, 0.35], [13.5, 30, 10, 21, 12.6, 25, 0.35], [-12, 21, -2, 18, -7, 16, 0.4], [3, 19, 13, 21, 8, 17.5, 0.4]]) {
+    const [x0, y0] = P(l0, u0), [x1, y1] = P(l1, u1), [xq, yq] = P(ql, qu);
+    c.save(); c.lineCap = 'round'; c.strokeStyle = `rgba(0,0,0,${0.09 * a})`; c.lineWidth = 5; c.beginPath(); c.moveTo(x0, y0); c.quadraticCurveTo(xq, yq, x1, y1); c.stroke();
+    c.strokeStyle = `rgba(0,0,0,${0.16 * a})`; c.lineWidth = 2.2; c.stroke();
+    c.translate(0, 2.4); c.strokeStyle = `rgba(255,255,255,${(dark ? 0.12 : 0.07) * a})`; c.lineWidth = 1.6; c.stroke(); c.restore();
   }
   // plain corner used by the back of the jacket
   c.fillStyle = pal.suit; c.fillRect(TEXN - 40, TEXN - 40, 40, 40);

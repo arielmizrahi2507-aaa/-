@@ -11,6 +11,7 @@ const [html, outDir, idList] = process.argv.slice(2);
 if (!html || !outDir) { console.error('usage: node bake-parts.mjs <index.html> <out dir> [ids]'); process.exit(1); }
 fs.mkdirSync(outDir, { recursive: true });
 const PARTS = (process.env.PARTS || 'torso,uarm,farm,thigh,shin,shoe').split(',');      // PARTS=torso bakes only some of them (the rest of meta.json is kept)
+const PXU = +(process.env.PXU || 4);                                                     // pixels per rig unit of the baked pictures
 const b = await chromium.launch({ executablePath: process.env.CHROME || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await b.newPage({ viewport: { width: 900, height: 700 } });
 const errs = []; page.on('pageerror', (e) => errs.push(e.message));
@@ -20,15 +21,15 @@ await page.waitForFunction(() => window.KS && KS.Baked && KS.Baked.count() >= 21
 const ids = idList ? idList.split(',') : await page.evaluate(() => KS.ROSTER.filter((d) => !d.look.robot).map((d) => d.id));
 const meta = fs.existsSync(path.join(outDir, 'meta.json')) ? JSON.parse(fs.readFileSync(path.join(outDir, 'meta.json'), 'utf8')) : {};
 for (const id of ids) {
-  const r = await page.evaluate(({ id, PARTS }) => {
+  const r = await page.evaluate(({ id, PARTS, PXU }) => {
     const look = KS.ROSTER_BY_ID[id].look, out = {};
     for (const part of PARTS) {
-      const g = KS.F3D.bakePart(look, part, 3);
+      const g = KS.F3D.bakePart(look, part, PXU);
       if (!g) return null;
       out[part] = { png: g.canvas.toDataURL('image/png'), ax: g.ax, ay: g.ay, k: g.k, w: g.canvas.width, h: g.canvas.height };
     }
     return out;
-  }, { id, PARTS });
+  }, { id, PARTS, PXU });
   if (!r) { console.error('could not bake', id); continue; }
   meta[id] = meta[id] || {};
   for (const part of PARTS) {

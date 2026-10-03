@@ -83,6 +83,7 @@ def render_portrait(id, K=1.0, seed=0, verbose=True, eyes='open', mouth='smile',
         cv.P, a = draw_stache(cv.P, h, L['stache']); cv.add_alpha(a)
     if 'glasses' not in skip: cv.P = draw_glasses(cv.P, h)
     cv.P, a = H3.draw_hair3(cv.P, h, seed=5 + seed); cv.add_alpha(a)
+    h.hair_a = a                                                         # the hair alone (depthmap.py keeps it in the depth picture: long hair goes on below the chin in the game)
     if 'kippah' not in skip:
         cv.P, a = draw_kippah(cv.P, h); cv.add_alpha(a)
     if 'earring' not in skip: cv.P = draw_earring(cv.P, h)

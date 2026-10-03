@@ -134,6 +134,8 @@ class Head:
         ax = np.abs(self.M[:, 0]); wide = 1 + 0.05 * smoothstep(0.7, 1.2, ax) + 0.05 * smoothstep(0.7, 1.6, self.M[:, 1]) * smoothstep(0.3, 1.0, ax)
         self.M[:, 0] = self.M[:, 0] * wide
         self.P = px(self.M)
+        hp = json.load(open(os.path.join(HERE, 'hp.json'))).get(id)
+        parse = bool(hp and (hp.get('parse') or id in os.environ.get('NOHP', '').split(',')))      # the silhouette of the head and the hair as the face-parsing found it on the photo (a shape, no pixels)
         lab = np.load(os.path.join(geom.DATA, 'lab_%s.npy' % id))
         K = lambda *ks: np.isin(lab, ks).astype(np.float32)
         self.lab = lab
@@ -141,11 +143,18 @@ class Head:
         self.m_face = clean(fill_holes(K(1, 2, 3, 4, 5, 6, 10, 11, 12, 13)), 9, 5)
         hair0 = keep_near(clean(K(17), 7, 3, 1.2, keep_largest=False))
         self.m_hair = clean(fill_holes(hair0), 9, 3, 1.4, keep_largest=False)
+        if parse and (hp.get('sym') or os.environ.get('SYM')):                  # a hair mass that the photo hides on one side (a hand, an arm, the turn of the head) is completed from the other side
+            self.m_hair = clean(fill_holes(np.maximum(self.m_hair, np.roll(self.m_hair[:, ::-1], 1, axis=1))), 7, 3, 1.4, keep_largest=False)
         self.m_hat = clean(K(18), 5, 3, 1.4)
         self.m_ears = clean(keep_near(K(7, 8)), 5, 3, 1.2, keep_largest=False)
         self.m_glasses = K(6)
         oval = poly_mask(smooth_curve(P[OVAL], 120, closed=True), 1.2)
         self.m_oval = oval
+        if parse:                                                  # the parsed hair: a smooth outline for straight hair, and no strands over the middle of the cheeks (the photo's wind or hand put them there)
+            psm = float(hp.get('psm', os.environ.get('PSM', 0)))
+            if psm > 0: self.m_hair = clean(fill_holes((blur(self.m_hair, psm) > 0.5).astype(np.float32)), 5, 3, 1.4, keep_largest=False)
+            core = cv2.erode((oval > 0.5).astype(np.uint8), cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * int(float(hp.get('core', 0.15)) * I) + 1,) * 2)).astype(np.float32) * (YY > EY - 0.42 * I)
+            self.m_hair = self.m_hair * (1 - blur(core, 3))
         # the skin silhouette of the head: the landmark oval + the parsed face and bald scalp above the eyes; a skull is convex and symmetric
         above = (YY < EY + 0.15 * I).astype(np.float32)
         top = np.clip(self.m_face * above, 0, 1)
@@ -161,7 +170,7 @@ class Head:
         yt2 = int(EY - 0.1 * I); run2 = np.maximum.accumulate(prof_sh[:yt2 + 1]); prof_sh[:yt2 + 1] = run2
         self.m_skullhair = clean(np.clip(profile_mask(prof_sh, 5.0) * (YY < EY + 1.1 * I) + sh, 0, 1), 5, 1, 1.4)
         self.top_y = float(ytop2)
-        hp = json.load(open(os.path.join(HERE, 'hp.json'))).get(id)
+        if parse: hp = None
         if hp:                                                    # a hand-made parametric silhouette replaces the parsed one
             import hairmodel as HM
             hp = dict(hp)
@@ -623,9 +632,30 @@ def paint_mouth_interior(img, h):
     return img
 
 # ---------------------------------------------------------------------------------------------------------------- eyes, brows
+def eye_makeup(img, h, side):
+    """eye shadow over the lid and a liner with a wing (spec 'makeup': colour, k = strength, liner, wing = length in eye distances)"""
+    mk = h.spec.get('makeup')
+    if not mk: return img
+    up, lo = h.parts['eyeR'] if side == 'R' else h.parts['eyeL']
+    col = hexlin(mk.get('color', '#3b2b33')); k = float(mk.get('k', 0.5)); sgn = -1.0 if side == 'R' else 1.0     # sgn: the outer side of this eye
+    sh = np.zeros((SS, SS), np.float32); n = 12
+    for i in range(n):
+        t = i / (n - 1); p = up[min(int(t * (len(up) - 1)), len(up) - 1)]
+        sh = np.maximum(sh, (0.50 + 0.50 * (1 - t) ** 0.8) * gauss(p[0] + sgn * 0.02 * I * (1 - t), p[1] - (0.045 + 0.03 * (1 - t)) * I, 0.070 * I, (0.050 + 0.030 * (1 - t)) * I))
+    sh = blur(sh, 3.0)
+    img = over(img, col, np.clip(sh * k * 1.6, 0, 1) * np.clip(h.m_head + 0.0, 0, 1))
+    ln = float(mk.get('liner', 1.0))
+    if ln > 0:
+        o = up[0]; wing = float(mk.get('wing', 0.06)) * I
+        pts = np.array([o + [-sgn * 0.01 * I, 0.0], o + [sgn * wing * 0.55, -wing * 0.18], o + [sgn * wing, -wing * 0.50]])
+        img = over(img, np.array([0.012, 0.009, 0.010], np.float32), line_mask(pts, 3.4, 0.8) * 0.85 * ln)
+        img = over(img, np.array([0.012, 0.009, 0.010], np.float32), line_mask(up + np.array([0, -1.2]), 5.2, 1.0) * 0.55 * ln)
+    return img
+
 def draw_eye(img, h, side, state='open', ri_scale=1.0):
     L, P = h.L, h.P
     up, lo = h.parts['eyeR'] if side == 'R' else h.parts['eyeL']
+    img = eye_makeup(img, h, side)
     E = h.parts['E_R'] if side == 'R' else h.parts['E_L']
     x0, x1 = up[:, 0].min(), up[:, 0].max(); w = x1 - x0
     ee = h.expr['ee'] if hasattr(h, 'expr') else {}

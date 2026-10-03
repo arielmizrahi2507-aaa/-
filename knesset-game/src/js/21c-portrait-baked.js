@@ -96,9 +96,9 @@ const Baked = (() => {
     if (!m || !m.depth) return null;
     const n = 128, c = document.createElement('canvas'); c.width = c.height = n;
     const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(m.depth, 0, 0, n, n);
-    const px = x.getImageData(0, 0, n, n).data, f = new Float32Array(n * n);
-    for (let i = 0; i < n * n; i++) f[i] = px[i * 4] / 255 * DEPTH_RANGE;
-    return (depthOf[id] = { f, n });
+    const px = x.getImageData(0, 0, n, n).data, f = new Float32Array(n * n), hair = new Float32Array(n * n);
+    for (let i = 0; i < n * n; i++) { f[i] = px[i * 4] / 255 * DEPTH_RANGE; hair[i] = px[i * 4 + 1] / 255; }      // red: the depth, green: the alpha of the hair alone
+    return (depthOf[id] = { f, n, hair });
   }
   function turnHead(h, dp, yaw) {
     const src = h.c, w = src.width, hh = src.height, U = h.U, ex = h.ex, n = dp.n, D = dp.f;
@@ -211,10 +211,11 @@ const Baked = (() => {
       if (h) return h;
       const lay = LAYOUT[id], chin = lay ? lay.chin : 2.45, U0 = im.width / 5, sc = full || im.width <= 300 ? 1 : 0.5, U = U0 * sc;
       const bl = look && look.beard ? Math.max(0, look.beard.len || 0) : 0, longHair = look && look.hair && look.hair.len > 0;
-      const keep = bl > 0.5 || longHair;                              // a long beard or long hair goes on below the chin: keep the picture to its lower edge, fade only the last bit
+      const dp = longHair ? depthMap(id) : null, hairKeep = !!(dp && dp.hair);          // long hair has a mask of its own (the green channel of the depth picture): it goes on below the chin, in front of the shoulders
+      const keep = bl > 0.5 || (longHair && !hairKeep);              // a long beard (or long hair without its mask) goes on below the chin: keep the picture to its lower edge, fade only the last bit
       const e0 = (2.1 + chin + bl * 0.376) * U0;                      // the chin (or the end of a short beard)
       const f0 = e0 - 0.28 * U0;                                      // the head fades out into the neck of the body from here
-      const hh = keep ? im.height : Math.min(im.height, Math.ceil(e0 + 0.1 * U0));
+      const hh = keep || hairKeep ? im.height : Math.min(im.height, Math.ceil(e0 + 0.1 * U0));
       const c = document.createElement('canvas'); c.width = Math.round(im.width * sc); c.height = Math.round(hh * sc);
       const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';      // turnHead reads it
       x.drawImage(im, 0, 0, im.width, hh, 0, 0, c.width, c.height);
@@ -222,7 +223,7 @@ const Baked = (() => {
       const yJaw = (2.1 + (lay ? lay.jaw_y : 1.7)) * U, yChin = (2.1 + chin) * U, jh = (lay ? lay.jaw_half : 1.25) * U * 1.12, cx = c.width / 2, yTop = yJaw - 0.05 * U;
       x.save(); x.globalCompositeOperation = 'destination-in'; x.fillStyle = '#000';
       x.beginPath();
-      if (longHair || bl > 0.5) {                                                    // a straight cut, wide enough for the beard or the hair
+      if (keep) {                                                                    // a straight cut, wide enough for the beard or the hair
         const half = (longHair ? 2.1 : 1.35) * U;
         x.rect(0, 0, c.width, yTop); x.rect(cx - half, yTop, 2 * half, c.height - yTop);
       } else {
@@ -239,8 +240,30 @@ const Baked = (() => {
       const g = x.createLinearGradient(0, keep ? c.height - 0.3 * U : f0 * sc, 0, c.height);
       g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(1, 'rgba(0,0,0,0)');
       x.globalCompositeOperation = 'destination-in'; x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+      if (hairKeep) {
+        // the head is cut like everybody's; the hair of the picture (where its mask is) is put back on top, so that it falls in front of the shoulders and the neck and the jacket of the picture are gone;
+        // the ends of the hair are ragged: every column fades out at a height of its own
+        const W = c.width, Hc = c.height, c2 = document.createElement('canvas'); c2.width = W; c2.height = Hc;
+        const x2 = c2.getContext('2d', { willReadFrequently: true }); x2.imageSmoothingEnabled = true; x2.imageSmoothingQuality = 'high';
+        x2.drawImage(im, 0, 0, im.width, hh, 0, 0, W, Hc);
+        const dst = x.getImageData(0, 0, W, Hc), d = dst.data, a = x2.getImageData(0, 0, W, Hc).data, hm = dp.hair, n = dp.n;
+        const rag = new Float32Array(W + 4); for (let i = 0; i < rag.length; i += 3) rag[i] = Math.random();
+        for (let i = 0; i < rag.length; i++) { const i0 = i - (i % 3), i1 = Math.min(rag.length - 1, i0 + 3), t = (i % 3) / 3; rag[i] = rag[i0] * (1 - t) + rag[i1] * t; }
+        const y1 = Math.max(0, Math.floor(yTop));
+        for (let y = y1; y < Hc; y++) {
+          const fy = (y + 0.5) / Hc * n - 0.5, j0 = Math.max(0, Math.min(n - 2, Math.floor(fy))), ty = Math.max(0, Math.min(1, fy - j0));
+          for (let xx = 0; xx < W; xx++) {
+            const fx = (xx + 0.5) / W * n - 0.5, i0 = Math.max(0, Math.min(n - 2, Math.floor(fx))), tx = Math.max(0, Math.min(1, fx - i0));
+            const v = (hm[j0 * n + i0] * (1 - tx) + hm[j0 * n + i0 + 1] * tx) * (1 - ty) + (hm[(j0 + 1) * n + i0] * (1 - tx) + hm[(j0 + 1) * n + i0 + 1] * tx) * ty;
+            if (v < 0.3) continue;
+            const t = Math.min(1, (v - 0.3) / 0.32), m = t * t * (3 - 2 * t), r = Math.max(0, Math.min(1, (Hc - 1 - y) / (U * (0.12 + 0.40 * rag[xx])))), p = (y * W + xx) * 4, ka = a[p + 3] * m * r * r * (3 - 2 * r);
+            if (ka > d[p + 3]) { d[p] = a[p]; d[p + 1] = a[p + 1]; d[p + 2] = a[p + 2]; d[p + 3] = ka; }
+          }
+        }
+        x.putImageData(dst, 0, 0);
+      }
       h = { c, U, ex: c.width / 2, ey: 2.1 * U, turned: {} };
-      store.set(im, h);
+      if (!longHair || hairKeep) store.set(im, h);                      // long hair waits for its mask (it loads with the depth picture)
       return h;
     },
     // head2d turned towards the side the fighter faces (dir: +1 to the right of the picture, -1 to the left); the front view until the depth map is in

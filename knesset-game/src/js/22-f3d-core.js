@@ -106,12 +106,35 @@ layout(location=4) in vec4 aMat;
 uniform mat4 uMVP;
 uniform mat4 uM;
 uniform mat3 uNM;
-out vec3 vN; out vec3 vP; out vec2 vUV; out vec4 vCol; out vec4 vMat;
+// The other parts of the body as ellipsoids (model space of the figure): centre, and the matrix that maps an offset from the centre onto the unit sphere. Every vertex gets
+// ambient occlusion (the fold between the arm and the jacket, the crotch, under the chin) and a soft cast shadow of the key light (an arm over the jacket, the head over the collar).
+#define NOCC 16
+uniform int uOccN;
+uniform vec3 uOccC[NOCC];
+uniform mat3 uOccS[NOCC];
+uniform vec3 uOccL;                                              // the direction to the key light in model space
+out vec3 vN; out vec3 vP; out vec2 vUV; out vec4 vCol; out vec4 vMat; out vec2 vOcc;
 void main() {
   gl_Position = uMVP * vec4(aPos, 1.0);
   vec4 w = uM * vec4(aPos, 1.0);
   vP = vec3(w.x, -w.y, w.z);                                     // view space like the normals: x right, y up, z to the camera
   vN = uNM * aNrm; vUV = aUV; vCol = aCol; vMat = aMat;
+  float ao = 1.0, sh = 0.0;
+  for (int i = 0; i < NOCC; i++) {
+    if (i >= uOccN) break;
+    vec3 d = aPos - uOccC[i];
+    vec3 o = uOccS[i] * d;
+    float r2 = dot(o, o);
+    if (r2 < 1.35) continue;                                     // on (or in) the part itself
+    ao *= 1.0 - 0.8 * clamp(dot(aNrm, -d) * inversesqrt(dot(d, d)), 0.0, 1.0) / r2;
+    vec3 l = uOccS[i] * uOccL;
+    float a = dot(l, l), b = dot(o, l), t = -b / a;
+    if (t > 0.0) {
+      float s = sqrt(max(r2 - b * b / a, 0.0)), pen = 0.16 + 0.10 * min(t * sqrt(a), 4.0);
+      sh = max(sh, 1.0 - smoothstep(1.0 - pen, 1.0 + pen, s));
+    }
+  }
+  vOcc = vec2(ao, sh);
 }`;
 
 // Lighting: wrapped diffuse from a warm key + cool fill + hemispheric ambient. On top of that, per material class:
@@ -126,7 +149,7 @@ uniform sampler2DArray uTex;
 uniform vec3 uKeyDir, uKeyCol, uFillDir, uFillCol, uTop, uBot, uRim, uNorm;
 uniform vec4 uTint;
 uniform float uFlash, uAlpha, uCover;
-in vec3 vN; in vec3 vP; in vec2 vUV; in vec4 vCol; in vec4 vMat;
+in vec3 vN; in vec3 vP; in vec2 vUV; in vec4 vCol; in vec4 vMat; in vec2 vOcc;
 out vec4 outColor;
 
 float hash21(vec2 p) { p = fract(p * vec2(233.34, 851.73)); p += dot(p, p + 23.45); return fract(p.x * p.y); }
@@ -163,7 +186,7 @@ void main() {
     // the drape: soft folds that run along a sleeve or a trouser leg (and down the jacket), and a finer crumple across them
     vec2 fuv = jacket ? vec2(vUV.x * 5.0, vUV.y * 1.3) : vec2(vUV.x * 3.0, vUV.y * 0.5);
     float fold = vnoise(fuv + 3.1) * 0.62 + vnoise(fuv * vec2(2.4, 1.9) + 9.7) * 0.38;
-    h = w + lum * 0.15 + fold * 18.0 * (0.4 + 0.6 * near); amp = 0.28 * (0.25 + 0.75 * near);
+    h = w + lum * 0.15 + fold * 11.0 * (0.4 + 0.6 * near); amp = 0.28 * (0.25 + 0.75 * near);
     // a faint woven stripe along the cloth, as in a suit; it fades out when the stripes get thinner than a pixel or two
     float sx = vUV.x * (jacket ? 30.0 : 28.0), stripe = smoothstep(0.38, 0.46, abs(fract(sx) - 0.5)) * (1.0 - smoothstep(0.25, 0.55, fwidth(sx)));
     mul = vec3(0.86 + 0.3 * w) * (0.93 + 0.14 * fold) * (1.0 + 0.16 * stripe);
@@ -184,8 +207,9 @@ void main() {
   vec3 V = vec3(0.0, 0.0, 1.0), H = normalize(uKeyDir + V);
   float ndl = dot(N, uKeyDir);
   float wrap = clamp((ndl + 0.3) / 1.3, 0.0, 1.0); wrap *= wrap * (3.0 - 2.0 * wrap) * 0.6 + wrap * 0.4;
-  vec3 diff = (uKeyCol * wrap + uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5)) * uNorm;   // uNorm: a well-lit face shows the colour the look asks for
-  float ndh = max(dot(N, H), 0.0), lit = smoothstep(-0.05, 0.25, ndl);
+  float oc = vOcc.x, shd = vOcc.y;
+  vec3 diff = (uKeyCol * wrap * (1.0 - 0.62 * shd) + (uFillCol * max(dot(N, uFillDir), 0.0) + mix(uBot, uTop, N.y * 0.5 + 0.5)) * oc) * uNorm;   // uNorm: a well-lit face shows the colour the look asks for
+  float ndh = max(dot(N, H), 0.0), lit = smoothstep(-0.05, 0.25, ndl) * (1.0 - 0.85 * shd);
   vec3 add = vec3(0.0), spc;
   if (skin) {
     float band = exp(-pow((ndl - 0.0) * 4.2, 2.0));
@@ -270,7 +294,7 @@ F3D.init = function () {
     gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
     G3.gl = gl; G3.cv = cv; G3.prog = prog;
-    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uNorm', 'uTint', 'uFlash', 'uAlpha', 'uCover']) G3.U[n] = gl.getUniformLocation(prog, n);
+    for (const n of ['uMVP', 'uM', 'uNM', 'uTex', 'uKeyDir', 'uKeyCol', 'uFillDir', 'uFillCol', 'uTop', 'uBot', 'uRim', 'uNorm', 'uTint', 'uFlash', 'uAlpha', 'uCover', 'uOccN', 'uOccC', 'uOccS', 'uOccL']) G3.U[n] = gl.getUniformLocation(prog, n);
     G3.vbo = gl.createBuffer(); G3.ibo = gl.createBuffer();
     G3.a2c = !!gl.getParameter(gl.SAMPLE_BUFFERS);
     try {                                                                 // the portrait heads are optional: without this program the modelled 3D heads stay

@@ -123,12 +123,18 @@ function emitLoft(mesh, path, rr, col, mat, o = {}) {
     let ux = wy * rz - wz * ry, uy = wz * rx - wx * rz, uz = wx * ry - wy * rx; const ul = Math.hypot(ux, uy, uz) || 1; ux /= ul; uy /= ul; uz /= ul;
     const vx = wy * uz - wz * uy, vy = wz * ux - wx * uz, vz = wx * uy - wy * ux;
     const ds = (arc[k1] - arc[k0]) || 1e-3, slope = o.flatCaps && (k < c0 || k >= n - c1) ? 0 : -(((R[k1] + Z[k1]) - (R[k0] + Z[k0])) / 2) / ds;      // flatCaps: the round ends are lit like the tube (they hide inside a joint)
-    const ck = cf ? cf(k, n) : col, ra = Math.max(R[k], 1e-3), rb = Math.max(Z[k], 1e-3), P = pts[k];
+    const ck = cf ? cf(k, n) : col, ra = Math.max(R[k], 1e-3), rb = Math.max(Z[k], 1e-3), P = pts[k], rm = o.rmod;
     for (let s = 0; s < cols; s++) {
       const cp = T.c[s % sides], sp = T.s[s % sides];
-      const dx = ux * cp * ra + vx * sp * rb, dy = uy * cp * ra + vy * sp * rb, dz = uz * cp * ra + vz * sp * rb;
+      let dx = ux * cp * ra + vx * sp * rb, dy = uy * cp * ra + vy * sp * rb, dz = uz * cp * ra + vz * sp * rb;
       let nx = ux * cp / ra + vx * sp / rb, ny = uy * cp / ra + vy * sp / rb, nz = uz * cp / ra + vz * sp / rb; const nl0 = Math.hypot(nx, ny, nz) || 1; nx /= nl0; ny /= nl0; nz /= nl0;
-      nx += wx * slope; ny += wy * slope; nz += wz * slope; const nl = Math.hypot(nx, ny, nz) || 1;
+      let sl = slope;
+      if (rm) {                                       // rmod(k, n, direction): a factor for the radius of this vertex (the pleats of a sleeve at the elbow); the normal follows its slope along the limb
+        const dux = ux * cp + vx * sp, duy = uy * cp + vy * sp, duz = uz * cp + vz * sp, f = rm(k, n, dux, duy, duz), f0 = rm(k0, n, dux, duy, duz), f1 = rm(k1, n, dux, duy, duz);
+        dx *= f; dy *= f; dz *= f;
+        sl = -(((R[k1] + Z[k1]) * f1 - (R[k0] + Z[k0]) * f0) / 2) / ds;
+      }
+      nx += wx * sl; ny += wy * sl; nz += wz * sl; const nl = Math.hypot(nx, ny, nz) || 1;
       mesh.vert(P[0] + dx, P[1] + dy, P[2] + dz, nx / nl, ny / nl, nz / nl, tile ? (s / sides) * tile[0] : WHITE_UV[0], tile ? arc[k] / tile[1] : WHITE_UV[1], ck, mat);
     }
   }
@@ -185,7 +191,11 @@ function emitCap(mesh, ring, center, up, col, mat, uv = WHITE_UV) {
   }
 }
 
-// Transform a static mesh into another mesh (used to stamp shoes, hands, ... with a matrix). Colours can be overridden.
+// the product of two packed colours (a static mesh has its shades in its vertex colours: the sole of a shoe, the shadowed fingers; the person's colour tints them)
+function mulCol(a, b) {
+  return (((((a >>> 24) * (b >>> 24) / 255 + 0.5) | 0) << 24) | ((((a >>> 16) & 255) * ((b >>> 16) & 255) / 255 + 0.5 | 0) << 16) | ((((a >>> 8) & 255) * ((b >>> 8) & 255) / 255 + 0.5 | 0) << 8) | (((a & 255) * (b & 255) / 255 + 0.5) | 0)) >>> 0;
+}
+// Transform a static mesh into another mesh (used to stamp shoes, hands, ... with a matrix). The colour tints the vertex colours of the static mesh (they are white unless the mesh has shades of its own).
 function stamp(dst, src, m, nm, col, mat) {
   const base = dst.nv, sf = src.f;
   for (let k = 0; k < src.nv; k++) {
@@ -194,7 +204,7 @@ function stamp(dst, src, m, nm, col, mat) {
     const px = m[0] * x + m[4] * y + m[8] * z + m[12], py = m[1] * x + m[5] * y + m[9] * z + m[13], pz = m[2] * x + m[6] * y + m[10] * z + m[14];
     let qx = nm[0] * nx + nm[3] * ny + nm[6] * nz, qy = nm[1] * nx + nm[4] * ny + nm[7] * nz, qz = nm[2] * nx + nm[5] * ny + nm[8] * nz;
     const l = Math.hypot(qx, qy, qz) || 1;
-    dst.vert(px, py, pz, qx / l, qy / l, qz / l, sf[o + 6], sf[o + 7], col === undefined ? src.u[o + 8] : col, mat === undefined ? src.u[o + 9] : mat);
+    dst.vert(px, py, pz, qx / l, qy / l, qz / l, sf[o + 6], sf[o + 7], col === undefined ? src.u[o + 8] : mulCol(src.u[o + 8], col), mat === undefined ? src.u[o + 9] : mat);
   }
   for (let k = 0; k + 2 < src.ni; k += 3) dst.tri(base + src.i[k], base + src.i[k + 1], base + src.i[k + 2]);
 }

@@ -13,7 +13,7 @@ and uses the realistic portrait of the person as the head (`drawBakedHead`, `Bak
 | `shoe` | the shoe, seen from the side | the ankle |
 
 Each part is rendered straight and hanging down by `F3D.bakePart(look, part, pxu)` (`26-f3d-body.js`): the same meshes as in the fight (`emitBody` with `opt.only`), lit by the neutral stage light,
-3 pixels per rig unit, with a transparent background. In the fight `Parts.draw` takes the skeleton the 3D figure uses (`skeleton3D`: shoulders, elbows, wrists, hips, knees, ankles, the head),
+4 pixels per rig unit (`PXU`), with a transparent background. In the fight `Parts.draw` takes the skeleton the 3D figure uses (`skeleton3D`: shoulders, elbows, wrists, hips, knees, ankles, the head),
 turns every part to run from its joint to the next one, stretches it to the length of the bone, and puts the portrait on top of the neck. The far arm and leg are drawn a little darker.
 A hit flash and the ghost tint are applied on a scratch copy of the picture.
 The neck of the torso goes on up behind the chin in the baked picture (`S.bake`), because the head of the drawn fight is a front view that does not have the 3D head's neck joint.
@@ -25,7 +25,7 @@ A fighter without baked parts (the boss robot, the minions) keeps the cartoon bo
 ```
 node bake-parts.mjs ../../index.html OUTDIR            # all fighters, all parts: OUTDIR/<id>.<part>.png + meta.json
 PARTS=torso node bake-parts.mjs ../../index.html OUTDIR bibi,gantz   # only some parts / fighters (meta.json keeps the rest)
-python3 pack.py OUTDIR ../../src/assets/parts            # WebP, ~0.16 MB for the 126 parts
+python3 pack.py OUTDIR ../../src/assets/parts            # WebP, 126 parts (PXU=4 pixels per rig unit by default)
 node ../../build.mjs                                     # embeds them (PARTS_DATA, PARTS_META)
 ```
 

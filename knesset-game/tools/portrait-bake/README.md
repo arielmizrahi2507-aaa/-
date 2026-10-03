@@ -23,14 +23,17 @@ A small offline renderer written with numpy / scipy / OpenCV, **not** a photo fi
 - **Light and skin** (`rend2.py`): one key light from the upper left, cast shadows, per-channel blur for the light under the skin, a little gloss, red and yellow variation, age spots, bags,
   wrinkles that follow the face, pores. The eyes (iris fibres, lids, lashes), brows (hundreds of single hairs), lips and teeth are painted procedurally. Expressions change the lips,
   lids, brows and the creases.
-- **Hair** (`hair3.py`, `hairmodel.py`, `hp.json`): the outline of the head and the hairline are given by hand per person in units of the distance between the eyes (`hp.json`); the strands are made
-  by line-integral convolution along a flow field (swept back, radial, falling), with clumps, grey strands, a soft hairline over a scalp layer, thin hair that lets the scalp show, a ragged edge and loose hairs.
+- **Hair** (`hair3.py`, `hairmodel.py`, `hp.json`): the outline of the head and the hairline are given by hand per person in units of the distance between the eyes (`hp.json`); for hair that is too
+  free-form for that (long hair, a bob, a thick head of hair) `"parse": true` takes the *shape* of the hair mass from the face-parsing label map instead (a silhouette, no pixel of a photo), `"sym"` completes
+  it from the other side where the photo hides one, `"psm"` smooths its outline (straight hair), `"core"` keeps the strands away from the middle of the cheeks. The strands are made
+  by line-integral convolution along a flow field (swept back, radial, falling), with clumps, grey strands, a soft hairline over a scalp layer, thin hair that lets the scalp show, a ragged edge and loose hairs;
+  `spec.json` `hair` overrides the texture of a person (`wob_k` how much the strands wave, `fine_len`, `lock_len`, `lock_scale`, `spec` ...: long and smooth for straight hair).
 - **Beards** (`beard3.py`): a soft shade under the hairs, low-contrast fibres, patchy grey, thin coverage on the cheeks; short beards are thousands of tiny strokes.
 - **Clothes, glasses, kippah, earrings** are drawn with the colours of `30-looks.js`; `looks.json` is that data as JSON with a few portrait-only changes (the beard `stub` flag for stubble, thinner glasses frames).
 
 `spec.json` holds the per-person overrides, all optional: the eyes (`eye_open`, `hood` heavy lids, `puff` bags, `iris_k`, `iris_dark`, `sclera`, `lid_shadow`), the brows (`brow`: `k` size, `tilt`, `dy`),
 the strength of each group of wrinkles (`wr`: `fore`, `glab`, `crow`, `bag`, `nl`, `mar`, `chin`), marks on the skin (`blotch` red patches, `freckles`, `moles`, `scars`), `tilt` of the head,
-the smile (`smile_k`, `smile_teeth`), `hair` (`thin`, `shadow` ...), `beard` (`cheek` where the beard reaches up the cheeks, `off`, `dense`, `curl`) and `stache` (`w`, `h`, `taper`, `droop`, `alpha`).
+the smile (`smile_k`, `smile_teeth`, `mood`), make-up (`makeup`: eye shadow `color`, strength `k`, `liner`, `wing`), `hair` (`thin`, `shadow` ...), `beard` (`cheek` where the beard reaches up the cheeks, `off`, `dense`, `curl`) and `stache` (`w`, `h`, `taper`, `droop`, `alpha`).
 
 ## The faces of the 3D fighters
 
@@ -54,7 +57,7 @@ portraits and the 3D heads show the same face.
 
 ## The depth of the portraits (the heads turned towards the opponent)
 
-`depthmap.py` writes, per fighter, `<id>.depth.webp` (lossless, 128 x 128, the square of the portrait: 5 eye distances wide, the eye line 2.1 from the top; grey 0..255 = 0..2 eye distances):
+`depthmap.py` writes, per fighter, `<id>.depth.webp` (lossless, 128 x 128, the square of the portrait: 5 eye distances wide, the eye line 2.1 from the top; red: 0..255 = 0..2 eye distances, green: the alpha of the hair alone, with which the game keeps long hair below the chin):
 how far each picture element of the head stands out of the rim plane of the head (its widest part, about the plane of the ears): the inflated skull and the measured relief of the face from `rend2.build_height`,
 and a rounded volume for the hair and the beard from the silhouette of the finished portrait. The game turns the front view about the vertical axis of the head with it (`turnHead` in `21c-portrait-baked.js`),
 so that the fighters look at each other and not into the camera. `python3 depthmap.py OUTDIR [ids]`, then `cp OUTDIR/*.depth.webp ../../src/assets/portraits/` (the PNGs it writes next to them are for looking at).
@@ -65,7 +68,8 @@ The reference photos are the author's and stay private. The renderer needs three
 
 - `lm.json`: the 478 landmarks of every face, made by `../face-fit/landmarks.py` (`{ "<fighter id>": [[x, y, z] * 478], ... }`, in photo pixels);
 - `front_info.json`: per fighter `{ "asym": <how much the head is turned, -1..1>, "scale": ... }`, from the same landmarks (used by `geom.py` to decide which half of the face is symmetrised into the other);
-- `lab_<id>.npy`: a face-parsing label map (BiSeNet, CelebAMask-HQ classes) of the head rotated to the front, on the 1024 px canvas of `rend2.py`; only the ears are read from it, because the outline and the hair come from `hp.json`.
+- `lab_<id>.npy`: a face-parsing label map (BiSeNet, CelebAMask-HQ classes) of the head rotated to the front, on the 1024 px canvas of `rend2.py`; the ears are read from it, and, for the fighters with `"parse": true` in `hp.json`,
+  the silhouette of the hair mass. Only shapes: no colour, no texture and no pixel of the photo is used or stored.
 
 Without them the code is a reference of how the images were made; the images themselves are in `src/assets/portraits`.
 
