@@ -515,6 +515,39 @@ const STAGES = [
   },
 ];
 
+// ---------------------------------------------------------------------------------------------------------------
+// Realistic backdrops: path-traced pictures baked offline (tools/stage-bake, STAGE_DATA made by build.mjs), several layers per arena:
+//   'wall' layers hang at their depth (parallax factor f, like the drawn layers below), the 'floor' layer is the picture of the floor and is sheared
+//   as the camera moves, so every row of it shifts with the parallax of its own depth (a floor is one plane; it has no seams between depths).
+// The drawn layers of the arenas stay as the fallback: when a build has no baked pictures, or a picture cannot be decoded.
+// ---------------------------------------------------------------------------------------------------------------
+const StageImg = {
+  rec: new Map(), order: [],
+  has(id) { return typeof STAGE_DATA !== 'undefined' && !!STAGE_DATA[id]; },
+  load(id) {
+    let r = this.rec.get(id);
+    if (r) return r;
+    if (!this.has(id)) return null;
+    const D = STAGE_DATA[id];
+    r = { id, meta: D.meta, imgs: [], state: 'loading' };
+    this.rec.set(id, r); this.order.push(id);
+    while (this.order.length > 2) { const old = this.order.shift(); const o = this.rec.get(old); if (o) o.imgs = []; this.rec.delete(old); }   // at most two arenas in memory (phones)
+    const ps = D.meta.layers.map((L, i) => new Promise((res, rej) => {
+      const im = new Image();
+      im.onload = () => res(im); im.onerror = () => rej(new Error('stage image'));
+      im.src = D.img[L.name];
+      r.imgs[i] = im;
+    }));
+    r.promise = Promise.all(ps).then(() => {
+      // decode ahead of the first frame (a big picture would otherwise stall the first draw)
+      return Promise.all(r.imgs.map((im) => (im.decode ? im.decode().catch(() => {}) : null)));
+    }).then(() => { r.state = 'ready'; }, () => { r.state = 'failed'; });
+    return r;
+  },
+  ready(id) { const r = this.rec.get(id); return r && r.state === 'ready' ? r : null; },
+  failed(id) { const r = this.rec.get(id); return !!r && r.state === 'failed'; },
+};
+
 const Stages = {
   lx(f, cx) { return -(W / 2) * (1 - f) + cx * (1 - f); },
   res: 1.25, cache: new Map(), vig: null,
@@ -546,14 +579,40 @@ const Stages = {
     this.cache.set(key, cv);
     return cv;
   },
+  // the baked pictures of this arena, when they are decoded (null: use the drawn layers)
+  real(stage) { return this.forceDrawn ? null : StageImg.ready(stage.id); },
+  drawReal(ctx, R, cx) {
+    const yh = R.meta.yh, kh = GROUND - yh, d = cx - STAGE_W / 2;
+    R.meta.layers.forEach((L, i) => {
+      const im = R.imgs[i];
+      if (L.kind === 'floor') {
+        // the picture is the floor at the middle camera; row y moves with the parallax factor (y - yh) / kh of its depth: a shear
+        const m = (L.w - W) / 2;
+        ctx.save();
+        ctx.transform(1, 0, -d / kh, 1, cx - W / 2 - m + d * yh / kh, 0);
+        ctx.drawImage(im, 0, 0, L.w, H);
+        ctx.restore();
+      } else {
+        ctx.drawImage(im, (1 - L.f) * (cx - W / 2), 0, L.w, H);
+      }
+    });
+  },
   draw(ctx, stage, cx, t, part) {
     if (part === 'back') {
-      stage.layers.forEach((L, i) => {
-        const cv = this.layerCanvas(stage, i);
-        const x0 = -(W / 2) * (1 - L.f) + cx * (1 - L.f);
-        ctx.drawImage(cv, x0, 0, cv.width / this.res, cv.height / this.res);
-      });
-      if (stage.dyn) stage.dyn(ctx, t, cx);
+      const R = this.real(stage);
+      if (R) this.drawReal(ctx, R, cx);
+      else if (!this.forceDrawn && StageImg.has(stage.id) && !StageImg.failed(stage.id)) {
+        // the pictures are still being decoded: a dark placeholder for those few frames (painting the drawn layers now would stall the game)
+        StageImg.load(stage.id);
+        ctx.fillStyle = stage.base || '#14101c'; ctx.fillRect(cx - W / 2 - 40, 0, W + 80, H);
+      } else {
+        stage.layers.forEach((L, i) => {
+          const cv = this.layerCanvas(stage, i);
+          const x0 = -(W / 2) * (1 - L.f) + cx * (1 - L.f);
+          ctx.drawImage(cv, x0, 0, cv.width / this.res, cv.height / this.res);
+        });
+      }
+      if (stage.dyn) stage.dyn(ctx, t, cx, !!R);
     } else if (stage.front) stage.front(ctx, t, cx);
   },
   vignette(ctx) {
@@ -567,5 +626,13 @@ const Stages = {
     }
     ctx.drawImage(this.vig, 0, 0, W, H);
   },
-  prewarm(stage) { stage.layers.forEach((_, i) => this.layerCanvas(stage, i)); },
+  prewarm(stage) {
+    if (!this.forceDrawn && StageImg.has(stage.id) && !StageImg.failed(stage.id)) { StageImg.load(stage.id); return; }
+    stage.layers.forEach((_, i) => this.layerCanvas(stage, i));
+  },
+  // resolves when the arena can be drawn (baked pictures decoded, or no pictures in this build)
+  whenReady(stage) {
+    const r = !this.forceDrawn && StageImg.has(stage.id) ? StageImg.load(stage.id) : null;
+    return r ? r.promise : Promise.resolve();
+  },
 };

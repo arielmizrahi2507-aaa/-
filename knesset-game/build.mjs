@@ -38,8 +38,25 @@ if (existsSync(partsDir)) {
 const partsMeta = join(partsDir, 'meta.json');
 const partsData = `const PARTS_DATA = ${JSON.stringify(parts)};\nconst PARTS_META = ${existsSync(partsMeta) ? JSON.stringify(JSON.parse(readFileSync(partsMeta, 'utf8'))) : '{}'};`;
 
+// Baked arena backdrops (path-traced offline): src/assets/stages/<id>.<layer>.webp + <id>.json -> STAGE_DATA = { id: { meta, img: { layer: dataURL } } } (see tools/stage-bake)
+const stageDir = join(src, 'assets', 'stages');
+const stageData = {};
+if (existsSync(stageDir)) {
+  for (const f of readdirSync(stageDir).sort()) {
+    let m = /^([a-z0-9]+)\.json$/.exec(f);
+    if (m) { (stageData[m[1]] || (stageData[m[1]] = { img: {} })).meta = JSON.parse(readFileSync(join(stageDir, f), 'utf8')); continue; }
+    m = /^([a-z0-9]+)\.([a-z0-9_]+)\.webp$/.exec(f);
+    if (m) (stageData[m[1]] || (stageData[m[1]] = { img: {} })).img[m[2]] = 'data:image/webp;base64,' + readFileSync(join(stageDir, f)).toString('base64');
+  }
+  for (const id of Object.keys(stageData)) {                 // an arena is only used when its description and all of its pictures are there
+    const d = stageData[id];
+    if (!d.meta || !d.meta.layers.every((L) => d.img[L.name])) delete stageData[id];
+  }
+}
+const stageDataJs = `const STAGE_DATA = ${JSON.stringify(stageData)};`;
+
 // The whole game lives in one IIFE so files can share top-level names without leaking globals.
-const bundle = `(function(){\n'use strict';\n${portData}\n${partsData}\n${js}\n})();`;
+const bundle = `(function(){\n'use strict';\n${portData}\n${partsData}\n${stageDataJs}\n${js}\n})();`;
 
 const html = read('index.template.html')
   .replace('/*__CSS__*/', () => css)
@@ -47,4 +64,4 @@ const html = read('index.template.html')
 
 const out = process.argv[2] || join(root, 'index.html');      // optional: node build.mjs /path/to/copy.html
 writeFileSync(out, html);
-console.log(`built ${out.endsWith('index.html') ? 'index.html' : out}  (${(html.length / 1024).toFixed(0)} KB, ${jsFiles.length} js files, ${Object.keys(portraits).length} baked portraits, ${Object.keys(parts).length} sets of body parts)`);
+console.log(`built ${out.endsWith('index.html') ? 'index.html' : out}  (${(html.length / 1024).toFixed(0)} KB, ${jsFiles.length} js files, ${Object.keys(portraits).length} baked portraits, ${Object.keys(parts).length} sets of body parts, ${Object.keys(stageData).length} baked arenas)`);
