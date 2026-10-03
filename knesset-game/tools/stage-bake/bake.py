@@ -18,7 +18,7 @@ def main():
     ap.add_argument('--layers', default=''); ap.add_argument('--scale-mul', type=float, default=1.0); ap.add_argument('--spp-mul', type=float, default=1.0)
     ap.add_argument('--work', default='/tmp/stagebuild'); ap.add_argument('--q', nargs='*', default=[]); ap.add_argument('--tag', default='')
     ap.add_argument('--cx', default='480,800,1120'); ap.add_argument('--no-denoise', action='store_true')
-    ap.add_argument('--exposure', type=float, default=None)
+    ap.add_argument('--exposure', type=float, default=None); ap.add_argument('--pass-spp', type=int, default=None); ap.add_argument('--render-layers', default='', help='render only these layers (the others stay as they were); --post still uses all'); ap.add_argument('--live', action='store_true', help='build the scene (no rendering) so that the positions of the animated parts are known when packing')
     a = ap.parse_args()
     mod = importlib.import_module(a.stage)
     q = {}
@@ -28,6 +28,8 @@ def main():
     only = [s for s in a.layers.split(',') if s] or None
     tone = dict(mod.TONE)
     if a.exposure is not None: tone['exposure'] = a.exposure
+    if a.live and not (a.quick or a.raw):
+        b = SceneBuilder(a.stage); q.setdefault('work', work); mod.build(b, q); b.cleanup()
     if a.quick or a.raw:
         t0 = time.time()
         b = SceneBuilder(a.stage)
@@ -43,10 +45,17 @@ def main():
             save_png(os.path.join(work, 'quick.png'), np.hstack(out) if len(out) > 1 else out[0])
             print('quick preview written %s (%.1fs)' % (os.path.join(work, 'quick.png'), time.time() - t0))
         if a.raw:
-            render_stage_raw(b, mod.SLABS, os.path.join(work, 'raw'), h_cam=mod.H_CAM, aperture=mod.APERTURE, only=only, spp_mul=a.spp_mul, scale_mul=a.scale_mul)
+            render_stage_raw(b, mod.SLABS, os.path.join(work, 'raw'), h_cam=mod.H_CAM, aperture=mod.APERTURE, only=([s for s in a.render_layers.split(',') if s] or only), spp_mul=a.spp_mul, scale_mul=a.scale_mul, pass_spp=a.pass_spp)
         b.cleanup()
     if a.post or a.pack:
         layers = post_stage(os.path.join(work, 'raw'), mod.SLABS, tone, denoise_it=not a.no_denoise, only=only)
+        if hasattr(mod, 'shaft_spec') and not only:                       # light shafts: an additive layer (single scattering in numpy), stored as an opaque picture
+            import volume
+            sp = mod.shaft_spec(); f_ = sp['f']; sc_ = sp.get('scale', 0.6)
+            rgbv = volume.shafts(sp['sun'], sp['plane_z'], sp['windows'], sp['bars'], f_, h_cam=mod.H_CAM, scale=sc_, steps=sp.get('steps', 64), sigma=1.0, g=sp.get('g', 0.55),
+                                 color=sp.get('color', (1.0, 0.78, 0.5)), gain=sp.get('gain', 0.45), z_min=sp.get('z_min', 0.5))
+            disp = volume.to_display(rgbv)
+            layers.append({'name': 'shafts', 'f': f_, 'scale': sc_, 'img': np.dstack([disp, np.ones(disp.shape[:2], np.float32)]).astype(np.float32), 'floor': False, 'width': 0, 'order': 99, 'blend': 'add'})
         cxs = [float(c) for c in a.cx.split(',')]
         out = [composite(layers, cx) for cx in cxs]
         save_png(os.path.join(work, 'preview.png'), np.hstack(out) if len(out) > 1 else out[0])

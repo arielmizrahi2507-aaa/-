@@ -178,7 +178,8 @@ const Game = {
       if (sc.kind === 'attract' && B.over) this.setScene('attract');
       if (sc.kind === 'preview') {
         const cap = $('#pvcap'); if (cap && cap.textContent !== (B.demoLabel || '')) cap.textContent = B.demoLabel || '';
-        if (sc.stageSel === 'random' && B.frame - sc.cycleAt > 210) { sc.cycleAt = B.frame; sc.ci = (sc.ci + 1) % STAGES.length; B.stage = STAGES[sc.ci]; }      // a random arena: they take turns
+        if (sc.stageSel === 'random' && B.frame - sc.cycleAt > 150 && !sc.warmed) { sc.warmed = true; Stages.prewarm(STAGES[(sc.ci + 1) % STAGES.length]); }     // the next arena's pictures are decoded in good time
+        if (sc.stageSel === 'random' && B.frame - sc.cycleAt > 210) { sc.cycleAt = B.frame; sc.warmed = false; sc.ci = (sc.ci + 1) % STAGES.length; B.stage = STAGES[sc.ci]; }      // a random arena: they take turns
       }
     }
     const c = sc.ctx, cv = sc.cv;

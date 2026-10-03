@@ -25,6 +25,11 @@ def layer_f(z):
 def layer_width(f):
     return W + (STAGE_W - W) * f
 
+def project(x, y, z, width, h_cam=1.5):
+    """position (logical px) in the picture of a layer that is `width` px wide, of the world point (x, y, z): x to the right, y up, z away from the fighters' plane"""
+    d = D_CAM + z
+    return width / 2.0 + F_PX * x / d, GROUND_Y - K * h_cam - F_PX * (y - h_cam) / d
+
 def floor_width(h_cam=1.5):
     """width (logical px) of the floor picture: the camera may be 320 px left or right of the middle and the nearest floor rows move 1.47 times as far"""
     yh = GROUND_Y - K * h_cam; fmax = (H - yh) / (K * h_cam)
@@ -40,7 +45,7 @@ class LayerPath(mi.SamplingIntegrator):
     def __init__(self, props):
         super().__init__(props)
         self.z_lo = props.get('z_lo', 0.0); self.z_hi = props.get('z_hi', 1e9); self.ramp = props.get('ramp', 0.0); self.bg = props.get('bg', 0.0); self.clamp = props.get('clamp', 80.0)
-        self.floor = props.get('floor', 0.0); self.y_plane = props.get('y_plane', 0.03); self.y_cut = props.get('y_cut', 0.0)
+        self.floor = props.get('floor', 0.0); self.y_plane = props.get('y_plane', 0.03); self.y_cut = props.get('y_cut', 0.0); self.refl = props.get('refl', 0.0)
         self.fwd = mi.Vector3f(0.0, 0.0, 1.0)
         self.kind = props.get('kind', 'path')
         d = {'type': self.kind, 'max_depth': int(props.get('max_depth', 8)), 'rr_depth': 5}
@@ -56,6 +61,18 @@ class LayerPath(mi.SamplingIntegrator):
             r2 = mi.Ray3f(o=ray.o + ray.d * t0, d=ray.d, maxt=0.6 / dr.maximum(-dy, 1e-4), time=ray.time, wavelengths=ray.wavelengths)
             si = scene.ray_intersect(r2, ok)
             hit = ok & si.is_valid() & (si.p.y < self.y_cut)
+        elif self.refl > 0.5:
+            # the camera is the mirror image of the real one, below the floor: its rays start where they cross the floor plane and go up to the objects
+            df = dr.dot(ray.d, self.fwd)
+            t_lo = self.z_lo / df
+            t_hi = self.z_hi / df
+            dy = ray.d.y
+            up = active & (dy > 1e-5)
+            t0 = (self.y_plane + 0.02 - ray.o.y) / dr.select(up, dy, 1.0)
+            t_start = dr.maximum(t0, t_lo)
+            r2 = mi.Ray3f(o=ray.o + ray.d * t_start, d=ray.d, maxt=dr.minimum(ray.maxt, t_hi) - t_start, time=ray.time, wavelengths=ray.wavelengths)
+            si = scene.ray_intersect(r2, up)
+            hit = up & si.is_valid() & (si.p.y >= self.y_cut)
         else:
             df = dr.dot(ray.d, self.fwd)
             t_lo = self.z_lo / df
@@ -325,15 +342,16 @@ def L_env(arr, scale=1.0, rot_y=0.0):
 def horizon_row(h_cam):
     return GROUND_Y - K * h_cam
 
-def sensor_dict(width, height, fov_x, h_cam, aperture, spp, thin=True):
-    to_world = mi.ScalarTransform4f().look_at(origin=[0, h_cam, -D_CAM], target=[0, h_cam, 0], up=[0, 1, 0]) @ mi.ScalarTransform4f().scale([-1, 1, 1])
+def sensor_dict(width, height, fov_x, h_cam, aperture, spp, thin=True, mirror_y=False):
+    yc = -h_cam if mirror_y else h_cam
+    to_world = mi.ScalarTransform4f().look_at(origin=[0, yc, -D_CAM], target=[0, yc, 0], up=[0, 1, 0]) @ mi.ScalarTransform4f().scale([-1, 1, 1])
     film = {'type': 'hdrfilm', 'width': int(width), 'height': int(height), 'pixel_format': 'rgba', 'component_format': 'float32', 'rfilter': {'type': 'gaussian', 'stddev': 0.55}}
     s = {'type': 'thinlens' if (aperture > 0 and thin) else 'perspective', 'fov': float(fov_x), 'fov_axis': 'x', 'to_world': to_world, 'film': film,
          'sampler': {'type': 'multijitter', 'sample_count': int(spp)}}
     if aperture > 0 and thin: s['aperture_radius'] = float(aperture); s['focus_distance'] = float(D_CAM)
     return s
 
-def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, spp=64, pass_spp=16, max_depth=8, seed=0, kind='path', verbose=True, ramp=0.0, bg=False, clamp=80.0, floor=False, y_cut=0.0, width_px=None):
+def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, spp=64, pass_spp=16, max_depth=8, seed=0, kind='path', verbose=True, ramp=0.0, bg=False, clamp=80.0, floor=False, y_cut=0.0, width_px=None, reflect=False):
     """renders the surfaces between z_lo and z_hi metres behind the fighters' plane as the picture of a parallax layer of factor f.
     returns dict(rgb premultiplied linear (h, w, 3), alpha (h, w), albedo, normal) of size (H*scale, layer_width(f)*scale)"""
     Wl = (width_px if width_px else layer_width(f)); fw = int(round(Wl * scale))
@@ -342,8 +360,8 @@ def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, sp
     fov = 2 * math.degrees(math.atan((fw / scale / 2.0) / F_PX))
     d = dict(builder.d)
     pass_spp = int(round(math.sqrt(pass_spp))) ** 2
-    d['sensor'] = sensor_dict(fw, fh, fov, h_cam, aperture, pass_spp)
-    d['integrator'] = {'type': 'layerpath', 'z_lo': float(z_lo + D_CAM), 'z_hi': float(z_hi + D_CAM), 'ramp': float(ramp), 'bg': 1.0 if bg else 0.0, 'clamp': float(clamp), 'floor': 1.0 if floor else 0.0, 'y_cut': float(y_cut), 'max_depth': int(max_depth), 'kind': kind}
+    d['sensor'] = sensor_dict(fw, fh, fov, h_cam, aperture, pass_spp, mirror_y=reflect)
+    d['integrator'] = {'type': 'layerpath', 'z_lo': float(z_lo + D_CAM), 'z_hi': float(z_hi + D_CAM), 'ramp': float(ramp), 'bg': 1.0 if bg else 0.0, 'clamp': float(clamp), 'floor': 1.0 if floor else 0.0, 'y_cut': float(y_cut), 'refl': 1.0 if reflect else 0.0, 'max_depth': int(max_depth), 'kind': kind}
     t0 = time.time()
     scene = mi.load_dict(d)
     if verbose: print('  scene loaded %.1fs (%d triangles)' % (time.time() - t0, builder.stats['tris']), flush=True)
@@ -357,7 +375,13 @@ def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, sp
         del img
     acc /= passes
     top = int(round(fh / 2 - yh * scale)); hh = int(round(H * scale))
-    acc = acc[top:top + hh]
+    if reflect:                                   # the picture seen from the mirrored camera, turned upside down about the horizon: the reflection that the floor shows
+        c0 = int(round(yh * scale)); c = fh // 2; n = hh - c0
+        out = np.zeros((hh,) + acc.shape[1:], acc.dtype)
+        if n > 0: out[c0:c0 + n] = acc[c - n:c][::-1]
+        acc = out
+    else:
+        acc = acc[top:top + hh]
     return {'rgb': acc[..., 0:3].astype(np.float32), 'alpha': acc[..., 3].astype(np.float32), 'albedo': acc[..., 4:7].astype(np.float32), 'normal': acc[..., 7:10].astype(np.float32), 'scale': scale, 'f': f, 'floor': 1.0 if floor else 0.0, 'width': Wl}
 
 # ---------------------------------------------------------------------------------------------------------------- denoise, bloom, tone mapping
@@ -458,7 +482,8 @@ def composite(layers, cx=800.0, h_cam=1.5):
             M = np.float32([[1.0 / s, 0, -(x_a - ia) / s], [0, 1.0 / s, 0]])
             crop = cv2.warpAffine(crop, M, (W, H), flags=cv2.INTER_AREA if s > 1.01 else cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT) if s != 1.0 else crop[:, :W]
         a = crop[..., 3:4]; c = crop[..., :3]
-        out = out * (1 - a) + c * a
+        if Ly.get('blend') == 'add': out = np.clip(out + c * a, 0, 1)
+        else: out = out * (1 - a) + c * a
     return out
 
 def composite_neutral(layers, cx=800.0): return composite(layers, cx)
@@ -468,15 +493,15 @@ def save_png(path, rgb_float):
 
 
 # ---------------------------------------------------------------------------------------------------------------- the stage driver: raw renders are cached, so the grade can be changed without rendering again
-def render_stage_raw(builder, slabs, cache_dir, h_cam=1.5, aperture=0.04, seed=0, only=None, verbose=True, spp_mul=1.0, scale_mul=1.0):
+def render_stage_raw(builder, slabs, cache_dir, h_cam=1.5, aperture=0.04, seed=0, only=None, verbose=True, spp_mul=1.0, scale_mul=1.0, pass_spp=None):
     os.makedirs(cache_dir, exist_ok=True)
     for sl in slabs:
         if only and sl['name'] not in only: continue
         t0 = time.time()
         if verbose: print('layer %s  z %.1f..%.1f  f=%.3f' % (sl['name'], sl['z0'], sl['z1'], sl['f']), flush=True)
         L = render_layer(builder, sl['z0'], sl['z1'], sl['f'], scale=sl.get('scale', 1.0) * scale_mul, h_cam=h_cam, aperture=sl.get('aperture', aperture), spp=int(sl.get('spp', 64) * spp_mul),
-                         pass_spp=sl.get('pass_spp', 8), max_depth=sl.get('depth', 8), seed=seed, ramp=sl.get('ramp', 0.0), bg=sl.get('bg', False), verbose=verbose,
-                         floor=sl.get('floor', False), y_cut=sl.get('ycut', 0.03 if not sl.get('noycut') else 0.0) if not sl.get('floor', False) else 0.03, width_px=sl.get('width'))
+                         pass_spp=(pass_spp or sl.get('pass_spp', 8)), max_depth=sl.get('depth', 8), seed=seed, ramp=sl.get('ramp', 0.0), bg=sl.get('bg', False), verbose=verbose,
+                         floor=sl.get('floor', False), y_cut=sl.get('ycut', 0.03 if not sl.get('noycut') else 0.0) if not sl.get('floor', False) else 0.03, width_px=sl.get('width'), reflect=sl.get('reflect', False))
         np.savez_compressed(os.path.join(cache_dir, sl['name'] + '.npz'), rgb=L['rgb'].astype(np.float16), alpha=L['alpha'].astype(np.float16), albedo=L['albedo'].astype(np.float16),
                             normal=L['normal'].astype(np.float16), scale=L['scale'], f=L['f'], floor=L['floor'], width=L['width'])
         if verbose: print('  -> %s  %.1fs' % (sl['name'], time.time() - t0), flush=True)
@@ -493,8 +518,29 @@ def post_stage(cache_dir, slabs, tone, denoise_it=True, only=None):
         L = load_raw(cache_dir, sl['name'])
         t = dict(tone); t.update(sl.get('tone', {}))
         img = finish_layer(L, denoise_it=denoise_it, **t)
-        out.append({'name': sl['name'], 'f': L['f'], 'scale': L['scale'], 'img': img, 'floor': L['floor'] > 0.5, 'width': L['width']})
-    return out[::-1]
+        if sl.get('post_blur'):                            # a little softness (the grain of a glossy floor is not wanted at this size)
+            sx, sy = sl['post_blur'] if isinstance(sl['post_blur'], (tuple, list)) else (sl['post_blur'], sl['post_blur'])
+            prem = np.dstack([img[..., :3] * img[..., 3:4], img[..., 3:4]]); prem = cv2.GaussianBlur(prem, (0, 0), sigmaX=sx * L['scale'], sigmaY=sy * L['scale'])
+            img = np.dstack([np.where(prem[..., 3:4] > 1e-4, prem[..., :3] / np.maximum(prem[..., 3:4], 1e-4), 0), prem[..., 3]]).astype(np.float32)
+        if sl.get('reflect'): img = reflect_fade(img, L['scale'], sl.get('zref', 5.0), a0=sl.get('refl_a', 0.35), h0=sl.get('refl_h', 1.8), blur=sl.get('refl_blur', 2.0))
+        out.append({'name': sl['name'], 'f': L['f'], 'scale': L['scale'], 'img': img, 'floor': L['floor'] > 0.5, 'width': L['width'], 'order': sl.get('order'), 'blend': sl.get('blend')})
+    if any(L['order'] is not None for L in out): out.sort(key=lambda L: L['order'] if L['order'] is not None else 99)
+    else: out = out[::-1]
+    return out
+
+def reflect_fade(img, scale, z_ref, h_cam=1.5, a0=0.35, h0=1.8, blur=2.0, blur_up=3.0):
+    """a reflection picture (straight RGBA): weaker and blurrier the higher the reflected point is above the floor (z_ref: the depth of the reflected object)"""
+    h, w, _ = img.shape
+    prem = np.dstack([img[..., :3] * img[..., 3:4], img[..., 3:4]]).astype(np.float32)
+    prem = cv2.GaussianBlur(prem, (0, 0), sigmaX=blur * scale, sigmaY=(blur + blur_up) * scale)
+    yh = horizon_row(h_cam)
+    rows = (np.arange(h) / scale - yh)
+    hh = np.maximum(rows * (D_CAM + z_ref) / F_PX - h_cam, 0.0)
+    fade = (a0 * np.exp(-hh / h0)).astype(np.float32)
+    fade[rows < 0] = 0
+    a = prem[..., 3] * fade[:, None]
+    col = np.where(prem[..., 3:4] > 1e-4, prem[..., :3] / np.maximum(prem[..., 3:4], 1e-4), 0)
+    return np.dstack([col, a]).astype(np.float32)
 
 def preview(layers, path, cxs=(480, 800, 1120), mark=True):
     ims = []

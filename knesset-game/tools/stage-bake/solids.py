@@ -152,7 +152,7 @@ def books(width, height, depth, rng, palette, hmin=0.7, gap=0.0, lean=0.0, max_n
     return merge(ms), np.vstack(cols)
 
 # ----------------------------------------------------------------------------------------------------------------------------- people (simple, soft figures for crowds and benches)
-SKIN = ['#f2c9a6', '#e3b48c', '#c98f68', '#a56b47', '#7a4a30', '#5a3622', '#efd1b8']
+SKIN = ['#e8bd98', '#d9a47a', '#c78e63', '#b57a52', '#d9a47a', '#c78e63', '#e8bd98', '#9a6540', '#6a4129']
 HAIR = ['#14100d', '#251a12', '#3a2a1c', '#5a4126', '#8a6a3a', '#b9b3a8', '#d8d2c6', '#6d2f1c']
 
 def person(kind='seated', height=1.75, skin='#e3b48c', hair='#251a12', cloth='#1a2236', shirt='#e6e6ea', tie=None, rng=None, face=0.0, hair_style=0, shoulder=0.46, arms='down', female=False, kippah=None, scale=1.0, sub=2, cap=10):
@@ -177,6 +177,15 @@ def person(kind='seated', height=1.75, skin='#e3b48c', hair='#251a12', cloth='#1
     hr = 0.105 * scale * (1 + face * 0.1)
     head_y = sh_y + 0.07 * scale + 0.12 * scale
     add(at(ellipsoid((hr * 0.88, hr * 1.2, hr * 1.0), sub=sub), 0, head_y, 0), skin)
+    # a few facial features, so that the head reads as a face from a distance: brows, eyes, nose, mouth
+    if sub >= 1:
+        sk_rgb = np.asarray(_rgb(skin) if isinstance(skin, str) else skin, np.float32)
+        dark = sk_rgb * 0.45
+        add(at(ellipsoid((hr * 0.50, hr * 0.07, hr * 0.12), sub=1), 0, head_y + hr * 0.30, -hr * 0.93), dark * 0.8)
+        for sx in (-1, 1):
+            add(at(ellipsoid((hr * 0.12, hr * 0.07, hr * 0.07), sub=1), sx * hr * 0.30, head_y + hr * 0.10, -hr * 0.93), (0.025, 0.02, 0.02))
+        add(at(ellipsoid((hr * 0.09, hr * 0.25, hr * 0.14), sub=1), 0, head_y - hr * 0.12, -hr * 1.0), sk_rgb * 0.88)
+        add(at(ellipsoid((hr * 0.26, hr * 0.045, hr * 0.07), sub=1), 0, head_y - hr * 0.50, -hr * 0.9), np.array([0.35, 0.12, 0.10], np.float32) * (0.6 + 0.4 * sk_rgb.mean() / 0.5))
     if kippah:
         add(at(ellipsoid((hr * 0.62, hr * 0.34, hr * 0.62), sub=sub), 0, head_y + hr * 0.95, 0.0), kippah)
     elif hair_style >= 0:

@@ -12,6 +12,7 @@ def pack_stage(stage, layers, mod, work, out_dir=None, quality=None):
     out_dir = out_dir or OUT; os.makedirs(out_dir, exist_ok=True)
     quality = quality or getattr(mod, 'QUALITY', {})
     meta = {'id': stage, 'h_cam': mod.H_CAM, 'yh': round(horizon_row(mod.H_CAM), 2), 'layers': []}
+    if getattr(mod, 'LIVE', None): meta['live'] = mod.LIVE
     total = 0
     for old in os.listdir(out_dir):
         if old.startswith(stage + '.') : os.remove(os.path.join(out_dir, old))
@@ -27,6 +28,7 @@ def pack_stage(stage, layers, mod, work, out_dir=None, quality=None):
         lw = (Ly['width'] if Ly.get('floor') else (W + (1600 - W) * Ly['f']))
         meta['layers'].append({'name': Ly['name'], 'kind': 'floor' if Ly.get('floor') else 'wall', 'f': round(float(Ly['f']), 4), 'w': round(float(lw), 2), 'h': H,
                                'pw': int(rgba.shape[1]), 'ph': int(rgba.shape[0]), 'alpha': not opaque})
+        if Ly.get('blend'): meta['layers'][-1]['blend'] = Ly['blend']
         print('  %-8s %5dx%-4d q%d %s  %6.0f KB' % (Ly['name'], rgba.shape[1], rgba.shape[0], q, 'RGBA' if not opaque else 'RGB ', size / 1024))
     with open(os.path.join(out_dir, stage + '.json'), 'w') as f:
         json.dump(meta, f, separators=(',', ':'))

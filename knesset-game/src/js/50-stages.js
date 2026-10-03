@@ -114,7 +114,7 @@ function books(c, x, y, w, h, rn) {   // a row of books on a shelf (y = shelf to
 const STAGES = [
   // ------------------------------------------------------------------ 1. Plenum
   {
-    id: 'plenum', name: 'מליאת הכנסת', sub: 'הבית של כולם (ושל הצעקות)', music: 'battle', refl: 0.05,
+    id: 'plenum', name: 'מליאת הכנסת', sub: 'הבית של כולם (ושל הצעקות)', music: 'battle', base: '#2a1f16', refl: 0.12,
     layers: [
       { f: 0.15, draw(c, w, h) {
         vgrad(c, 0, 0, w, h, [[0, '#1c162e'], [0.15, '#382e4c'], [0.34, '#8c7b68'], [0.66, '#a48d6d'], [1, '#6a5640']]);
@@ -197,7 +197,7 @@ const STAGES = [
   },
   // ------------------------------------------------------------------ 2. News studio
   {
-    id: 'studio', name: 'אולפן חדשות', sub: 'שידור חי. מכות חיות.', music: 'battle', refl: 0.2,
+    id: 'studio', name: 'אולפן חדשות', sub: 'שידור חי. מכות חיות.', music: 'battle', base: '#12103a', refl: 0.3,
     layers: [
       { f: 0.2, draw(c, w, h) {
         vgrad(c, 0, 0, w, h, [[0, '#060612'], [0.6, '#12103a'], [1, '#221a55']]);
@@ -251,32 +251,36 @@ const STAGES = [
         vgrad(c, 0, 0, w, 50, [[0, 'rgba(0,0,0,.55)'], [1, 'rgba(0,0,0,0)']]);
       } },
     ],
-    dyn(ctx, t, cx) {
-      // animated LED equaliser bars + ticker on the big wall (layer f = 0.2)
-      const x0 = Stages.lx(0.2, cx), lw = W + (STAGE_W - W) * 0.2;
-      const pw = (lw - 60) / 9;
-      for (let i = 0; i < 9; i++) {
-        const x = x0 + 30 + i * pw + (pw - 8 - 72) / 2;
+    dyn(ctx, t, cx, real) {
+      // animated LED equaliser bars + ticker on the big wall (layer f = 0.2); with the baked backdrop they sit on its LED wall (Stages.live)
+      let x0 = Stages.lx(0.2, cx), lw = W + (STAGE_W - W) * 0.2, bx0 = 30, pitchW = lw - 60, base = 286, tk = [30, 300, lw - 30, 326];
+      const A = real ? Stages.live(this, cx) : null;
+      if (real && !A) return;
+      if (A) { x0 = A.x0; const L = A.lv; tk = L.ticker; bx0 = L.wall[0]; pitchW = L.wall[2] - L.wall[0]; base = tk[1] - 8; lw = 0; }
+      const n = A ? A.lv.panels : 9, pw = A ? pitchW / n : (lw - 60) / 9;
+      for (let i = 0; i < n; i++) {
+        const x = x0 + bx0 + i * pw + (A ? pw / 2 - 36 : (pw - 8 - 72) / 2);
         for (let k = 0; k < 8; k++) {
           const hgt = 22 + 40 * (0.5 + 0.5 * Math.sin(t * 0.07 + i * 0.9 + k * 0.55));
           ctx.fillStyle = `hsl(${(i * 32 + k * 8 + t * 0.7) % 360},80%,60%)`;
-          ctx.fillRect(x + k * 9, 286 - hgt, 6, hgt);
+          ctx.fillRect(x + k * 9, base - hgt, 6, hgt);
         }
       }
       const txt = '   מבזק: דיון סוער בכנסת   •   הקהל דורש קרב חוזר   •   הרייטינג בשמיים   •   מומחים: זה לא יגמר טוב   •   ';
+      const tx0 = x0 + tk[0], tx1 = x0 + tk[2], ty0 = tk[1], th = tk[3] - tk[1];
       ctx.save();
-      ctx.fillStyle = '#c92a37'; ctx.fillRect(x0 + 30, 300, lw - 60, 26);
-      ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(x0 + 30, 300, lw - 60, 4);
-      ctx.beginPath(); ctx.rect(x0 + 30, 300, lw - 60, 26); ctx.clip();
+      ctx.fillStyle = real ? '#d0202e' : '#c92a37'; ctx.fillRect(tx0, ty0, tx1 - tx0, th);
+      ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(tx0, ty0, tx1 - tx0, Math.max(3, th * 0.15));
+      ctx.beginPath(); ctx.rect(tx0, ty0, tx1 - tx0, th); ctx.clip();
       if (!Stages.tickW) { ctx.font = `800 17px ${FONT.ui}`; Stages.tickW = ctx.measureText(txt).width; }
       const tw = Stages.tickW, off = (t * 1.6) % tw;
-      for (let k = -1; k < Math.ceil((lw - 60) / tw) + 1; k++) T(ctx, txt, x0 + 30 + off + k * tw, 313, { size: 17, fill: '#fff', align: 'left', weight: 800 });
+      for (let k = -1; k < Math.ceil((tx1 - tx0) / tw) + 1; k++) T(ctx, txt, tx0 + off + k * tw, ty0 + th / 2 + 7, { size: 17, fill: '#fff', align: 'left', weight: 800 });
       ctx.restore();
     },
   },
   // ------------------------------------------------------------------ 3. Cafeteria
   {
-    id: 'cafe', name: 'קפיטריית הכנסת', sub: 'קפה, בורקס, ומכות', music: 'battle', refl: 0.04,
+    id: 'cafe', name: 'קפיטריית הכנסת', sub: 'קפה, בורקס, ומכות', music: 'battle', base: '#d9bd90', refl: 0.04,
     layers: [
       { f: 0.2, draw(c, w, h) {
         const rn = srand(5);
@@ -347,19 +351,21 @@ const STAGES = [
         grain(c, w, h, 0.05);
       } },
     ],
-    dyn(ctx, t, cx) {
-      // steam over the coffee machine (mid layer, f = 0.6)
-      const x0 = Stages.lx(0.6, cx), lw = W + (STAGE_W - W) * 0.6;
+    dyn(ctx, t, cx, real) {
+      // steam over the coffee machine (mid layer, f = 0.6); with the baked backdrop above the espresso machine of its counter layer
+      let sx, sy;
+      if (real) { const A = Stages.live(this, cx); if (!A) return; sx = A.x0 + A.lv.steam[0]; sy = A.lv.steam[1]; }
+      else { const x0 = Stages.lx(0.6, cx), lw = W + (STAGE_W - W) * 0.6; sx = x0 + lw / 2 + 245; sy = 186; }
       for (let i = 0; i < 4; i++) {
         const k = ((t * 0.02 + i * 0.25) % 1);
         ctx.fillStyle = `rgba(255,255,255,${0.42 * (1 - k)})`;
-        ctx.beginPath(); ctx.arc(x0 + lw / 2 + 245 + Math.sin(t * 0.05 + i) * 8, 186 - k * 60, 8 + k * 10, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(sx + Math.sin(t * 0.05 + i) * 8, sy - k * 60, 8 + k * 10, 0, TAU); ctx.fill();
       }
     },
   },
   // ------------------------------------------------------------------ 4. Election night
   {
-    id: 'election', name: 'ליל הבחירות', sub: 'הקולות נספרים. המכות גם.', music: 'battle', refl: 0.14,
+    id: 'election', name: 'ליל הבחירות', sub: 'הקולות נספרים. המכות גם.', music: 'battle', base: '#140f2e', refl: 0.26,
     layers: [
       { f: 0.15, draw(c, w, h) {
         vgrad(c, 0, 0, w, h, [[0, '#0a0624'], [0.55, '#2a1258'], [1, '#5a2a7a']]);
@@ -403,21 +409,27 @@ const STAGES = [
         vgrad(c, 0, 0, w, 40, [[0, 'rgba(0,0,0,.5)'], [1, 'rgba(0,0,0,0)']]);
       } },
     ],
-    dyn(ctx, t, cx) {
-      // animated bar chart on the results screen (layer f = 0.15)
-      const x0 = Stages.lx(0.15, cx), lw = W + (STAGE_W - W) * 0.15, centre = x0 + lw / 2;
-      const cols = ['#2f6fe4', '#19c6b7', '#f4c81d', '#e23b52', '#38b56a', '#8a4fe0', '#f28a1e', '#e05fb4'];
-      cols.forEach((col, i) => {
-        const hgt = 30 + 80 * (0.5 + 0.5 * Math.sin(t * 0.02 + i * 1.7)) * (0.6 + 0.4 * Math.sin(t * 0.005 + i));
-        const g = ctx.createLinearGradient(0, 322 - hgt, 0, 322); g.addColorStop(0, col); g.addColorStop(1, darken(col, 0.4));
-        ctx.fillStyle = g; ctx.fillRect(centre - 290 + i * 74, 322 - hgt, 50, hgt);
-        ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(centre - 290 + i * 74, 322 - hgt, 8, hgt);
-      });
+    dyn(ctx, t, cx, real) {
+      // animated bar chart on the results screen (layer f = 0.15); with the baked backdrop on its LED screen (Stages.live)
+      const A = real ? Stages.live(this, cx) : null;
+      if (real && !A) return;
+      const cols = ['#2f6fe4', '#19c6b7', '#f4c81d', '#e23b52', '#38b56a', '#8a4fe0', '#f28a1e', '#e05fb4', '#5ad7ff'];
+      let bx = 0, bw = 50, pitch = 74, base = 322, maxh = 110, n = 8;
+      if (A) { const q = A.lv.bars; n = q.n; bx = A.x0 + q.x0; bw = q.bw; pitch = q.bw + q.gap; base = q.base; maxh = q.maxh; }
+      else { const x0 = Stages.lx(0.15, cx), lw = W + (STAGE_W - W) * 0.15; bx = x0 + lw / 2 - 290; }
+      for (let i = 0; i < n; i++) {
+        const col = cols[i % cols.length];
+        const hgt = (A ? maxh * 0.25 : 30) + (A ? maxh * 0.75 : 80) * (0.5 + 0.5 * Math.sin(t * 0.02 + i * 1.7)) * (0.6 + 0.4 * Math.sin(t * 0.005 + i));
+        const g = ctx.createLinearGradient(0, base - hgt, 0, base); g.addColorStop(0, col); g.addColorStop(1, darken(col, 0.4));
+        ctx.fillStyle = g; ctx.fillRect(bx + i * pitch, base - hgt, bw, hgt);
+        ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(bx + i * pitch, base - hgt, Math.max(4, bw * 0.16), hgt);
+        if (A) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(bx + i * pitch, base - hgt, bw, 3); }
+      }
       // sweeping spotlights
       for (let i = 0; i < 3; i++) {
         const a = Math.sin(t * 0.012 + i * 2) * 0.5;
         ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(cx - 400 + i * 400, 30); ctx.rotate(a);
-        const g = ctx.createLinearGradient(0, 0, 0, 520); g.addColorStop(0, 'rgba(255,240,180,.26)'); g.addColorStop(1, 'rgba(255,240,180,0)');
+        const g = ctx.createLinearGradient(0, 0, 0, 520); g.addColorStop(0, `rgba(255,240,180,${real ? 0.16 : 0.26})`); g.addColorStop(1, 'rgba(255,240,180,0)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(8, 0); ctx.lineTo(90, 520); ctx.lineTo(-90, 520); ctx.closePath(); ctx.fill(); ctx.restore();
       }
     },
@@ -433,7 +445,7 @@ const STAGES = [
   },
   // ------------------------------------------------------------------ 5. PM office
   {
-    id: 'office', name: 'לשכת ראש הממשלה', sub: 'הכיסא הכי חם בארץ', music: 'battle', refl: 0.08,
+    id: 'office', name: 'לשכת ראש הממשלה', sub: 'הכיסא הכי חם בארץ', music: 'battle', base: '#2a1810', refl: 0.03,
     layers: [
       { f: 0.15, blur: 1.6, draw(c, w, h) {
         // a city at sunset seen through tall windows
@@ -551,6 +563,7 @@ const StageImg = {
 const Stages = {
   lx(f, cx) { return -(W / 2) * (1 - f) + cx * (1 - f); },
   res: 1.25, cache: new Map(), vig: null,
+  forceDrawn: /[?&]drawn\b/.test(location.search),          // ?drawn: the painted arenas only (to see the fallback)
   order: [],
   setRes(r) { r = clamp(Math.round(r * 4) / 4, 1, 1.5); if (r !== this.res) { this.res = r; this.cache.clear(); this.order = []; this.vig = null; } },
   layerCanvas(stage, idx) {
@@ -581,6 +594,13 @@ const Stages = {
   },
   // the baked pictures of this arena, when they are decoded (null: use the drawn layers)
   real(stage) { return this.forceDrawn ? null : StageImg.ready(stage.id); },
+  // where the animated parts sit in the baked picture: x0 = the screen position of the left edge of the layer they belong to, lv = the description (meta.live)
+  live(stage, cx) {
+    const R = this.real(stage);
+    if (!R || !R.meta.live) return null;
+    const lv = R.meta.live, L = R.meta.layers.find((l) => l.name === lv.layer);
+    return L ? { x0: (1 - L.f) * (cx - W / 2), lv } : null;
+  },
   drawReal(ctx, R, cx) {
     const yh = R.meta.yh, kh = GROUND - yh, d = cx - STAGE_W / 2;
     R.meta.layers.forEach((L, i) => {
@@ -592,6 +612,10 @@ const Stages = {
         ctx.transform(1, 0, -d / kh, 1, cx - W / 2 - m + d * yh / kh, 0);
         ctx.drawImage(im, 0, 0, L.w, H);
         ctx.restore();
+      } else if (L.blend === 'add') {                       // light shafts: added to what is behind
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(im, (1 - L.f) * (cx - W / 2), 0, L.w, H);
+        ctx.restore();
       } else {
         ctx.drawImage(im, (1 - L.f) * (cx - W / 2), 0, L.w, H);
       }
@@ -599,12 +623,14 @@ const Stages = {
   },
   draw(ctx, stage, cx, t, part) {
     if (part === 'back') {
-      const R = this.real(stage);
-      if (R) this.drawReal(ctx, R, cx);
+      const R = this.real(stage); let waiting = false;
+      if (R) { this.drawReal(ctx, R, cx); this.prevReal = stage.id; }
       else if (!this.forceDrawn && StageImg.has(stage.id) && !StageImg.failed(stage.id)) {
-        // the pictures are still being decoded: a dark placeholder for those few frames (painting the drawn layers now would stall the game)
-        StageImg.load(stage.id);
-        ctx.fillStyle = stage.base || '#14101c'; ctx.fillRect(cx - W / 2 - 40, 0, W + 80, H);
+        // the pictures are still being decoded: for those few frames the arena shown before stays (or a dark placeholder at the very first); painting the drawn layers now would stall the game
+        StageImg.load(stage.id); waiting = true;
+        const P = this.prevReal ? StageImg.ready(this.prevReal) : null;
+        if (P) this.drawReal(ctx, P, cx);
+        else { ctx.fillStyle = stage.base || '#14101c'; ctx.fillRect(cx - W / 2 - 40, 0, W + 80, H); }
       } else {
         stage.layers.forEach((L, i) => {
           const cv = this.layerCanvas(stage, i);
@@ -612,7 +638,7 @@ const Stages = {
           ctx.drawImage(cv, x0, 0, cv.width / this.res, cv.height / this.res);
         });
       }
-      if (stage.dyn) stage.dyn(ctx, t, cx, !!R);
+      if (stage.dyn && !waiting) stage.dyn(ctx, t, cx, !!R);
     } else if (stage.front) stage.front(ctx, t, cx);
   },
   vignette(ctx) {

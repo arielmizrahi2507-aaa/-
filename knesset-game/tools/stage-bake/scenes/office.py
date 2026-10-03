@@ -9,6 +9,22 @@ NAME = 'office'
 H_CAM = 1.5
 APERTURE = 0.03
 SUN_AZ, SUN_EL = -34.0, 8.0
+WIN_X = [(-3.9, -1.7), (-1.1, 1.1), (1.7, 3.9)]                # the three windows (x ranges), their height
+WIN_Y = (1.1, 4.35)
+ZB_WALL = 6.5
+
+def shaft_spec():
+    """the sun through the windows, for volume.shafts"""
+    sa, se = math.radians(SUN_AZ), math.radians(SUN_EL)
+    sun = (math.sin(sa) * math.cos(se), math.sin(se), math.cos(sa) * math.cos(se))
+    windows = []; bars = []
+    y0, y1 = WIN_Y
+    for (xa, xb) in WIN_X:
+        cx = (xa + xb) / 2; ww = xb - xa
+        windows.append((xa + 0.06, xb - 0.06, y0 + 0.06, y1 - 0.06))
+        for bx in (cx, cx - ww / 4, cx + ww / 4): bars.append((bx - 0.02, bx + 0.02, y0, y1))
+        for yt in (y0 + 0.9, y0 + 1.8, y0 + 2.6): bars.append((xa, xb, yt - 0.02, yt + 0.02))
+    return dict(sun=sun, plane_z=ZB_WALL + 0.2, windows=windows, bars=bars, f=layer_f(4.5), scale=0.6, gain=0.45, color=(1.0, 0.76, 0.46))
 
 # the parallax layers, from NEAR to FAR: the floor and what is around the fighters, the furniture, the wall with the windows (transparent where the windows are), the sky
 SLABS = [
@@ -75,8 +91,8 @@ def build(b, q):
     b.mesh(S.at(trimesh.creation.box(extents=[2 * X_W, 0.14, 0.06]), 0, 0.07, ZB - 0.02), m_wood)
     b.mesh(S.at(trimesh.creation.box(extents=[2 * X_W, 0.07, 0.1]), 0, 1.12, ZB - 0.03), m_wood)     # the rail on top of the wainscot
     # the window zone: three windows, walnut piers
-    win_x = [(-3.9, -1.7), (-1.1, 1.1), (1.7, 3.9)]
-    y0, y1 = 1.1, 4.35
+    win_x = WIN_X
+    y0, y1 = WIN_Y
     piers = [(-4.5, -3.9), (-1.7, -1.1), (1.1, 1.7), (3.9, 4.5)]
     for (xa, xb) in piers:
         b.mesh(S.at(trimesh.creation.box(extents=[xb - xa, y1 - y0, T]), (xa + xb) / 2, (y0 + y1) / 2, ZB + T / 2), m_wood_v, rot_uv=True)

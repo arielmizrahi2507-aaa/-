@@ -112,3 +112,23 @@ def cached(path, fn):
         z = np.load(path); return z['sky'], z['sd']
     sky, sd = fn(); os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     np.savez(path, sky=sky, sd=sd); return sky, sd
+
+def day_sky(w=6144, h=3072, sun_az=25.0, sun_el=22.0, seed=7, cloud_cover=0.45, sky_scale=1.0, sun_E=0.0, sun_col=(1.0, 0.92, 0.78)):
+    """a clear afternoon: blue gradient, soft white clouds, a hazy horizon, a glow round the sun"""
+    AZ, EL = _dirs(h, w)
+    el = np.degrees(EL); az = np.degrees(AZ)
+    sky = grad(el, [(-90, '#c4d4d0'), (-2, '#c9dff0'), (1, '#cfe3f3'), (6, '#a9d0ee'), (18, '#7fb3ea'), (40, '#4f8fdc'), (90, '#2f68c4')])
+    sa, se = math.radians(sun_az), math.radians(sun_el)
+    sd = np.array([math.sin(sa) * math.cos(se), math.sin(se), math.cos(sa) * math.cos(se)], np.float32)
+    dx = np.cos(EL) * np.sin(AZ); dy = np.sin(EL); dz = np.cos(EL) * np.cos(AZ)
+    cosang = np.clip(dx * sd[0] + dy * sd[1] + dz * sd[2], -1, 1); ang = np.degrees(np.arccos(cosang))
+    glow = np.exp(-(ang / 10.0) ** 2) * 2.0 + np.exp(-(ang / 35.0) ** 2) * 0.5
+    sky = sky * (1.0 + glow[..., None] * np.array([1.0, 0.85, 0.6], np.float32)[None, None, :] * 0.9) * 2.0 * sky_scale
+    cd = clouds(AZ, EL, seed, cloud_cover, 2.6, (3.0, 60.0), stretch=2.5)
+    lit = np.clip(0.55 + 0.45 * np.cos(np.radians(az - sun_az)), 0, 1)
+    ccol = lin('#f4f6fa')[None, None, :] * (0.65 + 0.5 * lit[..., None]) * 2.6
+    sky = sky * (1 - 0.8 * cd[..., None]) + ccol * 0.8 * cd[..., None] * sky_scale
+    if sun_E > 0:
+        disc = np.exp(-(ang / 0.42) ** 2); omega = (2 * math.pi / w) * (math.pi / h) * np.cos(EL)
+        sky = sky + (disc * (sun_E / float((disc * omega).sum())))[..., None] * np.array(sun_col, np.float32)[None, None, :]
+    return sky.astype(np.float32), sd
