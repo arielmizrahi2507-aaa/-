@@ -485,8 +485,8 @@ def wrinkle_field(h, squeeze=0.0, smile=0.0):
             ys = y + rng.uniform(-3, 3) - 4.5 * (1 - u ** 2) * np.sign(xa + xb + 1e-3) * 0.0 - 5 * (1 - (np.linspace(CX + xa, CX + xb, 24) - CX) ** 2 / (half ** 2)) + noise(60 + k + si, 12)[int(y), 300:324] * 0.7
             g -= line_mask(np.stack([xs, ys], 1), 2.2, 1.6) * (1.6 + 4.2 * a) * rng.uniform(0.40, 1.0) * wk('fore')
     for (eo, sg) in ((33, -1), (263, 1)):
-        for ang in (-0.50, 0.0, 0.46):
-            p0 = P[eo] + np.array([sg * 10, 0.0]); ln = (0.16 + 0.12 * a) * I * min(1.4, wk('crow'))
+        for ang in (-0.40, 0.05, 0.50):
+            p0 = P[eo] + np.array([sg * 10, 0.0]); ln = (0.11 + 0.09 * a) * I * min(1.3, wk('crow'))
             p1 = p0 + np.array([sg * np.cos(ang), np.sin(ang)]) * ln
             g -= line_mask(np.array([p0, (p0 + p1) / 2 + [0, 3 * np.sign(ang + 1e-3)], p1]), 2.8, 1.8) * (0.8 + 2.4 * a + 3.2 * squeeze + 1.4 * smile) * wk('crow')
     bi = float(h.expr['ee'].get('brow_in', 0.0)) if hasattr(h, 'expr') else 0.0
@@ -538,6 +538,22 @@ def eyelid_detail(h, geos):
         ridge = np.maximum(ridge, line_mask(crv + np.array([0, -0.030 * I]), 4.0, 3.0))
     return crease * wk, band * wk, ridge * wk
 
+def ear_albedo(h):
+    """the colour of the ears: redder than the face, a darker bowl, a lighter rim; masks from the same egg shape as ear_relief"""
+    out = np.zeros((SS, SS, 3), np.float32); ok = False
+    for sg, (x0, y0, x1, y1) in zip((-1, 1), ear_geometry(h)):
+        w = max(x1 - x0, 0.14 * I); hgt = min(max(y1 - y0, 0.55 * I), 0.86 * I); w = min(w, 0.30 * I)
+        cx = (x0 + x1) / 2 - sg * 0.02 * I; cy = (y0 + y1) / 2
+        t = np.linspace(0, 2 * np.pi, 80, endpoint=False)
+        em = poly_mask(np.stack([cx + (w / 2) * np.sin(t) * (1 + 0.20 * np.cos(t)), cy - (hgt / 2) * np.cos(t)], 1), 1.0)
+        d = cv2.distanceTransform((em > 0.5).astype(np.uint8), cv2.DIST_L2, 5).astype(np.float32)
+        bowl = smoothstep(0.12 * w, 0.30 * w, d) * (1 - smoothstep(0.35 * w, 0.55 * w, d))
+        red = em * (0.55 - 0.25 * smoothstep(0.0, 0.5 * w, d))
+        out[:, :, 0] += red * 0.10; out[:, :, 1] -= red * 0.10; out[:, :, 2] -= red * 0.12
+        out -= (bowl * em * 0.18)[:, :, None]
+        ok = True
+    return out if ok else None
+
 def socket_darkness(h, geos):
     """darkness map (0..~0.5) of the eye sockets: the shade under the brow ridge, the lid, the tear trough and the inner corner"""
     L, age = h.L, h.age
@@ -565,7 +581,7 @@ def render_head(h, eyes='open', mouth='smile'):
     h.expr = dict(eyes=eyes, mouth=mouth, ee=ee, em=em)
     Z = build_height(h)
     meas = ((P[145, 1] - P[159, 1]) + (P[374, 1] - P[386, 1])) / 2 / I
-    target = float(np.clip(meas, 0.078, 0.150)) * float(sp.get('eye_open', 1.0)) * I
+    target = float(np.clip(meas, 0.100, 0.150)) * float(sp.get('eye_open', 1.0)) ** T('eyeopk', 0.55) * I               # a narrow eye is a narrow eye, not a slit: the aperture of the photo is only followed softly
     open_px = 0.012 * I if ee.get('closed') else target * ee.get('open', 1.0)
     eyeR_up, eyeR_lo = eye_geometry(h, 'R', open_px); eyeL_up, eyeL_lo = eye_geometry(h, 'L', open_px)
     E_R = poly_mask(np.vstack([eyeR_up, eyeR_lo[::-1][1:-1]]), 0.8); E_L = poly_mask(np.vstack([eyeL_up, eyeL_lo[::-1][1:-1]]), 0.8)
@@ -598,6 +614,8 @@ def render_head(h, eyes='open', mouth='smile'):
         for sg in (-1, 1): D += 7 * em['mood'] * gauss(CX + sg * 0.62 * I, EY + 0.50 * I, 0.26 * I, 0.17 * I)
     Zd = Z + D + wr + fs
     A = skin_albedo(h)
+    ea = ear_albedo(h)
+    if ea is not None: A = A * (1 + ea)
     sk = socket_darkness(h, (('R', (eyeR_up, eyeR_lo)), ('L', (eyeL_up, eyeL_lo))))
     A = A * (1 - sk)[:, :, None] * (1 + sk[:, :, None] * np.array([0.10, -0.06, -0.04], np.float32)[None, None, :])
     crease, lidband, lidridge = eyelid_detail(h, (('R', (eyeR_up, eyeR_lo)), ('L', (eyeL_up, eyeL_lo))))
@@ -790,7 +808,7 @@ def draw_brows(img, h, seed=3):
     L, P = h.L, h.P; sp = h.spec.get('brow', {})
     ee = h.expr['ee'] if hasattr(h, 'expr') else {}
     col = hexlin(L.get('browColor', '#3a3030'))
-    th = float(L.get('brow', 4.0)); scale = np.clip(th / 4.0, 0.55, 1.7) * float(sp.get('k', 1.0)) * T('browk', 1.08)
+    th = float(L.get('brow', 4.0)); scale = np.clip(th / 4.0, 0.55, 1.7) * float(sp.get('k', 1.0)) * T('browk', 0.98)
     din, dout = ee.get('brow_in', 0.0) * I, ee.get('brow_out', 0.0) * I
     tilt = float(sp.get('tilt', 0.0)) * I                                       # + : the inner end lower (stern)
     arch = float(sp.get('arch', 0.0)) * I
@@ -830,7 +848,7 @@ def draw_brows(img, h, seed=3):
             cv2.line(cov, (int(a_[0] * 16), int(a_[1] * 16)), (int(b_[0] * 16), int(b_[1] * 16)), ak, wdt, cv2.LINE_AA, 4)
         covc = np.clip(cov, 0, 1)
         colimg = np.where(cov[:, :, None] > 1e-3, lay / np.maximum(cov[:, :, None], 1e-3), 0)
-        img = over(img, np.clip(colimg, 0, 1.2), covc * 0.92 * np.clip(pmw * 1.3, 0, 1))
+        img = over(img, np.clip(colimg, 0, 1.2), covc * 0.86 * np.clip(pmw * 1.3, 0, 1))
     return img
 
 # ---------------------------------------------------------------------------------------------------------------- exposure calibration
@@ -877,9 +895,20 @@ def draw_clothes(h):
     scol = shirt[None, None, :] * shade_s[:, :, None] * (1 + 0.04 * fbm(47, [3])[:, :, None])
     out = out * (1 - shirt_m[:, :, None]) + scol * shirt_m[:, :, None]
     if openc:                                                                # the open collar shows the chest skin
-        skin = hexlin(L['skin']) * 0.66
+        skin = hexlin(L['skin']) * 0.74
         vv = np.array([[CX - 0.5 * nw, c - 0.03 * I], [CX + 0.5 * nw, c - 0.03 * I], [CX, vy_bot - 0.10 * I]])
-        m = tri_mask(vv, 2.5); out = out * (1 - m[:, :, None] * 0.97) + (skin[None, None, :] * (0.78 + 0.22 * ndl[:, :, None])) * m[:, :, None] * 0.97
+        m = tri_mask(vv, 2.5)
+        # a chest is not flat: dark in the shade of the chin and the collar, lighter on the chest bone, collar bones as two soft ridges, a groove in the middle, a little texture
+        dy_ = (YY - c) / max(vy_bot - c, 1.0)
+        shade_c = 0.55 + 0.55 * smoothstep(0.0, 0.55, dy_) * (1 - 0.25 * smoothstep(0.6, 1.0, dy_))
+        side = np.clip(np.abs(XX - CX) / (0.5 * nw + 0.2 * I), 0, 1)
+        shade_c = shade_c * (1 - 0.30 * smoothstep(0.55, 1.0, side))                        # the shade towards the edges of the V (the collar covers the sides)
+        for sg in (-1, 1):
+            cb = gpoly([(CX + sg * 0.06 * I, c + 0.22 * I), (CX + sg * 0.20 * I, c + 0.19 * I), (CX + sg * 0.38 * I, c + 0.26 * I)], 0.035 * I)
+            shade_c = shade_c * (1 + 0.14 * cb) * (1 - 0.10 * blur(np.roll(cb, int(0.05 * I), 0), 3))
+        shade_c = shade_c * (1 - 0.18 * np.exp(-((XX - CX) / (0.035 * I)) ** 2) * smoothstep(0.1, 0.5, dy_))
+        chest = skin[None, None, :] * (shade_c * (0.86 + 0.14 * ndl) * (1 + 0.05 * fbm(61, [3, 7], [1.0, 0.6])))[:, :, None]
+        out = out * (1 - m[:, :, None] * 0.97) + chest * m[:, :, None] * 0.97
     for sg in (-1, 1):                                                       # collar flaps
         flap = np.array([[CX + sg * 0.5 * nw, c - 0.05 * I], [CX + sg * (0.5 * nw + 0.36 * I), c + 0.20 * I], [CX + sg * 0.05 * nw, c + 0.52 * I]])
         fm = tri_mask(flap, 0.9)
