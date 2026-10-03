@@ -7,8 +7,8 @@ def draw_beard3(img, h, bd, seed=21):
     L = h.L; sp = h.spec.get('beard', {})
     style = bd.get('style')
     ln = float(bd.get('len', 0.0)); flare = float(bd.get('flare', 0.0))
-    ext = max(0.0, ln) * 0.376 * sp.get('ext_k', 1.0)
-    region = beard_polygon(h, cheek=sp.get('cheek', 0.0), ext=ext, off=sp.get('off', 0.03 + 0.02 * max(ln, 0)), goatee=(style == 'goatee'), flare=flare * 0.25)
+    ext = max(0.0, ln) * 0.376 * sp.get('ext_k', 1.0) + float(sp.get('ext0', 0.0))
+    region = beard_polygon(h, cheek=sp.get('cheek', 0.0), ext=ext, off=sp.get('off', 0.03 + 0.02 * max(ln, 0)), goatee=(style == 'goatee'), flare=flare * 0.25, gw=float(sp.get('gw', 1.0)))
     lipgap = blur(np.clip(h.parts['lips_m'], 0, 1), 6.0) * 2.2
     region = region * np.clip(1 - lipgap * (0.0 if style == 'goatee' else 1.0), 0, 1)
     if region.sum() < 500: return img, np.zeros((SS, SS), np.float32)
@@ -44,6 +44,24 @@ def draw_beard3(img, h, bd, seed=21):
         s_up = np.clip(float(lum(base * ex)) / max(float(lum(rgb[up]).mean()) if up.any() else 1e-3, 1e-3), 0.4, 2.0)
         s_lo = np.clip(float(lum(chin * ex)) / max(float(lum(rgb[lo]).mean()) if lo.any() else 1e-3, 1e-3), 0.4, 2.0)
         rgb = rgb * (s_up * (1 - t_chin) + s_lo * t_chin)[:, :, None]
+    # ---- single strands over the fibre texture (hair4.py): a beard of single hairs that cross and curl, not a brushed texture
+    strand_cov = None
+    if sp.get('strands', T('bstrands', 1.0)):
+        import hair4 as H4
+        ln_ = ln
+        length = (22, 60) if ln_ <= 0.3 else (int(40 + 30 * min(ln_, 3.0)), int(90 + 80 * min(ln_, 3.0)))
+        spec_map = np.zeros_like(shade, dtype=np.float32) + (0.18 * (1.0 if not longb else 0.5)) * (1.0 if float(base.mean()) > 0.12 else 0.3)
+        shade_s = np.clip(shade, 0.05, 2.0).astype(np.float32)
+        spec_col = np.clip(0.45 * base / max(float(base.max()), 1e-3) + 0.55, 0, 1)
+        t_c = t_chin[:, :, None]
+        base_s = base * 0.0 + (base + chin) * 0.5                                    # the strand layer uses the mean colour; the chin/cheek difference comes from the exposure below
+        rootw = (0.35 + 0.65 * smoothstep(EY + 0.20 * I, EY + 0.9 * I, YY)).astype(np.float32)
+        rgb_s, strand_cov = H4.strand_hair(region, vx, vy, base_s, mix, gf, shade_s, spec_map, spec_col, seed + 5, rootw=rootw, density=float(sp.get('s_density', 1.0)), passes=3, length=length, wander=float(sp.get('s_wander', 0.45)),
+                                           lock_scale=int(sp.get('s_lock', 14 if ln_ <= 0.3 else 22)), contrast=0.20, tone=0.24, tip_margin=(0.0, 5.0), hl=0.4)
+        # the colour of the strand layer follows the colour of the fibre layer (upper part: cheek colour, lower part: chin colour)
+        rgb_s = rgb_s * (np.clip(lum(rgb) / np.maximum(lum(rgb_s), 1e-3), 0.5, 2.0))[:, :, None] * 0.0 + rgb_s
+        k_c = np.where(t_chin > 0.5, 1.0, 1.0)
+        rgb = rgb * (1 - strand_cov * 0.85)[:, :, None] + (rgb_s * ((base_t / np.maximum(base_s, 1e-3)) * 1.0)) * (strand_cov * 0.85)[:, :, None]
     # ---- coverage: thin on the cheeks, dense at the jaw and chin, ragged edge
     soft = blur(region, 1.6)
     feather = smoothstep(EY + 0.20 * I, EY + 0.70 * I, YY)
@@ -53,6 +71,8 @@ def draw_beard3(img, h, bd, seed=21):
     rb = blur(region, 3.2)
     edge_rag = smoothstep(0.30, 0.70, rb + 0.16 * ST.norm_field(ST.lic(ST.white_noise(seed + 11, 0.7), vx, vy, 8, 1.2), region)) * smoothstep(0.015, 0.06, rb)
     alpha = np.clip(edge_rag * (0.10 + 0.90 * feather) * cover, 0, 1)
+    if strand_cov is not None:
+        alpha = np.clip(1 - (1 - alpha) * (1 - strand_cov * (0.15 + 0.85 * feather) * 0.9 * np.clip(0.4 + 0.9 * cheekthin, 0, 1)), 0, 1)
     # ---- the shade of the beard under the hairs (the skin looks dark where the beard is dense)
     under_a = np.clip(soft * (0.10 + 0.90 * feather) * (0.30 + 0.45 * dense * cheekthin), 0, 0.85) * (0.8 if short else 1.0)
     under_c = (base_t * 0.42 + hexlin(L['skin'])[None, None, :] * 0.18) * shade[:, :, None]

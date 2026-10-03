@@ -30,7 +30,7 @@ A small offline renderer written with numpy / scipy / OpenCV, **not** a photo fi
   it from the other side where the photo hides one, `"psm"` smooths its outline (straight hair), `"core"` keeps the strands away from the middle of the cheeks. The strands are made
   by line-integral convolution along a flow field (swept back, radial, falling), with clumps, grey strands, a soft hairline over a scalp layer, thin hair that lets the scalp show, a ragged edge and loose hairs;
   `spec.json` `hair` overrides the texture of a person (`wob_k` how much the strands wave, `fine_len`, `lock_len`, `lock_scale`, `spec` ...: long and smooth for straight hair).
-- **Beards** (`beard3.py`): a soft shade under the hairs, low-contrast fibres, patchy grey, thin coverage on the cheeks; short beards are thousands of tiny strokes.
+- **Beards** (`beard3.py`, `hair4.py`): a soft shade under the hairs, low-contrast fibres, patchy grey, thin coverage on the cheeks; short beards are thousands of tiny strokes; a layer of single strands (grown along the flow, with locks of different tones and a ragged tip line) lies over the fibres, the same for the hair and the moustaches.
 - **Clothes, glasses, kippah, earrings** are drawn with the colours of `30-looks.js`; `looks.json` is that data as JSON with a few portrait-only changes (the beard `stub` flag for stubble, thinner glasses frames).
 
 `spec.json` holds the per-person overrides, all optional: the eyes (`eye_open`, `hood` heavy lids, `puff` bags, `iris_k`, `iris_dark`, `sclera`, `lid_shadow`), the brows (`brow`: `k` size, `tilt`, `dy`),

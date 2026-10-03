@@ -8,8 +8,8 @@ import strands as ST
 FLOWS = {
     'swept':  dict(c=(0.0, -0.55), r=1.0, up=1.5, down=0.0, wob=0.16, wob_s=60, wob2=0.07),
     'back':   dict(c=(0.0, -0.40), r=1.0, up=1.1, down=0.0, wob=0.20, wob_s=55, wob2=0.08),
-    'crop':   dict(c=(0.0, -2.20), r=1.0, up=0.0, down=0.0, wob=0.18, wob_s=45, wob2=0.10),
-    'spiky':  dict(c=(0.0, -0.60), r=1.0, up=0.7, down=0.0, wob=0.25, wob_s=35, wob2=0.12),
+    'crop':   dict(c=(0.0, -2.20), r=1.0, up=0.0, down=0.0, wob=0.34, wob_s=30, wob2=0.16),
+    'spiky':  dict(c=(0.0, -0.60), r=1.0, up=0.7, down=0.0, wob=0.46, wob_s=22, wob2=0.20),
     'part':   dict(c=(0.0, -1.80), r=0.75, up=0.0, down=0.6, wob=0.14, wob_s=60, wob2=0.06),
     'down':   dict(c=(0.0, -1.80), r=0.25, up=0.0, down=1.0, wob=0.30, wob_s=70, wob2=0.10),
     'sides':  dict(c=(0.0, -0.20), r=1.0, up=0.0, down=0.55, wob=0.14, wob_s=40, wob2=0.08),

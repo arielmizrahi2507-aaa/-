@@ -153,7 +153,7 @@ body.canfs .row.fsonly { display: flex; }
 .pvcap { position: absolute; left: 0; right: 0; bottom: 0; padding: .7em 1em .4em; background: linear-gradient(transparent, rgba(0,0,0,.88)); font: 800 1.05em var(--f-disp); text-align: center; min-height: 2.6em; }
 .dwrap { --pc: #888888; }
 .dhead { display: flex; align-items: center; gap: .8rem; margin: .8rem 0 .3rem; }
-.dhead img { width: 72px; height: 72px; flex: none; }
+.dhead img { width: clamp(72px, calc(15 * var(--u-vh)), 116px); height: clamp(72px, calc(15 * var(--u-vh)), 116px); flex: none; }
 .dhead h3 { margin: 0 0 .2rem; font: 900 1.7em/1.1 var(--f-disp); }
 .arch { color: var(--muted); font-weight: 700; margin-inline-start: .4rem; }
 .party { display: inline-block; background: var(--pc, #666666); color: #0c0c0e; font-weight: 800; font-size: .78em; padding: .1em .7em; border-radius: 3px; border: 1px solid #000; }

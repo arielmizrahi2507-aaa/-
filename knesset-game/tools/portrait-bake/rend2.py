@@ -258,9 +258,16 @@ def build_height(h):
         Z -= 14 * gauss(CX + sg * 0.50 * I, EY + 0.02 * I, 0.30 * I, 0.17 * I)                                                         # the eye sockets
         Z -= 8 * gauss(CX + sg * 1.12 * I, EY - 0.18 * I, 0.16 * I, 0.30 * I)                                                          # the temples
     Z += 12 * (chin) * gauss(CX, P[152, 1] - 0.20 * I, 0.22 * I, 0.17 * I)                                                              # the chin ball
+    jowl = float(L.get('jowl', 0.0)) * T('jowl', 1.0)
+    if jowl > 0:                                                                                                                          # jowls: soft bulges beside the chin, a groove between them and the chin
+        for sg in (-1, 1):
+            Z += 10 * jowl * gauss(CX + sg * 0.70 * I, P[152, 1] - 0.20 * I, 0.24 * I, 0.17 * I)
+            Z -= 5 * jowl * gauss(CX + sg * 0.38 * I, P[152, 1] - 0.27 * I, 0.09 * I, 0.14 * I)
     Z -= 5 * gauss(CX, P[17, 1] + 0.10 * I, 0.18 * I, 0.04 * I)                                                                          # the groove under the lower lip
     Z += ear_relief(h)
     Z += nose_relief(h)
+    mid_w = np.exp(-0.5 * ((XX - CX) / (0.28 * I)) ** 2) * smoothstep(P[2, 1], P[2, 1] + 0.25 * I, YY) * (1 - smoothstep(P[152, 1] + 0.1 * I, P[152, 1] + 0.5 * I, YY))
+    Z = Z * (1 - mid_w) + cv2.GaussianBlur(Z, (0, 0), sigmaX=0.16 * I, sigmaY=2.0) * mid_w
     h.Z_base = Z
     h.wface = wface
     return Z
@@ -269,7 +276,7 @@ def nose_relief(h):
     """the nose as a few primitives placed on the measured landmarks: the dorsum, the tip bulb and the wings (alae); sizes from the look's own nose numbers"""
     P, L = h.P, h.L
     nz = float(L.get('nose', 1.0)); nw = float(L.get('noseW', 1.0)); nl = float(L.get('noseL', 1.0))
-    sc = T('nosek', 1.4) * (0.55 + 0.45 * nz)
+    sc = T('nosek', 1.8) * (0.55 + 0.45 * nz)
     out = np.zeros((SS, SS), np.float32)
     path = P[[168, 6, 197, 195, 5, 4, 1]][:, :2].astype(float)
     n = 28
@@ -326,7 +333,7 @@ def normals(Z):
 LKEY = np.array([-0.50, -0.58, 0.64], np.float32); LKEY /= np.linalg.norm(LKEY)
 LFILL = np.array([0.70, -0.05, 0.70], np.float32); LFILL /= np.linalg.norm(LFILL)
 
-LKEY = np.array([-T('lkx', 0.34), -T('lky', 0.42), T('lkz', 0.84)], np.float32); LKEY /= np.linalg.norm(LKEY)
+LKEY = np.array([-T('lkx', 0.44), -T('lky', 0.42), T('lkz', 0.80)], np.float32); LKEY /= np.linalg.norm(LKEY)
 
 # ---------------------------------------------------------------------------------------------------------------- features: eyes, brows, mouth
 def eye_geometry(h, side, open_px):
@@ -394,6 +401,8 @@ def skin_albedo(h):
     red = (red * (0.5 + ruddy) + 0.10 * n1) * T('red', 0.6)
     A = A * (1 + red[:, :, None] * np.array([0.30, -0.22, -0.20], np.float32)[None, None, :])
     A = A * (1 + 0.05 * n2[:, :, None] * np.array([0.5, 0.35, 0.0], np.float32)[None, None, :]) * (1 + 0.04 * n1[:, :, None])
+    mot = fbm(171, [26, 12, 6], [1.0, 0.7, 0.4]) * T('mottle', 1.0)
+    A = A * (1 + 0.040 * mot[:, :, None] * np.array([0.9, -0.45, -0.8], np.float32)[None, None, :]) * (1 + 0.025 * mot[:, :, None])
     # under the eyes: a bluish-brown shade, bigger with age and bags
     bags = float(L.get('bags', 0.4)); dark = np.zeros((SS, SS), np.float32)
     for sg in (-1, 1): dark += gauss(CX + sg * 0.50 * I, EY + 0.26 * I, 0.26 * I, 0.075 * I)
@@ -484,8 +493,8 @@ def wrinkle_field(h, squeeze=0.0, smile=0.0):
     bi = bi + 0.055 * wk('glab', 0.0)                                                      # permanent frown lines between the brows
     if bi > 0.05:
         for sg in (-1, 1):
-            a0 = np.array([CX + sg * 0.075 * I, brow_y - 0.02 * I]); b0 = np.array([CX + sg * 0.055 * I, brow_y + 0.17 * I])
-            g -= line_mask(np.array([a0, (a0 + b0) / 2 + [sg * 0.01 * I, 0], b0]), 3.4, 1.6) * (3.0 + 40.0 * bi)
+            a0 = np.array([CX + sg * 0.085 * I, brow_y - 0.01 * I]); b0 = np.array([CX + sg * 0.058 * I, brow_y + 0.15 * I])
+            g -= line_mask(np.array([a0, (a0 + b0) / 2 + [sg * 0.012 * I, 0], b0]), 4.6, 2.6) * (1.6 + 20.0 * bi)
     for sg, (wing, cor) in ((-1, (129, 61)), (1, (358, 291))):
         a0 = P[wing] + np.array([sg * 8, 12.0]); b0 = P[cor] + np.array([sg * 0.17 * I, 0.0]); mid = (a0 + b0) / 2 + np.array([sg * 0.12 * I, -4.0])
         g -= line_mask(curve([a0, mid, b0], 30), 7.0, 4.2) * (1.6 + 5.2 * a + 2.4 * smile) * wk('nl') * T('fold', 1.0)
@@ -536,11 +545,11 @@ def socket_darkness(h, geos):
     S_ = np.zeros((SS, SS), np.float32)
     for side, (up, lo) in geos:
         mid = (up + lo) / 2; cx = float(mid[:, 0].mean()); cy = float(mid[:, 1].mean()); w = float(up[:, 0].max() - up[:, 0].min())
-        S_ += T('sock', 1.0) * (0.10 + 0.07 * ridge + 0.10 * lid) * gauss(cx, cy - 0.115 * I, 0.62 * w, 0.075 * I)
-        S_ += T('sock', 1.0) * (0.05 + 0.10 * lid) * gauss(cx, cy - 0.040 * I, 0.52 * w, 0.040 * I)
-        S_ += T('sock', 1.0) * (0.04 + 0.13 * bags * (0.5 + age)) * gauss(cx, cy + 0.165 * I, 0.58 * w, 0.050 * I)
+        S_ += T('sock', 1.35) * (0.10 + 0.07 * ridge + 0.10 * lid) * gauss(cx, cy - 0.115 * I, 0.62 * w, 0.075 * I)
+        S_ += T('sock', 1.35) * (0.05 + 0.10 * lid) * gauss(cx, cy - 0.040 * I, 0.52 * w, 0.040 * I)
+        S_ += T('sock', 1.35) * (0.04 + 0.13 * bags * (0.5 + age)) * gauss(cx, cy + 0.165 * I, 0.58 * w, 0.050 * I)
         inner = up[-1] if side == 'R' else up[0]; sgn = 1.0 if side == 'R' else -1.0
-        S_ += T('sock', 1.0) * 0.12 * gauss(inner[0] + sgn * 0.05 * I, inner[1] + 0.03 * I, 0.06 * I, 0.10 * I)
+        S_ += T('sock', 1.35) * 0.12 * gauss(inner[0] + sgn * 0.05 * I, inner[1] + 0.03 * I, 0.06 * I, 0.10 * I)
     return np.clip(S_, 0, 0.55)
 
 def render_head(h, eyes='open', mouth='smile'):
@@ -596,7 +605,7 @@ def render_head(h, eyes='open', mouth='smile'):
     A = A * (1 - 0.20 * crease * lidk - 0.08 * lidband * lidk + 0.03 * lidridge)[:, :, None] * (1 + (0.10 * lidband * lidk)[:, :, None] * np.array([0.5, -0.2, -0.3], np.float32)[None, None, :])
     lip_col = hexlin(L['lip']) if L.get('lip') else None
     base = hexlin(L['skin'])
-    lipc = lip_col if lip_col is not None else np.clip(base * np.array([0.92, 0.66, 0.66], np.float32) * T('lipk', 0.62) + base * (1 - T('lipk', 0.62)) * 0.8 + np.array([0.025, 0.0, 0.0], np.float32), 0, 1)
+    lipc = lip_col if lip_col is not None else np.clip(base * np.array([0.88, 0.58, 0.60], np.float32) * T('lipk', 0.62) + base * (1 - T('lipk', 0.62)) * 0.8 + np.array([0.025, 0.0, 0.0], np.float32), 0, 1)
     A = A * (1 - lips_m[:, :, None]) + lipc[None, None, :] * (lips_m[:, :, None]) * (0.92 + 0.12 * lower_m[:, :, None] - 0.10 * upper_m[:, :, None])
     vl = noise(55, 2)
     A = A * (1 - 0.10 * lips_m * np.clip(blur(vl, 0.8), -1, 1))[:, :, None]
@@ -609,7 +618,7 @@ def render_head(h, eyes='open', mouth='smile'):
     sh = blur(cast_shadow(blur(Z + D * 0.6, 1.4), LKEY, steps=34, step_px=2.4, softness=4.0), 9.0) * 0.8
     ndl = np.clip((nx * LKEY[0] + ny * LKEY[1] + nz * LKEY[2] + 0.25) / 1.25, 0, 1)
     ndf = np.clip((nx * LFILL[0] + ny * LFILL[1] + nz * LFILL[2] + 0.2) / 1.2, 0, 1)
-    cav = np.clip(blur(Zs, 6) - Zs, 0, None) + 0.5 * np.clip(blur(Zs, 24) - Zs, 0, None); ao = np.exp(-cav / 20.0)
+    cav = np.clip(blur(Zs, 6) - Zs, 0, None) + 0.5 * np.clip(blur(Zs, 24) - Zs, 0, None); ao = np.exp(-cav / T('aoscale', 15.0))
     E = (0.11 + 1.12 * ndl * (1 - 0.66 * sh) + 0.13 * ndf) * ao * (0.92 + 0.08 * ao)
     # the neck: in the shade of the jaw just under the chin, rounder (darker) towards its sides
     nonly = np.clip(h.m_neck - h.m_head, 0, 1)
@@ -726,13 +735,13 @@ def draw_eye(img, h, side, state='open', ri_scale=1.0):
     ut = np.interp(cx, up[iu, 0], up[iu, 1]); lt = np.interp(cx, lo[il, 0], lo[il, 1])
     hh = max(lt - ut, 6.0)
     ri = float(np.clip(0.200 * w, 0.080 * I, 0.104 * I)) * ri_scale * T('iris', 1.0) * float(h.spec.get('iris_k', 1.0))      # an iris is about 0.4 of the width of the eye (0.19 of the distance between the eyes); the lids cut it
-    cy = min(ut + 0.50 * ri, ut + 0.62 * hh)                       # the upper lid covers about a quarter of the iris, the lower lid just touches it
+    cy = ut + 0.60 * ri + 0.85 * max(0.0, hh - 1.60 * ri)           # the upper lid covers about a fifth of the iris, the lower lid just touches it (a wide opening lets the iris sink, so that no white shows under it)
     ix = cx + (0.5 if side == 'R' else -0.5) * 0.0
     dx, dy = XX - ix, YY - cy; rho = np.sqrt(dx * dx + dy * dy) / ri; th = np.arctan2(dy, dx)
     # sclera: slightly warm white with a spherical shade, darker towards the corners and under the upper lid
     t = np.clip((YY - ut) / max(hh, 1), 0, 1)
     across = np.clip(np.abs(XX - (x0 + x1) / 2) / (w / 2), 0, 1)
-    scl = np.array([0.66, 0.61, 0.55], np.float32)[None, None, :] * float(h.spec.get('sclera', 1.0)) * (0.50 + 0.50 * (1 - across ** 2.2))[:, :, None] * (0.45 + 0.55 * smoothstep(0.0, 0.55, t))[:, :, None]
+    scl = np.array([0.58, 0.53, 0.47], np.float32)[None, None, :] * float(h.spec.get('sclera', 1.0)) * (0.50 + 0.50 * (1 - across ** 2.2))[:, :, None] * (0.45 + 0.55 * smoothstep(0.0, 0.55, t))[:, :, None]
     red = (smoothstep(0.55, 1.0, across) * 0.35)[:, :, None] * np.array([0.10, -0.02, -0.04], np.float32)[None, None, :]
     scl = scl + red
     # iris with fibres, a dark limbal ring and a lighter ring around the pupil
@@ -748,7 +757,7 @@ def draw_eye(img, h, side, state='open', ri_scale=1.0):
     eye = eye * (1 - pup[:, :, None]) + np.array([0.004, 0.003, 0.003], np.float32)[None, None, :] * pup[:, :, None]
     # shadow of the upper lid on the eyeball
     lidsh = float(h.spec.get('lid_shadow', 0.0))
-    eye = eye * (0.22 + 0.78 * smoothstep(0.0, 0.62 + 0.25 * lidsh, t))[:, :, None] * (0.80 + 0.2 * smoothstep(0.0, 0.2, t))[:, :, None]
+    eye = eye * (0.16 + 0.84 * smoothstep(0.0, 0.70 + 0.25 * lidsh, t))[:, :, None] * (0.80 + 0.2 * smoothstep(0.0, 0.2, t))[:, :, None]
     # catchlights
     cl = np.exp(-(((XX - (ix - 0.34 * ri)) / (0.22 * ri)) ** 2 + ((YY - (cy - 0.36 * ri)) / (0.16 * ri)) ** 2))
     cl2 = np.exp(-(((XX - (ix + 0.36 * ri)) ** 2 + (YY - (cy + 0.40 * ri)) ** 2) / (2 * (0.10 * ri) ** 2)))
@@ -904,11 +913,11 @@ def face_oval_right(h):
     P = h.P
     return P[[454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152]].copy()      # from the right ear down to the chin (canvas px)
 
-def beard_polygon(h, cheek=0.0, ext=0.0, off=0.02, mouth_clear=True, goatee=False, flare=0.0):
+def beard_polygon(h, cheek=0.0, ext=0.0, off=0.02, mouth_clear=True, goatee=False, flare=0.0, gw=1.0):
     P = h.P
     if goatee:
         yb = P[17, 1] + 0.04 * I; yt = P[17, 1] - 0.015 * I; cy = P[152, 1]
-        pts = [[CX - 0.30 * I, yt], [CX + 0.30 * I, yt], [CX + 0.34 * I, yb + 0.15 * I], [CX + 0.22 * I, cy - 0.02 * I + ext * I], [CX, cy + 0.07 * I + ext * I], [CX - 0.22 * I, cy - 0.02 * I + ext * I], [CX - 0.34 * I, yb + 0.15 * I]]
+        pts = [[CX - 0.30 * I * gw, yt], [CX + 0.30 * I * gw, yt], [CX + 0.34 * I * gw, yb + 0.15 * I], [CX + 0.22 * I * gw, cy - 0.02 * I + ext * I], [CX, cy + 0.07 * I + ext * I], [CX - 0.22 * I * gw, cy - 0.02 * I + ext * I], [CX - 0.34 * I * gw, yb + 0.15 * I]]
         return poly_mask(smooth_curve(np.array(pts), 80, closed=True), 2.5)
     O = face_oval_right(h)
     cen = np.array([CX, EY + 0.55 * I])
@@ -962,14 +971,14 @@ def draw_stache(img, h, color, seed=31):
     """moustache: thick in the middle and thinner towards the corners (spec 'taper'), corners that hang down ('droop'), ragged edges, 'alpha' = how solid it is"""
     sp = h.spec.get('stache', {})
     P = h.P; mp = h.parts
-    sw = sp.get('w', 1.0); sh_ = sp.get('h', 1.0); tp = float(sp.get('taper', 0.40)); dr = float(sp.get('droop', 1.0)); al = float(sp.get('alpha', 1.0))
+    sw = sp.get('w', 1.0); sh_ = sp.get('h', 1.0); tp = float(sp.get('taper', 0.55)); dr = float(sp.get('droop', 1.0)); al = float(sp.get('alpha', 1.0))
     ny = P[2, 1]; ly = mp['lipU'][len(mp['lipU']) // 2][1]
     top = ny + 0.045 * I; bot = ly + 0.015 * I * sh_
     wid = 0.40 * I * sw
     u = np.linspace(-1, 1, 41); au = np.abs(u)
     upper = np.stack([CX + u * wid, top + 0.0 * u + 0.02 * I * au], 1)
     mid_low = bot - 0.02 * I * (1 - au) ** 0.5                                        # where the hairs end above the lip
-    th = (mid_low - upper[:, 1]) * (1 - tp * au ** 1.3)
+    th = (mid_low - upper[:, 1]) * (1 - tp * au ** 1.3) * (1 - 0.85 * au ** 5)                  # thick in the middle, thinner and rounded towards the ends
     lower = np.stack([CX + u * wid * 0.98, upper[:, 1] + th + dr * 0.05 * I * sh_ * au ** 2.2], 1)
     region = poly_mask(smooth_curve(np.vstack([upper, lower[::-1]]), 100, closed=True), 1.6)
     base = hexlin(color)
@@ -980,6 +989,17 @@ def draw_stache(img, h, color, seed=31):
     rgbc, a0 = ST.lit_fibres(region, vx, vy, base, base, hexlin(h.L['skin']), seed=seed, fine_len=9, lock_len=22, lock_scale=1.2, k_fine=0.30, k_lock=0.30, spec=0.14, spec_pow=26, dome=4.0, dome_cap=30.0, occl=0.2, target=base * sp.get('exposure', 0.80))
     near = np.clip(blur(region, 7.0) * 5.0, 0, 1)                                                               # the ragged edge only close to the moustache (the noise alone would speckle the whole face)
     alpha = np.clip(smoothstep(0.16, 0.70, blur(region, 3.0) + 0.17 * noise(77, 1) * near), 0, 1) * al
+    if sp.get('strands', T('sstrands', 1.0)):                                                                    # single hairs over the fibre texture
+        import hair4 as H4
+        yy_ = (YY - (top + 0.0)) / max(bot - top, 1.0)
+        shade_s = (0.62 + 0.30 * smoothstep(1.0, 0.2, yy_)).astype(np.float32)
+        spec_map = np.zeros((SS, SS), np.float32) + (0.10 if float(base.mean()) > 0.12 else 0.03)
+        spec_col = np.clip(0.45 * base / max(float(base.max()), 1e-3) + 0.55, 0, 1)
+        rgb_s, cov_s = H4.strand_hair(np.clip(region, 0, 1), vx, vy, base, base, 0.0, shade_s, spec_map, spec_col, seed + 3, density=float(sp.get('s_density', 1.6)) * (0.35 + 0.65 * al), passes=3, length=(16, 46), wander=0.70,
+                                      lock_scale=8, contrast=0.55, tone=0.45, tip_margin=(0.0, 9.0), hl=0.5, kappa=1.1)
+        rgbc = rgbc * (1 - cov_s * 0.9)[:, :, None] + rgb_s * (cov_s * 0.9)[:, :, None]
+        inner = smoothstep(0.55, 0.92, blur(region, 6.0))                                                           # solid inside, the edge is made by the hairs themselves, not by the outline of the region
+        alpha = np.clip(np.maximum(alpha * (0.25 + 0.45 * inner) * (0.4 + 0.6 * al), cov_s * 0.97), 0, 1)
     img = over(img, rgbc, alpha)
     return img, alpha
 
@@ -1029,6 +1049,10 @@ def draw_kippah(img, h):
     u = np.linspace(-1, 1, 70)
     lower = np.stack([cx + u * wid / 2 * I, ys + (yf - ys) * (1 - np.abs(u) ** 2.0)], 1)
     m = poly_mask(np.vstack([upper, lower[::-1]]), 1.0)
+    if hp.get('kip_full'):                                                   # a cap that covers the whole crown: the skull above the rim line
+        uu = np.clip(np.abs(XX - cx) / (wid / 2 * I), 0, 1)
+        rim = ys + (yf - ys) * (1 - uu ** 2.0)
+        m = np.clip(h.m_skullhair * smoothstep(-1.5, 1.5, rim - YY), 0, 1)
     d = cv2.distanceTransform((m > 0.5).astype(np.uint8), cv2.DIST_L2, 5).astype(np.float32)
     Zk = blur(np.sqrt(np.clip(d, 0, 70)) * 4.5, 3)
     nx, ny, nz = normals(Zk); ndl = np.clip((nx * LKEY[0] + ny * LKEY[1] + nz * LKEY[2] + 0.2) / 1.2, 0, 1)
