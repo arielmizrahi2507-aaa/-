@@ -1,6 +1,7 @@
 # hair v3: soft hairline over a scalp layer, ragged silhouette, wobbling flow, clumps, thin hair that lets the scalp show, contact shadow, flyaways
 import numpy as np, cv2
 from rend2 import SS, I, CX, EY, XX, YY, blur, smoothstep, hexlin, noise, fbm, LKEY, normals, over, lum
+from rend2 import T as _T
 import strands as ST
 
 # flow presets: c = centre of the radial part (IPD units from the eye centre), r radial weight, up/down weights, wob = angular wobble (rad)
@@ -28,6 +29,23 @@ STYLES = {
     'layered': dict(flow='down',  fine_len=28, lock_len=70, mid_len=30, k_fine=0.14, k_lock=0.24, k_mid=0.16, spec=0.30, spec_pow=22, thin=0.0, soft=4, fuzz=0.30),
     'bob':     dict(flow='down',  fine_len=26, lock_len=64, mid_len=28, k_fine=0.13, k_lock=0.22, k_mid=0.14, spec=0.32, spec_pow=24, thin=0.0, soft=4, fuzz=0.26),
     'sides':   dict(flow='sides', fine_len=8,  lock_len=14, mid_len=8,  k_fine=0.22, k_lock=0.18, k_mid=0.12, spec=0.10, spec_pow=10, thin=0.0, soft=7, fuzz=0.30),
+}
+
+
+# strand layer (hair4.py): length range of the strands in px, density, passes, wander (bend of a single lock), size of a lock
+STRANDS = {
+    'swoop':   dict(length=(50, 130), wander=0.30, lock_scale=26),
+    'comb':    dict(length=(50, 130), wander=0.30, lock_scale=26),
+    'part':    dict(length=(50, 130), wander=0.30, lock_scale=26),
+    'crop':    dict(length=(14, 36), wander=0.40, lock_scale=14),
+    'buzz':    dict(length=(6, 14), wander=0.30, lock_scale=8, density=0.9),
+    'thin':    dict(length=(30, 90), wander=0.40, lock_scale=22),
+    'spiky':   dict(length=(16, 44), wander=0.45, lock_scale=14),
+    'curly':   dict(length=(10, 26), wander=1.00, lock_scale=10),
+    'wavy':    dict(length=(110, 300), wander=0.45, lock_scale=34),
+    'layered': dict(length=(110, 300), wander=0.45, lock_scale=34),
+    'bob':     dict(length=(90, 240), wander=0.40, lock_scale=34),
+    'sides':   dict(length=(20, 70), wander=0.35, lock_scale=14),
 }
 
 def _flow(kind_or_dict, seed, wob_k=1.0, part_x=None):
@@ -68,7 +86,8 @@ def draw_hair3(img, h, seed=5):
     # ---- fibres
     fine, lock, grey = ST.hair_texture(mask, vx, vy, seed, S['fine_len'], S['lock_len'], S.get('lock_scale', 1.9))
     mid = ST.norm_field(ST.lic(cv2.GaussianBlur(ST.white_noise(seed + 5, 0), (0, 0), S.get('mid_scale', 4.2)), vx, vy, S['mid_len'], 1.5), mask)
-    br = np.exp(S['k_fine'] * fine + S['k_lock'] * lock + S['k_mid'] * mid)
+    hc = _T('hair_c', 0.65)
+    br = np.exp(hc * (S['k_fine'] * fine + S['k_lock'] * lock + S['k_mid'] * mid))
     col = base[None, None, :] * br[:, :, None]
     gf = 0.34 if hr.get('mix') else 0.0
     gf = float(S.get('grey', gf))
@@ -83,8 +102,8 @@ def draw_hair3(img, h, seed=5):
     nx, ny, nz = -gx, -gy, np.ones_like(Zh); nn = np.sqrt(nx ** 2 + ny ** 2 + nz ** 2); nx, ny, nz = nx / nn, ny / nn, nz / nn
     ndl = np.clip((nx * LKEY[0] + ny * LKEY[1] + nz * LKEY[2] + 0.30) / 1.30, 0, 1)
     D2 = cv2.distanceTransform((mask > 0.5).astype(np.uint8), cv2.DIST_L2, 5).astype(np.float32)
-    shade = (0.36 + 0.92 * ndl) * (1 - 0.30 + 0.30 * smoothstep(0, 18, D2))
-    shade = shade * (0.78 + 0.22 * smoothstep(0, 26, d_skin))                     # roots: darker near the hairline
+    shade = (0.36 + 0.92 * ndl) * (1 - 0.30 + 0.30 * smoothstep(0, 18, D))                  # darker towards the outer edge of the head only (not at the hairline)
+    shade = shade * (0.90 + 0.10 * smoothstep(0, 26, d_skin))                     # roots: a little darker near the hairline
     # broad glossy band (the 'angel ring') from the dome normal; modulated by the clump noise so that only some locks glint
     slope = gx * vx + gy * vy
     T = np.stack([vx, vy, slope], -1); T = T / (np.linalg.norm(T, axis=2, keepdims=True) + 1e-6)
@@ -92,18 +111,35 @@ def draw_hair3(img, h, seed=5):
     TH = T[:, :, 0] * HV[0] + T[:, :, 1] * HV[1] + T[:, :, 2] * HV[2]
     sp = np.power(np.clip(1 - TH ** 2, 0, 1), S['spec_pow'] / 2) * np.clip(ndl * 1.1, 0, 1) * np.clip(0.55 + 0.45 * lock, 0.1, 1.2) * np.clip(0.7 + 0.3 * fine, 0.3, 1.2)
     spec_col = np.clip(0.40 * base / max(float(base.max()), 1e-3) + 0.60, 0, 1)
-    rgb = col * shade[:, :, None] + sp[:, :, None] * S['spec'] * spec_col[None, None, :] * (0.4 + 0.6 * float(base.mean() > 0.12))
+    rgb = col * shade[:, :, None] + sp[:, :, None] * S['spec'] * _T('hair_spec', 0.6) * spec_col[None, None, :] * (0.4 + 0.6 * float(base.mean() > 0.12))
     # ---- exposure calibration to the wanted average colour
     sel = mask > 0.5
     if sel.sum() > 200:
         target = base * float(S.get('exposure', 0.80)); m = float(lum(rgb[sel]).mean()); k = float(np.clip(float(lum(target)) / max(m, 1e-4), 0.45, 2.0)); rgb = rgb * k
+    # ---- single strands over the fibre texture
+    strand_cov = None
+    if S.get('strands', _T('strands', 1.0)) and style not in ('none',):
+        import hair4 as H4
+        SP = dict(STRANDS.get(style, STRANDS['crop'])); SP.update(S.get('strand', {}))
+        spec_map = np.clip(sp * S['spec'] * _T('hair_spec', 0.6) * 2.2, 0, 1.5).astype(np.float32)
+        gfr = float(S.get('grey', 0.34 if hr.get('mix') else 0.0))
+        shade_s = np.clip(shade * float(S.get('s_shade', 1.0)), 0.05, 2.0).astype(np.float32)
+        rootw = (0.10 + 0.90 * smoothstep(0.0, 34.0, d_skin)).astype(np.float32)
+        rgb_s, strand_cov = H4.strand_hair(mask, vx, vy, base, mix, gfr, shade_s, spec_map, spec_col, seed, rootw=rootw, density=float(S.get('s_density', 1.0)) * SP.pop('density', 1.0), passes=int(S.get('s_passes', 3)),
+                                           contrast=float(S.get('s_contrast', 0.22)), tone=float(S.get('s_tone', 0.26)), thin=float(S['thin']), **SP)
+        # the exposure of the strand layer follows the wanted average colour like the fibre texture does
+        selc = (strand_cov > 0.5) & (mask > 0.5)
+        if selc.sum() > 200:
+            target = base * float(S.get('exposure', 0.80)); m = float(lum(rgb_s[selc]).mean()); k = float(np.clip(float(lum(target)) / max(m, 1e-4), 0.45, 2.0)); rgb_s = rgb_s * k
+        rgb = rgb * (1 - strand_cov * 0.9)[:, :, None] + rgb_s * (strand_cov * 0.9)[:, :, None]
     # ---- alpha: ragged outer edge, soft hairline, thin hair
     mk = blur(mask, S.get('edge_blur', 3.4))
     fz = ST.norm_field(ST.lic(ST.white_noise(seed + 11, 0.7), vx, vy, 9, 1.3), mask) * float(S['fuzz'])
     a_edge = smoothstep(0.38, 0.62, mk + 0.20 * fz) * smoothstep(0.015, 0.06, mk)          # the noise must not create hairs far away from the mass
-    R = float(S['soft'])
+    R = float(S['soft']) * _T('soft_k', 1.6)
     n_soft = blur(ST.white_noise(seed + 12, 0), 2.0) * 3.0
     a_hl = smoothstep(0.0, 1.0, (d_skin - 1.0 + 0.40 * R * n_soft) / R)
+    a_hl_fast = smoothstep(0.0, 1.0, (d_skin - 1.0 + 0.30 * R * n_soft) / (0.55 * R))
     thin = float(S['thin'])
     cover = np.ones_like(mk)
     if thin > 0:                                                    # strands thin out towards the hairline / the top, the scalp shows between them
@@ -114,14 +150,17 @@ def draw_hair3(img, h, seed=5):
     under_dark = (skinc * 0.62 * thin + base * 0.30 * (1 - thin))[None, None, :] * shade[:, :, None] * 0.9
     w_skin = 1.0 - smoothstep(0.0, 1.6 * R + 2.0, d_skin)
     skin_img = getattr(h, 'skin_img', None)
-    if skin_img is not None: scalp = skin_img * w_skin[:, :, None] + under_dark * (1 - w_skin)[:, :, None]
+    if skin_img is not None: scalp = skin_img * (0.86 * w_skin)[:, :, None] + under_dark * (1 - w_skin)[:, :, None]            # the scalp next to the hairline is in the shade of the hair
     else: scalp = under_dark
     # the scalp layer is solid right up to the exposed skin: the hair mass ends exactly where the skin starts, so blurring the mass alone left a 1-2 px see-through gap (a dark line) along the hairline
     d_mask = cv2.distanceTransform((mask < 0.5).astype(np.uint8), cv2.DIST_L2, 5)
     mk_s = blur(np.maximum(mask, ((h.m_head > 0.5) & (d_mask < 4.0)).astype(np.float32)), S.get('edge_blur', 3.4))
     scalp_a = smoothstep(0.50, 0.72, mk_s) * smoothstep(0.015, 0.06, mk)
     img = over(img, scalp, scalp_a)
-    alpha_hair = np.clip(a_edge * a_hl * cover, 0, 1)
+    alpha_hair = np.clip(a_edge * (a_hl_fast if strand_cov is not None else a_hl) * cover, 0, 1)
+    if strand_cov is not None:
+        sc_ = np.clip(strand_cov * a_hl * (cover if thin > 0 else 1.0), 0, 1)
+        alpha_hair = np.clip(1 - (1 - alpha_hair) * (1 - sc_ * 0.92), 0, 1)
     # ---- shadow of the hair on the skin below the hairline and at the temples
     skin_mask = np.clip(h.m_head, 0, 1)
     f = _cast_fx(alpha_hair, skin_mask, S.get('shadow', 0.32))
