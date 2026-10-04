@@ -17,9 +17,9 @@ CROWD_Z0, CROWD_Z1 = 5.6, 10.2
 SLABS = [
     dict(name='balloons', order=4, z0=3.2, z1=5.5, f=layer_f(4.3), scale=1.25, spp=96),
     dict(name='crowd', order=3, z0=5.5, z1=11.0, f=layer_f(8.0), scale=1.25, spp=128),
-    dict(name='floor', order=1, floor=True, z0=-3.3, z1=ZS - 0.1, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96, post_blur=(1.0, 0.6)),
+    dict(name='floor', order=1, floor=True, z0=-4.6, z1=ZS - 0.1, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96, post_blur=(1.0, 0.6)),
     dict(name='refl_back', order=2, reflect=True, z0=11.0, z1=40.0, f=layer_f(12.5), scale=1.0, spp=64, zref=12.5, refl_a=0.5, refl_h=3.0, refl_blur=2.4),
-    dict(name='back', order=0, z0=11.0, z1=40.0, f=layer_f(12.5), scale=1.1, spp=96, aperture=0.035),
+    dict(name='back', order=0, z0=11.0, z1=40.0, f=layer_f(12.5), scale=1.1, spp=96, aperture=0.035, noycut=True),
 ]
 QUALITY = dict(balloons=84, crowd=82, floor=82, refl_back=70, back=82)
 TONE = dict(exposure=1.0, sat=1.1, contrast=1.06, bloom_strength=0.16, bloom_thresh=1.2, sharp=0.35)

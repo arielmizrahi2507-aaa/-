@@ -32,8 +32,8 @@ ZW = 7.6            # the back wall
 SLABS = [
     dict(name='tables', z0=1.8, z1=4.35, f=layer_f(3.0), scale=1.25, spp=96),
     dict(name='counter', z0=4.35, z1=6.9, f=layer_f(5.5), scale=1.25, spp=96),
-    dict(name='floor', floor=True, z0=-3.3, z1=ZW - 0.1, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96),
-    dict(name='wall', z0=6.9, z1=12.0, f=layer_f(7.8), scale=1.25, spp=96),
+    dict(name='floor', floor=True, z0=-4.6, z1=ZW - 0.1, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96),
+    dict(name='wall', z0=6.9, z1=12.0, f=layer_f(7.8), scale=1.25, spp=96, noycut=True),
     dict(name='sky', z0=12.0, z1=1e9, f=0.16, bg=True, scale=1.0, spp=64, aperture=0.035, noycut=True, tone=dict(exposure=0.8)),
 ]
 QUALITY = dict(tables=84, counter=84, floor=82, wall=82, sky=78)
@@ -139,7 +139,7 @@ def build(b, q):
     # the menu board on the plaster to the left, shelves with jars to the right
     b.mesh(S.at(trimesh.creation.box(extents=[2.3, 2.8, 0.05]), -7.1, 3.0, ZW - 0.03), m_dark_wood)
     qd = trimesh.Trimesh(np.array([[-8.1, 1.7, ZW - 0.07], [-6.1, 1.7, ZW - 0.07], [-6.1, 4.3, ZW - 0.07], [-8.1, 4.3, ZW - 0.07]], np.float32), np.array([[0, 2, 1], [0, 3, 2]]), process=False)
-    b.mesh(qd, m_board, uv='given', uv_arr=np.array([[1, 1], [0, 1], [0, 0], [1, 0]], np.float32))
+    b.mesh(qd, m_board, uv='given', uv_arr=np.array([[0, 1], [1, 1], [1, 0], [0, 0]], np.float32))    # (v = 0 is the first row of the picture, so the top of the board gets 0)
     for sy in (2.2, 3.0, 3.8):
         b.mesh(S.at(trimesh.creation.box(extents=[2.4, 0.04, 0.26]), 7.3, sy, ZW - 0.12), m_oak)
         for k in range(7):

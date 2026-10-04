@@ -15,8 +15,8 @@ Z_BACK = Z0 + TD * NT + 0.9            # the back wall
 
 SLABS = [
     dict(name='podium', z0=1.2, z1=4.35, f=layer_f(2.8), scale=1.25, spp=96),
-    dict(name='floor', floor=True, z0=-3.3, z1=Z0 + 0.1, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96, post_blur=(0.8, 0.5)),
-    dict(name='tier1', z0=4.35, z1=Z0 + 2 * TD - 0.01, f=layer_f(5.7), scale=1.25, spp=96),
+    dict(name='floor', floor=True, z0=-4.6, z1=Z0 + 0.1, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96, post_blur=(0.8, 0.5)),
+    dict(name='tier1', z0=4.35, z1=Z0 + 2 * TD - 0.01, f=layer_f(5.7), scale=1.25, spp=96, noycut=True),
     dict(name='back', z0=Z0 + 2 * TD - 0.01, z1=30.0, f=layer_f(10.0), scale=1.1, spp=96, aperture=0.035),
 ]
 QUALITY = dict(podium=84, floor=82, tier1=82, back=80)

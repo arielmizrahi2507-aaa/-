@@ -17,9 +17,9 @@ DESK_Z = 3.6
 SLABS = [
     dict(name='desk', z0=1.6, z1=5.4, f=layer_f(3.6), scale=1.25, spp=96, order=4),
     dict(name='refl_desk', order=3, reflect=True, z0=1.6, z1=5.4, f=layer_f(3.6), scale=1.0, spp=64, zref=3.6, refl_a=0.55, refl_h=1.6, refl_blur=1.6),
-    dict(name='floor', order=1, floor=True, z0=-3.3, z1=ZW - 0.05, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96, post_blur=(1.0, 0.6)),
+    dict(name='floor', order=1, floor=True, z0=-4.6, z1=ZW - 0.05, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96, post_blur=(1.0, 0.6)),
     dict(name='refl_back', order=2, reflect=True, z0=5.4, z1=30.0, f=layer_f(9.5), scale=1.0, spp=64, zref=9.5, refl_a=0.42, refl_h=2.6, refl_blur=2.2, noycut=False),
-    dict(name='back', order=0, z0=5.4, z1=30.0, f=layer_f(9.5), scale=1.1, spp=96, aperture=0.035),
+    dict(name='back', order=0, z0=5.4, z1=30.0, f=layer_f(9.5), scale=1.1, spp=96, aperture=0.035, noycut=True),
 ]
 QUALITY = dict(desk=84, refl_desk=70, floor=82, refl_back=70, back=82)
 TONE = dict(exposure=1.0, sat=1.08, contrast=1.05, bloom_strength=0.14, bloom_thresh=1.2, sharp=0.35)
@@ -64,7 +64,7 @@ def build(b, q):
     # ------------------------------------------------------------------------------------------------------------------ materials
     floor_tex = (np.full((8, 8, 3), lin('#090c16'), np.float32), np.full((8, 8), 0.28, np.float32), np.full((8, 8), 0.5, np.float32))
     spk = texlib.snoise(512, 512, 0.6, 3)
-    floor_tex = (np.full((512, 512, 3), lin('#222a4a'), np.float32), np.full((512, 512), 0.5, np.float32), np.full((512, 512), 0.5, np.float32))
+    floor_tex = (np.full((512, 512, 3), lin('#222a4a'), np.float32), np.full((512, 512), q.get('floor_rough', 0.5), np.float32), np.full((512, 512), 0.5, np.float32))
     m_floor = _M(b, 'floor', floor_tex, 3.0, spec=0.9, cc=0.0)
     m_white = b.B('white', B_principled('#f1f3f8', 0.12, clearcoat=0.8, cc_rough=0.04, spec=0.6, twosided=True))
     m_black = b.B('black', B_principled('#0b0c10', 0.45, twosided=True))

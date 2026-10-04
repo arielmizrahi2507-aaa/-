@@ -44,7 +44,7 @@ class LayerPath(mi.SamplingIntegrator):
     AOVs: albedo and shading normal (for the denoiser)."""
     def __init__(self, props):
         super().__init__(props)
-        self.z_lo = props.get('z_lo', 0.0); self.z_hi = props.get('z_hi', 1e9); self.ramp = props.get('ramp', 0.0); self.bg = props.get('bg', 0.0); self.clamp = props.get('clamp', 80.0)
+        self.z_lo = props.get('z_lo', 0.0); self.z_hi = props.get('z_hi', 1e9); self.ramp = props.get('ramp', 0.0); self.bg = props.get('bg', 0.0); self.clamp = props.get('clamp', 25.0)
         self.floor = props.get('floor', 0.0); self.y_plane = props.get('y_plane', 0.03); self.y_cut = props.get('y_cut', 0.0); self.refl = props.get('refl', 0.0)
         self.fwd = mi.Vector3f(0.0, 0.0, 1.0)
         self.kind = props.get('kind', 'path')
@@ -83,7 +83,8 @@ class LayerPath(mi.SamplingIntegrator):
             if self.y_cut > 0.0:
                 hit = hit & (si.p.y >= self.y_cut)
         spec, valid, aovs = self.inner.sample(scene, sampler, r2, medium, active if (self.bg > 0.5) else hit)
-        spec = dr.minimum(spec, self.clamp)
+        em = si.emitter(scene, hit)                                  # a lamp or a screen seen directly keeps its brightness; only the light that comes by bounces is clamped (fireflies)
+        spec = dr.minimum(spec, dr.select(em != None, 1e5, self.clamp))
         zh = si.p.z - ray.o.z
         w = mi.Float(1.0)
         if self.ramp > 0.0:
@@ -345,13 +346,13 @@ def horizon_row(h_cam):
 def sensor_dict(width, height, fov_x, h_cam, aperture, spp, thin=True, mirror_y=False):
     yc = -h_cam if mirror_y else h_cam
     to_world = mi.ScalarTransform4f().look_at(origin=[0, yc, -D_CAM], target=[0, yc, 0], up=[0, 1, 0]) @ mi.ScalarTransform4f().scale([-1, 1, 1])
-    film = {'type': 'hdrfilm', 'width': int(width), 'height': int(height), 'pixel_format': 'rgba', 'component_format': 'float32', 'rfilter': {'type': 'gaussian', 'stddev': 0.55}}
+    film = {'type': 'hdrfilm', 'width': int(width), 'height': int(height), 'pixel_format': 'rgba', 'component_format': 'float32', 'rfilter': {'type': 'box'}}
     s = {'type': 'thinlens' if (aperture > 0 and thin) else 'perspective', 'fov': float(fov_x), 'fov_axis': 'x', 'to_world': to_world, 'film': film,
          'sampler': {'type': 'multijitter', 'sample_count': int(spp)}}
     if aperture > 0 and thin: s['aperture_radius'] = float(aperture); s['focus_distance'] = float(D_CAM)
     return s
 
-def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, spp=64, pass_spp=16, max_depth=8, seed=0, kind='path', verbose=True, ramp=0.0, bg=False, clamp=80.0, floor=False, y_cut=0.0, width_px=None, reflect=False):
+def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, spp=64, pass_spp=16, max_depth=8, seed=0, kind='path', verbose=True, ramp=0.0, bg=False, clamp=25.0, floor=False, y_cut=0.0, width_px=None, reflect=False):
     """renders the surfaces between z_lo and z_hi metres behind the fighters' plane as the picture of a parallax layer of factor f.
     returns dict(rgb premultiplied linear (h, w, 3), alpha (h, w), albedo, normal) of size (H*scale, layer_width(f)*scale)"""
     Wl = (width_px if width_px else layer_width(f)); fw = int(round(Wl * scale))
@@ -386,20 +387,24 @@ def render_layer(builder, z_lo, z_hi, f, scale=1.0, h_cam=1.5, aperture=0.03, sp
 
 # ---------------------------------------------------------------------------------------------------------------- denoise, bloom, tone mapping
 def denoise(rgb_img, albedo=None, normal=None, hdr=True):
+    """Open Image Denoise. The images are shared with the library (it keeps pointers, not copies), so every array must stay alive until execute() has returned"""
     import pyoidn
     h, w, _ = rgb_img.shape
     col = np.ascontiguousarray(np.maximum(rgb_img, 0), np.float32); out = np.zeros_like(col)
+    alb = np.ascontiguousarray(np.clip(albedo, 0, 1), np.float32) if albedo is not None else None
+    nrm = np.ascontiguousarray(np.clip(normal, -1, 1), np.float32) if (normal is not None and albedo is not None) else None
     with pyoidn.Device() as dev:
         dev.commit()
         with pyoidn.Filter(dev, pyoidn.OIDN_FILTER_TYPE_RT) as flt:
             flt.set_image(pyoidn.OIDN_IMAGE_COLOR, col, pyoidn.OIDN_FORMAT_FLOAT3)
-            if albedo is not None: flt.set_image(pyoidn.OIDN_IMAGE_ALBEDO, np.ascontiguousarray(np.clip(albedo, 0, 1), np.float32), pyoidn.OIDN_FORMAT_FLOAT3)
-            if normal is not None and albedo is not None: flt.set_image(pyoidn.OIDN_IMAGE_NORMAL, np.ascontiguousarray(np.clip(normal, -1, 1), np.float32), pyoidn.OIDN_FORMAT_FLOAT3)
+            if alb is not None: flt.set_image(pyoidn.OIDN_IMAGE_ALBEDO, alb, pyoidn.OIDN_FORMAT_FLOAT3)
+            if nrm is not None: flt.set_image(pyoidn.OIDN_IMAGE_NORMAL, nrm, pyoidn.OIDN_FORMAT_FLOAT3)
             flt.set_image(pyoidn.OIDN_IMAGE_OUTPUT, out, pyoidn.OIDN_FORMAT_FLOAT3)
             flt.set_bool('hdr', bool(hdr)); flt.set_quality(pyoidn.OIDN_QUALITY_HIGH)
             flt.commit(); flt.execute()
         err = dev.get_error()
         if err and err[0]: print('oidn error', err)
+    del col, alb, nrm
     return out
 
 def bloom(img, thresh=1.0, strength=0.15, radii=(4, 12, 32, 80)):
@@ -501,7 +506,7 @@ def render_stage_raw(builder, slabs, cache_dir, h_cam=1.5, aperture=0.04, seed=0
         if verbose: print('layer %s  z %.1f..%.1f  f=%.3f' % (sl['name'], sl['z0'], sl['z1'], sl['f']), flush=True)
         L = render_layer(builder, sl['z0'], sl['z1'], sl['f'], scale=sl.get('scale', 1.0) * scale_mul, h_cam=h_cam, aperture=sl.get('aperture', aperture), spp=int(sl.get('spp', 64) * spp_mul),
                          pass_spp=(pass_spp or sl.get('pass_spp', 8)), max_depth=sl.get('depth', 8), seed=seed, ramp=sl.get('ramp', 0.0), bg=sl.get('bg', False), verbose=verbose,
-                         floor=sl.get('floor', False), y_cut=sl.get('ycut', 0.03 if not sl.get('noycut') else 0.0) if not sl.get('floor', False) else 0.03, width_px=sl.get('width'), reflect=sl.get('reflect', False))
+                         floor=sl.get('floor', False), y_cut=sl.get('ycut', 0.03 if not sl.get('noycut') else 0.0) if not sl.get('floor', False) else 0.06, width_px=sl.get('width'), reflect=sl.get('reflect', False))
         np.savez_compressed(os.path.join(cache_dir, sl['name'] + '.npz'), rgb=L['rgb'].astype(np.float16), alpha=L['alpha'].astype(np.float16), albedo=L['albedo'].astype(np.float16),
                             normal=L['normal'].astype(np.float16), scale=L['scale'], f=L['f'], floor=L['floor'], width=L['width'])
         if verbose: print('  -> %s  %.1fs' % (sl['name'], time.time() - t0), flush=True)

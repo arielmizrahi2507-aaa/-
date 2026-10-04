@@ -29,8 +29,8 @@ def shaft_spec():
 # the parallax layers, from NEAR to FAR: the floor and what is around the fighters, the furniture, the wall with the windows (transparent where the windows are), the sky
 SLABS = [
     dict(name='mid', z0=1.0, z1=5.6, f=layer_f(3.6), scale=1.25, spp=96),
-    dict(name='floor', floor=True, z0=-3.3, z1=6.6, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96),
-    dict(name='wall', z0=5.6, z1=8.0, f=layer_f(6.5), scale=1.25, spp=96),
+    dict(name='floor', floor=True, z0=-4.6, z1=6.6, f=1.0, width=floor_width(H_CAM), scale=1.25, spp=96),
+    dict(name='wall', z0=5.6, z1=8.0, f=layer_f(6.5), scale=1.25, spp=96, noycut=True),
     dict(name='sky', z0=8.0, z1=1e9, f=0.08, bg=True, scale=1.0, spp=48, aperture=0.025, noycut=True, tone=dict(exposure=0.62, sat=1.2, contrast=1.05)),
 ]
 QUALITY = dict(sky=80, wall=82, floor=82, mid=84)

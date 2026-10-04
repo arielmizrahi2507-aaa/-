@@ -29,12 +29,15 @@ def main():
     tone = dict(mod.TONE)
     if a.exposure is not None: tone['exposure'] = a.exposure
     if a.live and not (a.quick or a.raw):
-        b = SceneBuilder(a.stage); q.setdefault('work', work); mod.build(b, q); b.cleanup()
+        b = SceneBuilder(a.stage); q.setdefault('work', work); mod.build(b, q)
+        if getattr(mod, 'LIVE', None): json.dump(mod.LIVE, open(os.path.join(work, 'live.json'), 'w'))
+        b.cleanup(); print('live positions written'); return
     if a.quick or a.raw:
         t0 = time.time()
         b = SceneBuilder(a.stage)
         q.setdefault('work', work)
         mod.build(b, q)
+        if getattr(mod, 'LIVE', None): json.dump(mod.LIVE, open(os.path.join(work, 'live.json'), 'w'))
         print('scene built: %d triangles, %.1fs' % (b.stats['tris'], time.time() - t0), flush=True)
         if a.quick:
             sc = 0.5 * a.scale_mul
@@ -47,6 +50,8 @@ def main():
         if a.raw:
             render_stage_raw(b, mod.SLABS, os.path.join(work, 'raw'), h_cam=mod.H_CAM, aperture=mod.APERTURE, only=([s for s in a.render_layers.split(',') if s] or only), spp_mul=a.spp_mul, scale_mul=a.scale_mul, pass_spp=a.pass_spp)
         b.cleanup()
+    if (a.post or a.pack) and not getattr(mod, 'LIVE', None) and os.path.exists(os.path.join(work, 'live.json')):
+        mod.LIVE = json.load(open(os.path.join(work, 'live.json')))
     if a.post or a.pack:
         layers = post_stage(os.path.join(work, 'raw'), mod.SLABS, tone, denoise_it=not a.no_denoise, only=only)
         if hasattr(mod, 'shaft_spec') and not only:                       # light shafts: an additive layer (single scattering in numpy), stored as an opaque picture
