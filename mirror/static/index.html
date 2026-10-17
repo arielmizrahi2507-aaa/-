@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>מראה</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%238aa4ff'/%3E%3Cstop offset='1' stop-color='%23c28cff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='10' fill='url(%23g)'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0e0f13;
+    --surface: #16181e;
+    --surface-2: #1d2027;
+    --border: #272b34;
+    --text: #e8eaef;
+    --muted: #8c93a3;
+    --accent: #8aa4ff;
+    --accent-2: #c28cff;
+    --accent-ink: #0e0f13;
+    --danger: #ff8a8a;
+    --code-bg: #0a0b0e;
+    --radius: 16px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-2: #eef0f4;
+      --border: #dfe2e8;
+      --text: #1a1d24;
+      --muted: #667085;
+      --accent: #4f6bff;
+      --accent-2: #9b5cf6;
+      --accent-ink: #ffffff;
+      --danger: #d64545;
+      --code-bg: #f0f2f6;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 system-ui, -apple-system, "Segoe UI", "Noto Sans Hebrew", Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: .2px; }
+  .logo {
+    width: 26px; height: 26px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+  #new {
+    background: transparent; border: 1px solid var(--border); border-radius: 999px;
+    padding: 6px 14px; color: var(--muted); font-size: 14px;
+    transition: color .15s, border-color .15s;
+  }
+  #new:hover { color: var(--text); border-color: var(--muted); }
+
+  #scroll { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 8px; }
+
+  #empty { text-align: center; padding: 12vh 0 0; }
+  #empty h1 {
+    margin: 0 0 6px; font-size: clamp(26px, 5vw, 36px); font-weight: 700; line-height: 1.25;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  #empty p { margin: 0 0 28px; color: var(--muted); }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 999px;
+    padding: 9px 16px; font-size: 14.5px; color: var(--text);
+    transition: border-color .15s, transform .15s;
+  }
+  .chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+  .msg { display: flex; gap: 12px; margin: 0 0 22px; }
+  .msg.user { justify-content: flex-start; }
+  .msg.user .col { flex: 0 1 auto; max-width: 85%; }
+  .msg.user .body {
+    background: var(--surface-2); border-radius: var(--radius); padding: 10px 16px;
+    white-space: pre-wrap; overflow-wrap: anywhere;
+  }
+  .msg.assistant .dot {
+    flex: none; width: 22px; height: 22px; margin-top: 4px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  }
+  .msg.assistant.typing .dot { animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; transform: scale(.88); } }
+  @media (prefers-reduced-motion: reduce) {
+    .msg.assistant.typing .dot { animation: none; }
+    #scroll { scroll-behavior: auto; }
+  }
+  .col { min-width: 0; flex: 1; }
+  .msg.assistant .body { overflow-wrap: anywhere; }
+  .body:empty { display: none; }
+
+  .body > :first-child { margin-top: 0; }
+  .body > :last-child { margin-bottom: 0; }
+  .body p { margin: 0 0 12px; }
+  .body h1, .body h2, .body h3, .body h4 { margin: 18px 0 8px; line-height: 1.3; }
+  .body h1 { font-size: 1.35em; } .body h2 { font-size: 1.2em; }
+  .body h3, .body h4 { font-size: 1.05em; }
+  .body ul, .body ol { margin: 0 0 12px; padding-inline-start: 1.5em; }
+  .body li { margin: 3px 0; }
+  .body blockquote {
+    margin: 0 0 12px; padding: 2px 14px; color: var(--muted);
+    border-inline-start: 3px solid var(--border);
+  }
+  .body hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+  .body a { color: var(--accent); }
+  .body code {
+    font: 13.5px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    background: var(--surface-2); padding: 1px 6px; border-radius: 6px;
+  }
+  .code { margin: 0 0 14px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; background: var(--code-bg); }
+  .code-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 12px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--border);
+    direction: ltr;
+  }
+  .code-head button { background: none; border: 0; color: var(--muted); padding: 2px 6px; border-radius: 6px; }
+  .code-head button:hover { color: var(--text); }
+  .code pre { margin: 0; padding: 12px 14px; overflow-x: auto; direction: ltr; text-align: left; }
+  .code pre code { background: none; padding: 0; border-radius: 0; }
+
+  .note { margin-top: 8px; font-size: 14px; color: var(--muted); }
+  .note.error { color: var(--danger); }
+  .note button {
+    background: none; border: 1px solid currentColor; border-radius: 999px;
+    padding: 1px 12px; margin-inline-start: 8px; font-size: 13px; color: inherit;
+  }
+
+  footer { padding: 8px 16px max(14px, env(safe-area-inset-bottom)); }
+  .composer-wrap { max-width: 760px; margin: 0 auto; }
+  #composer {
+    display: flex; align-items: flex-end; gap: 8px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 22px;
+    padding: 8px 8px 8px 10px; transition: border-color .15s;
+  }
+  #composer:focus-within { border-color: var(--accent); }
+  #input {
+    flex: 1; resize: none; border: 0; outline: 0; background: transparent; color: inherit;
+    font: inherit; line-height: 1.5; max-height: 200px; padding: 8px 8px;
+  }
+  #input::placeholder { color: var(--muted); }
+  #send {
+    flex: none; width: 38px; height: 38px; border-radius: 50%; border: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--accent-ink);
+    display: grid; place-items: center; transition: opacity .15s, transform .15s;
+  }
+  #send:disabled { opacity: .35; cursor: default; }
+  #send:not(:disabled):hover { transform: scale(1.06); }
+  #send svg { width: 18px; height: 18px; }
+  #send .stop { display: none; }
+  body.busy #send .go { display: none; }
+  body.busy #send .stop { display: block; }
+  .fine { text-align: center; color: var(--muted); font-size: 12.5px; margin: 8px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><span class="logo" aria-hidden="true"></span><span>מראה</span></div>
+  <button id="new" type="button">שיחה חדשה</button>
+</header>
+
+<main id="scroll">
+  <div class="wrap">
+    <section id="empty">
+      <h1>במה אפשר לעזור?</h1>
+      <p>שאל כל דבר, בעברית או בכל שפה אחרת.</p>
+      <div class="chips">
+        <button class="chip" type="button">הסבר לי מושג מורכב בפשטות</button>
+        <button class="chip" type="button">עזור לי לנסח מייל מקצועי</button>
+        <button class="chip" type="button">כתוב לי פונקציה בפייתון שממיינת רשימה</button>
+        <button class="chip" type="button">תן לי רעיונות לארוחת ערב מהירה</button>
+      </div>
+    </section>
+    <div id="chat" aria-live="polite"></div>
+  </div>
+</main>
+
+<footer>
+  <div class="composer-wrap">
+    <form id="composer" autocomplete="off">
+      <textarea id="input" rows="1" placeholder="כתוב הודעה…" aria-label="הודעה"></textarea>
+      <button id="send" type="submit" aria-label="שלח" disabled>
+        <svg class="go" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        <svg class="stop" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2.5"/></svg>
+      </button>
+    </form>
+    <p class="fine">מראה יכולה לטעות. כדאי לבדוק מידע חשוב.</p>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const KEY = 'mirror.chat.v1';
+  const $ = (s) => document.querySelector(s);
+  const scrollEl = $('#scroll'), chatEl = $('#chat'), emptyEl = $('#empty');
+  const form = $('#composer'), input = $('#input'), sendBtn = $('#send');
+
+  let messages = load();
+  let controller = null;
+  let busy = false;
+  let gen = 0;
+
+  /* ---------- storage (best effort) ---------- */
+  function load() {
+    try {
+      const v = JSON.parse(localStorage.getItem(KEY) || '[]');
+      return Array.isArray(v) ? v.filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim()) : [];
+    } catch { return []; }
+  }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(messages)); } catch {} }
+
+  /* ---------- markdown (escape first, then format) ---------- */
+  const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+  function inline(s) {
+    return s.split(/(`[^`\n]+`)/).map((part) => {
+      if (part.length > 1 && part[0] === '`' && part.endsWith('`')) return '<code>' + esc(part.slice(1, -1)) + '</code>';
+      let t = esc(part);
+      t = t.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+      t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+      t = t.replace(/(^|[^*])\*([^*\s][^*\n]*)\*(?!\*)/g, '$1<em>$2</em>');
+      return t;
+    }).join('');
+  }
+
+  function renderMarkdown(src) {
+    const lines = src.replace(/\r\n/g, '\n').split('\n');
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      const fence = line.match(/^\s*```\s*([\w+#.-]*)/);
+      if (fence) {
+        const code = [];
+        i++;
+        while (i < lines.length && !/^\s*```\s*$/.test(lines[i])) code.push(lines[i++]);
+        i++;
+        const lang = fence[1] || 'code';
+        out.push('<div class="code"><div class="code-head"><span>' + esc(lang) + '</span><button type="button" data-copy>העתק</button></div><pre><code>' + esc(code.join('\n')) + '</code></pre></div>');
+        continue;
+      }
+      if (!line.trim()) { i++; continue; }
+      const h = line.match(/^(#{1,4})\s+(.*)$/);
+      if (h) { out.push('<h' + h[1].length + ' dir="auto">' + inline(h[2]) + '</h' + h[1].length + '>'); i++; continue; }
+      if (/^\s*([-*_])\1{2,}\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
+      if (/^\s*>/.test(line)) {
+        const q = [];
+        while (i < lines.length && /^\s*>/.test(lines[i])) q.push(lines[i++].replace(/^\s*>\s?/, ''));
+        out.push('<blockquote dir="auto">' + inline(q.join(' ')) + '</blockquote>');
+        continue;
+      }
+      const ul = /^\s*[-*+]\s+/, ol = /^\s*\d+[.)]\s+/;
+      if (ul.test(line) || ol.test(line)) {
+        const re = ul.test(line) ? ul : ol, tag = re === ul ? 'ul' : 'ol';
+        const items = [];
+        while (i < lines.length && re.test(lines[i])) items.push('<li>' + inline(lines[i++].replace(re, '')) + '</li>');
+        out.push('<' + tag + ' dir="auto">' + items.join('') + '</' + tag + '>');
+        continue;
+      }
+      const para = [];
+      while (i < lines.length && lines[i].trim() && !/^\s*(```|#{1,4}\s|>|[-*+]\s|\d+[.)]\s)/.test(lines[i])) para.push(lines[i++]);
+      out.push('<p dir="auto">' + para.map(inline).join('<br>') + '</p>');
+    }
+    return out.join('');
+  }
+
+  /* ---------- rendering ---------- */
+  function addMessage(role, text) {
+    const row = document.createElement('div');
+    row.className = 'msg ' + role;
+    const col = document.createElement('div');
+    col.className = 'col';
+    const body = document.createElement('div');
+    body.className = 'body';
+    col.append(body);
+    if (role === 'assistant') {
+      const dot = document.createElement('span');
+      dot.className = 'dot';
+      row.append(dot, col);
+    } else {
+      row.append(col);
+    }
+    chatEl.append(row);
+    setBody(body, role, text);
+    return { row, col, body };
+  }
+  function setBody(body, role, text) {
+    if (role === 'user') { body.textContent = text; body.dir = 'auto'; }
+    else body.innerHTML = renderMarkdown(text);
+  }
+  function addNote(col, text, kind, retry) {
+    const note = document.createElement('div');
+    note.className = 'note' + (kind ? ' ' + kind : '');
+    note.append(text);
+    if (retry) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'נסה שוב';
+      b.addEventListener('click', () => { note.remove(); run(); });
+      note.append(b);
+    }
+    col.append(note);
+  }
+  function nearBottom() { return scrollEl.scrollHeight - scrollEl.scrollTop - scrollEl.clientHeight < 140; }
+  function toBottom() { scrollEl.scrollTop = scrollEl.scrollHeight; }
+  function syncUI() {
+    emptyEl.hidden = messages.length > 0 || busy;
+    document.body.classList.toggle('busy', busy);
+    sendBtn.disabled = !busy && !input.value.trim();
+    sendBtn.setAttribute('aria-label', busy ? 'עצור' : 'שלח');
+  }
+
+  /* ---------- chat ---------- */
+  async function run() {
+    busy = true;
+    syncUI();
+    const mine = gen;
+    const { row, col, body } = addMessage('assistant', '');
+    row.classList.add('typing');
+    toBottom();
+
+    let text = '', queued = false, failure = null;
+    const notes = [];
+    const paint = () => {
+      queued = false;
+      const stick = nearBottom();
+      setBody(body, 'assistant', text);
+      if (stick) toBottom();
+    };
+    controller = new AbortController();
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+        signal: controller.signal,
+      });
+      if (!res.ok || !res.body) {
+        let msg = 'שגיאת שרת (' + res.status + ')';
+        try { msg = (await res.json()).error || msg; } catch {}
+        throw new Error(msg);
+      }
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        let end;
+        while ((end = buf.indexOf('\n\n')) >= 0) {
+          const chunk = buf.slice(0, end);
+          buf = buf.slice(end + 2);
+          if (!chunk.startsWith('data: ')) continue;
+          const ev = JSON.parse(chunk.slice(6));
+          if (ev.t === 'text') {
+            text += ev.v;
+            if (!queued) { queued = true; requestAnimationFrame(paint); }
+          } else if (ev.t === 'notice') notes.push(ev.v);
+          else if (ev.t === 'error') throw new Error(ev.v);
+        }
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') failure = err.message || 'משהו השתבש.';
+    }
+
+    if (mine !== gen) return; // the chat was reset while this reply was streaming
+    controller = null;
+    busy = false;
+    row.classList.remove('typing');
+    paint();
+    if (text.trim()) { messages.push({ role: 'assistant', content: text }); save(); }
+    notes.forEach((n) => addNote(col, n));
+    if (failure) addNote(col, failure, 'error', true);
+    if (!text.trim() && !notes.length && !failure) row.remove();
+    syncUI();
+    input.focus();
+  }
+
+  function send(text) {
+    text = text.trim();
+    if (!text || busy) return;
+    messages.push({ role: 'user', content: text });
+    save();
+    addMessage('user', text);
+    input.value = '';
+    autosize();
+    run();
+  }
+
+  function reset() {
+    gen++;
+    if (controller) controller.abort();
+    messages = [];
+    save();
+    chatEl.replaceChildren();
+    busy = false;
+    syncUI();
+    input.focus();
+  }
+
+  /* ---------- wiring ---------- */
+  function autosize() {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+  }
+  input.addEventListener('input', () => { autosize(); syncUI(); });
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(input.value); }
+  });
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (busy) { if (controller) controller.abort(); return; }
+    send(input.value);
+  });
+  $('#new').addEventListener('click', reset);
+  document.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => send(c.textContent)));
+  chatEl.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    const code = btn.closest('.code').querySelector('code').textContent;
+    try { await navigator.clipboard.writeText(code); btn.textContent = 'הועתק'; }
+    catch { btn.textContent = 'לא הצליח'; }
+    setTimeout(() => { btn.textContent = 'העתק'; }, 1400);
+  });
+
+  messages.forEach((m) => addMessage(m.role, m.content));
+  syncUI();
+  toBottom();
+})();
+</script>
+</body>
+</html>
