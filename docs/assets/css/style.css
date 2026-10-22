@@ -128,7 +128,8 @@ h3{font-weight:900}
 .sun{position:relative;display:flex;align-items:center;justify-content:center;width:400px;max-width:90%;aspect-ratio:1/1;border-radius:50%;background:var(--accent);container-type:inline-size}
 .sun-kanji{color:#fff;font-size:9.5rem;font-size:37cqw;line-height:1.02;letter-spacing:.02em;writing-mode:vertical-rl;text-orientation:upright}
 .hero-vert{position:absolute;top:10px;left:0;writing-mode:vertical-rl;color:var(--ink);font-family:var(--font-jp);font-size:1.375rem;font-weight:800;letter-spacing:10px}
-.hero-quote{position:absolute;bottom:0;right:10px;max-width:200px;padding-right:12px;border-right:2px solid var(--accent);color:var(--ink-3);font-size:.875rem;line-height:1.6}
+.hero-quote{position:absolute;bottom:0;right:10px;max-width:240px;padding-right:12px;border-right:2px solid var(--accent);color:var(--ink-2);font-size:.9375rem;line-height:1.6}
+.quote-src{display:block;margin-top:.35rem;color:var(--ink-3);font-size:.8125rem;font-weight:700}
 @keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
 @keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
 .hero-copy>*{animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
@@ -151,6 +152,7 @@ h3{font-weight:900}
 .kohaku{height:1.9rem;border:2px solid #fff;background:repeating-linear-gradient(90deg,var(--accent) 0 2.4rem,#fff 2.4rem 4.8rem)}
 .coach-belt{font-size:.9rem;font-weight:600;color:var(--on-night-3)}
 .coach-bio p{margin-bottom:.9em;color:var(--on-night-2);line-height:1.8}
+.coach-bio .src{color:var(--on-night-3);font-size:.9rem;white-space:nowrap}
 .press{margin-top:1.3rem;padding-top:1.1rem;border-top:1px solid var(--night-2);font-size:.95rem}
 .press p{margin-bottom:.4rem;color:var(--on-night-3)}
 .press li{margin-bottom:.3rem}
