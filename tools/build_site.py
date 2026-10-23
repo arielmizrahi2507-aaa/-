@@ -26,13 +26,7 @@ WAZE = "https://waze.com/ul?q=" + quote("מקור החסידה 9 אילת") + "&
 GMAPS = "https://www.google.com/maps/search/?api=1&query=" + quote("מקור החסידה 9, אילת")
 WA_LINK = "https://wa.me/" + WA + "?text=" + quote("שלום, אשמח לקבל פרטים על הרשמה לג'ודוקאן אילת.")
 IJF = "https://www.ijf.org/"
-IJF_VALUES = "https://www.ijf.org/history/judo-values/6777"
 IJA = "https://www.ija.org.il/"
-YY1 = "https://www.yomyom.net/article.asp?id=11579"
-YY2 = "https://www.yomyom.net/article.asp?id=37865"
-YY3 = "https://www.yomyom.net/article.asp?id=62794"
-JI = "https://judoinside.com/judoka/114151/Evgeny_Shmachilin"
-ISRAELDOJO = "https://www.israeldojo.co.il/%D7%9E%D7%95%D7%A8%D7%94-%D7%90%D7%95%D7%9E%D7%A0%D7%95%D7%AA-%D7%9C%D7%97%D7%99%D7%9E%D7%94/judokan2122/"
 CLUB_EMAIL = ""  # the club's e-mail address. Empty on purpose: the e-mail option then opens a ready draft without a recipient
 EMAIL = os.environ.get("JK_EMAIL", CLUB_EMAIL).strip()
 if EMAIL and not re.fullmatch(r"[^\s@\"'<>&]+@[^\s@\"'<>&]+\.[^\s@\"'<>&]{2,}", EMAIL):
@@ -81,7 +75,6 @@ NAV = [
     ("training", "האימון", "技"),
     ("schedule", "מערכת שעות", "稽古"),
     ("way", "הדרך", "道"),
-    ("join", "הרשמה", "入門"),
     ("contact.html", "צור קשר", "縁"),
 ]
 
@@ -113,7 +106,7 @@ def sidebar(home, current=None):
 {nav}
 </nav>
 <div class="side-bottom">
-<a class="side-cta" href="{base}#join">להרשמה ולפרטים</a>
+<a class="side-cta" href="contact.html">צרו קשר</a>
 <div class="side-contact">{tel("tel")}<br>{ADDR}</div>
 <div class="side-osu" aria-hidden="true"></div>
 </div>
@@ -236,8 +229,7 @@ def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=
 # ---------------------------------------------------------------- forms
 GROUP_OPTIONS = ["לא בטוחים, אשמח לייעוץ", "גן וכיתה א׳ (גילאי 4–7)", "כיתה ב׳ ומעלה", "מבוגרים"]
 
-FORM_NOTE = ('נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע. '
-             'ראו <a href="privacy.html">מדיניות פרטיות</a>.')
+FORM_NOTE = 'נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע.'
 
 
 def ctl(p, key, tag="input", attrs="", inner=""):
@@ -256,6 +248,13 @@ def field(p, key, label, control, required=False, rule=""):
     return (f'<div class="field"{rule_attr}{req_attr}>\n'
             f'<label for="{p}-{key}">{label}<span class="req" aria-hidden="true" hidden>*</span><span class="opt">{note}</span></label>\n'
             f'{control}\n<span class="err" id="{p}-{key}-err"></span>\n</div>')
+
+
+def consent_field(p):
+    return (f'<div class="field field--check" data-rule="consent" data-required="1">\n'
+            f'<div class="check-row"><input id="{p}-consent" name="consent" type="checkbox" aria-describedby="{p}-consent-err" aria-invalid="false" aria-required="true">'
+            f'<label for="{p}-consent">קראתי והסכמתי ל<a href="privacy.html">מדיניות הפרטיות</a><span class="req" aria-hidden="true" hidden>*</span><span class="opt">(חובה)</span></label></div>\n'
+            f'<span class="err" id="{p}-consent-err"></span>\n</div>')
 
 
 def contact_block():
@@ -281,24 +280,6 @@ def form_result(p, mail=False):
 </div>"""
 
 
-def quick_form():
-    """Short sign-up form of the home page (name, phone, group)."""
-    options = "".join(f"<option>{o}</option>" for o in GROUP_OPTIONS)
-    return f"""<form class="form" id="wa-form" data-wa="{WA}" data-email="{EMAIL}" data-subject="{MAIL_SUBJECT}" novalidate>
-<h3 class="form-title">פרטים להרשמה</h3>
-<p class="no-js-note">כדי להירשם, התקשרו אל {tel("tel")} או כתבו בוואטסאפ.</p>
-<div class="form-fields js-only">
-{field("jk", "name", "שם מלא", ctl("jk", "name", "input", 'type="text" maxlength="60" autocomplete="name" placeholder="שם פרטי ושם משפחה"'), True, "name")}
-{field("jk", "phone", "טלפון", ctl("jk", "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="050-0000000" class="ltr-input"'), True, "phone")}
-{field("jk", "group", "קבוצה מבוקשת", ctl("jk", "group", "select", 'autocomplete="off"', options))}
-<button type="button" data-channel="wa">{icon("wa")}שליחה בוואטסאפ</button>
-<p class="form-note">{FORM_NOTE}</p>
-{form_result("jk")}
-</div>
-<div class="form-or">{ext(WA_LINK, icon("wa") + "או כתבו לנו ישירות")}<a href="tel:{PHONE_TEL}">{icon("phone")}או התקשרו</a></div>
-</form>"""
-
-
 def contact_form():
     options = "".join(f"<option>{o}</option>" for o in GROUP_OPTIONS)
     mail_btn = f'<button type="button" class="send-mail" data-channel="mail">{icon("mail")}שליחה במייל</button>'
@@ -310,9 +291,10 @@ def contact_form():
 {field("cf", "name", "שם מלא", ctl("cf", "name", "input", 'type="text" maxlength="60" autocomplete="name" placeholder="שם פרטי ושם משפחה"'), True, "name")}
 {field("cf", "phone", "טלפון", ctl("cf", "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="050-0000000" class="ltr-input"'), True, "phone")}
 {field("cf", "email", "אימייל", ctl("cf", "email", "input", 'type="email" maxlength="80" autocomplete="email" placeholder="כתובת המייל שלכם" class="ltr-input"'), False, "email")}
-{field("cf", "age", "גיל המתאמן או המתאמנת", ctl("cf", "age", "input", 'type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="למשל 8" class="ltr-input"'), True, "age")}
-{field("cf", "group", "קבוצה מבוקשת", ctl("cf", "group", "select", 'autocomplete="off"', options))}
-{field("cf", "message", "הודעה", ctl("cf", "message", "textarea", 'rows="4" maxlength="300" autocomplete="off" placeholder="אפשר לכתוב כאן כל שאלה"'))}
+{field("cf", "age", "גיל המתאמן או המתאמנת", ctl("cf", "age", "input", 'type="text" maxlength="3" inputmode="numeric" placeholder="למשל 8" class="ltr-input"'), True, "age")}
+{field("cf", "group", "קבוצה מבוקשת", ctl("cf", "group", "select", '', options))}
+{field("cf", "message", "הודעה", ctl("cf", "message", "textarea", 'rows="4" maxlength="300" placeholder="אפשר לכתוב כאן כל שאלה"'))}
+{consent_field("cf")}
 <div class="send-row">
 <button type="button" class="send-wa" data-channel="wa">{icon("wa")}שליחה בוואטסאפ</button>
 {mail_btn}
@@ -369,9 +351,9 @@ def index_main():
 <div class="hero-copy">
 <div class="kicker">מועדון ג'ודו · אילת</div>
 <h1 id="hero-title">משמעת עצמית.<br>כבוד לאחר.<br><span>ג'ודו.</span></h1>
-<p class="hero-lead">{CLUB} הוא מכון המציע שיעורי ג'ודו, אומנות לחימה יפנית, לילדים צעירים בנים ובנות כאחד, החל מגיל ארבע.</p>
+<p class="hero-lead">אנחנו מציעים שיעורי ג'ודו, אומנות לחימה יפנית, לילדים צעירים בנים ובנות כאחד, החל מגיל ארבע.</p>
 <div class="btn-row">
-<a class="btn" href="#join">להרשמה ולפרטים {icon("arrow", "i arrow")}</a>
+<a class="btn" href="contact.html">צרו קשר {icon("arrow", "i arrow")}</a>
 <a class="btn btn--line" href="#programs">לכל החוגים</a>
 </div>
 <ul class="stats" role="list">
@@ -383,7 +365,7 @@ def index_main():
 <div class="hero-art">
 <div class="sun" aria-hidden="true"><span class="sun-kanji" lang="ja">柔道</span></div>
 <div class="hero-vert" lang="ja" aria-hidden="true">礼に始まり礼に終わる</div>
-<p class="hero-quote">“מעל לכל מקפידים במועדון הג'ודו על משמעת עצמית ועל כבוד לאחר.”<span class="quote-src">ג'ודוקאן אילת</span></p>
+<p class="hero-quote">מעל לכל אנחנו מקפידים על משמעת עצמית ועל כבוד לאחר.</p>
 </div>
 </div>
 </section>
@@ -392,13 +374,13 @@ def index_main():
 <div class="band-in">
 <div class="band-head">
 <div class="h"><div class="eyebrow">המועדון</div><h2 id="about-title">בית ספר לג'ודו באילת.</h2></div>
-<p>מדריכי הג'ודו המיומנים עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה. המועדון מציע למתאמנים ליגות, תחרויות ומחנות אימונים, ופועל 12 חודשים בשנה.</p>
+<p>המדריכים שלנו עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה. אנחנו מציעים למתאמנים ליגות, תחרויות ומחנות אימונים, ופועלים 12 חודשים בשנה.</p>
 </div>
 <div class="cards4" data-hs="ארבעת עמודי התווך של המועדון">
-<div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">体</div><h3>גוף וכושר</h3><p>המדריכים עובדים עם הילדים והנוער על כושר גופני, זריזות וקואורדינציה. בג'ודו לומדים גם ליפול בבטחה, מיומנות שימושית בכל ספורט וביום־יום.</p></div>
-<div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">心</div><h3>ביטחון ומשמעת</h3><p>פיתוח ביטחון עצמי הוא חלק מהעבודה עם הילדים והנוער, ומעל לכל המועדון מקפיד על משמעת עצמית.</p></div>
+<div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">体</div><h3>גוף וכושר</h3><p>אצלנו עובדים עם הילדים והנוער על כושר גופני, זריזות וקואורדינציה. בג'ודו לומדים גם ליפול בבטחה, מיומנות שימושית בכל ספורט וביום־יום.</p></div>
+<div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">心</div><h3>ביטחון ומשמעת</h3><p>פיתוח ביטחון עצמי הוא חלק מהעבודה שלנו עם הילדים והנוער, ומעל לכל אנחנו מקפידים על משמעת עצמית.</p></div>
 <div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">技</div><h3>טכניקה</h3><p>בג'ודו, טכניקה נכונה מנצחת כוח: לומדים להשתמש בתנועה של בן הזוג ולהפעיל כוח בדיוק ברגע הנכון.</p></div>
-<div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">礼</div><h3>כבוד לאחר</h3><p>מעל לכל המועדון מקפיד על כבוד לאחר. בג'ודו מקדמים ברכה (קידה) בתחילת האימון ובסופו, ומתאמנים בזוגות.</p></div>
+<div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">礼</div><h3>כבוד לאחר</h3><p>מעל לכל אנחנו מקפידים על כבוד לאחר. בג'ודו מקדמים ברכה (קידה) בתחילת האימון ובסופו, ומתאמנים בזוגות.</p></div>
 </div>
 <p class="note">באומנויות הלחימה היפניות מדברים על <span lang="ja">心技体</span> (שין־גי־טאי): נפש, טכניקה וגוף שמתפתחים יחד, וכבוד שמלווה את כולם.</p>
 <div class="coach" id="coach">
@@ -409,16 +391,9 @@ def index_main():
 <p class="coach-belt">חגורה אדומה־לבנה, דרגת דאן גבוהה</p>
 </div>
 <div class="coach-bio">
-<p>“בשנת 2000 הוא החליט לקחת את כל הניסיון והידע שלו בתחום, להגשים חלום ולפתוח בעיר בית ספר לג'ודו משלו.” <span class="src">(יום יום באילת)</span></p>
+<p>בשנת 2000 החליט דוד לקחת את כל הניסיון והידע שלו בתחום, להגשים חלום ולפתוח בעיר בית ספר לג'ודו משלו.</p>
 <p>הוא התחיל לתרגל ג'ודו בצרפת כבר בילדותו, עלה לישראל ב־1970 ומאז מלמד ג'ודו.</p>
 <p>החגורה האדומה־לבנה שהוא עונד מציינת דרגת דאן גבוהה, מדאן&nbsp;6 עד דאן&nbsp;8.</p>
-<div class="press">
-<p>קראו עוד (ארכיון):</p>
-<ul>
-<li>{ext(YY1, "כתבה ב״יום יום באילת״: בית הספר לג'ודו שמגדל אלופים")}</li>
-<li>{ext(YY2, "כתבה נוספת ב״יום יום באילת״ על המועדון")}</li>
-</ul>
-</div>
 </div>
 </div>
 </div>
@@ -429,13 +404,13 @@ def index_main():
 <div class="center-head">
 <div class="eyebrow">החוגים</div>
 <h2 id="programs-title">יש מקום לכל גיל.</h2>
-<p>“האקדמיה מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד.” השיעורים מחולקים לפי שכבת גיל.</p>
+<p>האקדמיה שלנו מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד. השיעורים מחולקים לפי שכבת גיל.</p>
 </div>
 <ul class="programs" role="list" data-hs="החוגים לפי גיל">
 <li class="prog"><div class="prog-top"><span class="prog-no">01</span><span class="prog-age">גילאי 4–7</span></div><h3>גן וכיתה א׳</h3><p>שיעורי ג'ודו לילדים צעירים, בנים ובנות כאחד, החל מגיל ארבע.</p><span class="prog-meta">שיעור של כשעה</span></li>
-<li class="prog"><div class="prog-top"><span class="prog-no">02</span><span class="prog-age">מגיל 7</span></div><h3>כיתה ב׳ ומעלה</h3><p>המדריכים עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה.</p><p>נבחרת צעירה לגילאי 10 עד 13: שלושה אימונים בשבוע, כשעה וחצי כל אחד, ואימון מנטלי עם איש מקצוע. <span class="src">({ext(ISRAELDOJO, "Israel Dojo")})</span></p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
-<li class="prog"><div class="prog-top"><span class="prog-no">03</span><span class="prog-age">18+</span></div><h3>מבוגרים</h3><p>גם מבוגרים מתאמנים במועדון, יחד עם קבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
-<li class="prog prog--dark"><div class="prog-top"><span class="prog-no">04</span><span class="prog-age">להמשך הדרך</span></div><h3>ליגות ותחרויות</h3><p>המועדון מציע למתאמנים ליגות, תחרויות ומחנות אימונים.</p></li>
+<li class="prog"><div class="prog-top"><span class="prog-no">02</span><span class="prog-age">מגיל 7</span></div><h3>כיתה ב׳ ומעלה</h3><p>המדריכים שלנו עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה.</p><p>אצלנו פועלת נבחרת צעירה לגילאי 10 עד 13: שלושה אימונים בשבוע, כשעה וחצי כל אחד, ואימון מנטלי עם איש מקצוע.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
+<li class="prog"><div class="prog-top"><span class="prog-no">03</span><span class="prog-age">18+</span></div><h3>מבוגרים</h3><p>גם מבוגרים מתאמנים אצלנו, יחד עם קבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
+<li class="prog prog--dark"><div class="prog-top"><span class="prog-no">04</span><span class="prog-age">להמשך הדרך</span></div><h3>ליגות ותחרויות</h3><p>אנחנו מציעים למתאמנים ליגות, תחרויות ומחנות אימונים.</p></li>
 </ul>
 </div>
 </section>
@@ -444,13 +419,13 @@ def index_main():
 <div class="band-in">
 <div class="band-head">
 <div class="h"><div class="eyebrow">אלופים</div><h2 id="champions-title">בית הספר לג'ודו שמגדל אלופים.</h2></div>
-<p>כך מכנה "יום יום באילת" את ג'ודוקאן בשתי כתבות על המועדון. הנה הנתונים המתועדים, עם המקורות שלהם.</p>
+<p>כמה נתונים על הדרך של המתאמנים שלנו.</p>
 </div>
 <ul class="champs" role="list" data-hs="אלופים והישגים">
-<li class="champ"><div class="champ-num" aria-hidden="true">12</div><h3>12 אלופי ישראל בשנה אחת</h3><p>מתוך כתבה מ־2011: “בשנה החולפת נוספו למועדון ג'ודוקאן 12 אלופי ישראל.”</p><p class="champ-src">{ext(YY1, "יום יום באילת, כתבה מ־2011")}</p></li>
-<li class="champ"><div class="champ-num" aria-hidden="true">2023</div><h3>אלוף ישראל לבוגרים 2023</h3><p>במשקל מעל 100 ק״ג. ג'ודאי שגדל באילת והתאמן בג'ודו אצל דוד בן-ארבון, וב־2024 סיים במקום החמישי בגרנד פרי לינץ שבאוסטריה.</p><p class="champ-src">{ext(JI, "JudoInside")} · {ext(YY3, "יום יום באילת, 2024")}</p></li>
-<li class="champ"><div class="champ-num champ-num--jp" lang="ja" aria-hidden="true">勝</div><h3>מדליסטים בכל גיל ומשקל</h3><p>לפי כתבה ב״יום יום באילת״ מ־2011, כמעט בכל גיל ומשקל, בבנים וגם בבנות, יש בג'ודוקאן בעלי מדליות, וההישגים הבולטים ביותר הם של הבנות.</p><p class="champ-src">{ext(YY1, "יום יום באילת, כתבה מ־2011")}</p></li>
-<li class="champ"><div class="champ-num" aria-hidden="true">130</div><h3>כ־130 ספורטאים בשנה רגילה</h3><p>כך נמסר בכתבות ישנות ב״יום יום באילת״. המספר העדכני נמסר בשיחה עם המועדון.</p><p class="champ-src">{ext(YY1, "כתבה מ־2011")} · {ext(YY2, "כתבה נוספת")}</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">12</div><h3>12 אלופי ישראל בשנה אחת</h3><p>ב־2011 נוספו לנו 12 אלופי ישראל בשנה אחת.</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">2023</div><h3>אלוף ישראל לבוגרים 2023</h3><p>אחד המתאמנים שלנו, שגדל באילת ומתאמן אצלנו מגיל צעיר, הוא אלוף ישראל לבוגרים 2023 במשקל מעל 100 ק״ג. ב־2024 סיים במקום החמישי בגרנד פרי לינץ שבאוסטריה.</p></li>
+<li class="champ"><div class="champ-num champ-num--jp" lang="ja" aria-hidden="true">勝</div><h3>מדליסטים בכל גיל ומשקל</h3><p>ב־2011 היו לנו בעלי מדליות כמעט בכל גיל ומשקל, בבנים וגם בבנות, וההישגים הבולטים ביותר היו של הבנות.</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">130</div><h3>כ־130 ספורטאים בשנה רגילה</h3><p>בשנה רגילה התאמנו אצלנו כ־130 ספורטאים.</p></li>
 </ul>
 </div>
 </section>
@@ -506,7 +481,7 @@ def index_main():
 <div class="sched-copy">
 <div class="eyebrow">מערכת שעות</div>
 <h2 id="schedule-title">מתי מתאמנים?</h2>
-<p>המועדון פועל בשלושה ימים בשבוע, 12 חודשים בשנה. שעת ההתחלה של כל קבוצה מתעדכנת מדי פעם, ולכן כדאי לאשר בטלפון לפני ההגעה.</p>
+<p>אנחנו פועלים בשלושה ימים בשבוע, 12 חודשים בשנה. שעת ההתחלה של כל קבוצה מתעדכנת מדי פעם, ולכן כדאי לאשר בטלפון לפני ההגעה.</p>
 <div class="sched-kanji" aria-hidden="true"></div>
 </div>
 <div class="sched-main">
@@ -526,7 +501,7 @@ def index_main():
 </tbody>
 </table>
 </div>
-<p class="sched-note">שעות הפעילות הן טווח הזמן שבו המועדון פתוח. את שעת ההתחלה של הקבוצה שלכם מקבלים בטלפון {tel("tel")}.</p>
+<p class="sched-note">שעות הפעילות הן טווח הזמן שבו אנחנו פתוחים. את שעת ההתחלה של הקבוצה שלכם נמסור בטלפון {tel("tel")}.</p>
 </div>
 </div>
 </section>
@@ -543,7 +518,7 @@ def index_main():
 </div>
 <div class="values-title">
 <h3>שמונת ערכי הג'ודו</h3>
-<p>לפי קוד הערכים של ה־IJF. {ext(IJF_VALUES, "קראו באתר ה־IJF")}</p>
+<p>לפי קוד הערכים של הפדרציה הבינלאומית לג'ודו (IJF).</p>
 </div>
 <ul class="values" role="list" data-hs="שמונת ערכי הג'ודו">
 <li><b>נימוס</b><span>מברכים, מודים ומקשיבים.</span></li>
@@ -571,35 +546,18 @@ def index_main():
 </div>
 <div class="faq">
 <details><summary>מאיזה גיל אפשר להתחיל?</summary><div class="ans"><p>מגיל 4. הקבוצה הראשונה היא לגן ולכיתה א׳.</p></div></details>
-<details><summary>האם ג'ודו מתאים גם לבנות?</summary><div class="ans"><p>כן. המועדון מציע שיעורי ג'ודו לבנים ולבנות כאחד.</p></div></details>
-<details><summary>זה לתחביב או למי שרוצה להתחרות?</summary><div class="ans"><p>“האקדמיה מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד.” במועדון יש גם ליגות, תחרויות ומחנות אימונים.</p></div></details>
+<details><summary>האם ג'ודו מתאים גם לבנות?</summary><div class="ans"><p>כן. אנחנו מלמדים ג'ודו לבנים ולבנות כאחד.</p></div></details>
+<details><summary>זה לתחביב או למי שרוצה להתחרות?</summary><div class="ans"><p>האקדמיה שלנו מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד. אצלנו יש גם ליגות, תחרויות ומחנות אימונים.</p></div></details>
 <details><summary>האם ג'ודו בטוח לילדים?</summary><div class="ans"><p>בג'ודו לומדים ליפול בבטחה, והאימון מונחה על ידי מאמן. כמו בכל ענף ספורט, חשוב להגיע בבריאות טובה ולהקשיב להוראות. אם יש מגבלה רפואית, כדאי לעדכן את המאמן לפני תחילת האימונים.</p></div></details>
 <details><summary>מה לובשים ומה מביאים?</summary><div class="ans"><p>בג'ודו מקובל להגיע בבגדי ספורט נוחים, עם ציפורניים קצרות ובלי תכשיטים. את שאלת הציוד, כולל בגד ג'ודו, כדאי לברר מול המאמן.</p></div></details>
-<details><summary>האם יש תחרויות?</summary><div class="ans"><p>כן. במסגרת המועדון יש ליגות, תחרויות ומחנות אימונים.</p></div></details>
-<details><summary>האם מבוגרים יכולים להצטרף?</summary><div class="ans"><p>כן. מבוגרים מתאמנים בקבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p></div></details>
-<details><summary>איך נרשמים וכמה זה עולה?</summary><div class="ans"><p>ההרשמה מתבצעת בטלפון או בוואטסאפ. פרטי המסלולים והעלויות מתעדכנים לפי הגיל והקבוצה, והמועדון ימסור אותם בשיחה.</p></div></details>
-<details><summary>איך מגיעים?</summary><div class="ans"><p>המועדון נמצא ב{STREET}, אילת. אפשר לנווט ישירות עם Waze או Google Maps מהכפתורים בתחתית האתר.</p></div></details>
+<details><summary>האם יש תחרויות?</summary><div class="ans"><p>כן. אצלנו יש ליגות, תחרויות ומחנות אימונים.</p></div></details>
+<details><summary>האם מבוגרים יכולים להצטרף?</summary><div class="ans"><p>כן. מבוגרים מתאמנים אצלנו בקבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p></div></details>
+<details><summary>איך נרשמים וכמה זה עולה?</summary><div class="ans"><p>ההרשמה מתבצעת בטלפון, בוואטסאפ או דרך <a href="contact.html">עמוד יצירת הקשר</a>. פרטי המסלולים והעלויות מתעדכנים לפי הגיל והקבוצה, ואנחנו נמסור אותם בשיחה.</p></div></details>
+<details><summary>איך מגיעים?</summary><div class="ans"><p>אנחנו נמצאים ב{STREET}, אילת. אפשר לנווט ישירות עם Waze או Google Maps מהכפתורים בתחתית האתר.</p></div></details>
 </div>
 </div>
 </section>
 
-<section id="join" class="join" aria-labelledby="join-title" tabindex="-1">
-<div class="join-in">
-<div class="join-copy">
-<div class="join-kj" lang="ja" aria-hidden="true">始めよう</div>
-<h2 id="join-title">מוכנים<br>להתחיל?</h2>
-<p class="join-lead">התקשרו או כתבו בוואטסאפ לפרטים על הקבוצות, השעות, העלויות ודרך ההרשמה.</p>
-<ul class="join-list" role="list">
-<li>{icon("check", "i")}פעילות 12 חודשים בשנה</li>
-<li>{icon("check", "i")}בנים ובנות, מגיל 4 ועד מבוגרים</li>
-<li>{icon("check", "i")}ליגות, תחרויות ומחנות אימונים</li>
-</ul>
-<p class="join-more">או חייגו ישירות: {tel("tel")}</p>
-<p class="join-more join-more--2">או <a href="contact.html">עברו לעמוד יצירת הקשר</a> למילוי טופס מלא.</p>
-</div>
-{quick_form()}
-</div>
-</section>
 
 </main>"""
 
@@ -635,7 +593,6 @@ page(
     index_main(),
     home=True,
     jsonld=index_ld,
-    skip2=("#join", "דלגו להרשמה"),
 )
 
 page(
@@ -674,10 +631,10 @@ ACCESS_BODY = f"""
 <li><strong>ניגודיות וצבעים:</strong> ניגודיות הטקסט היא לפחות 4.5 ל־1, ובטקסט גדול לפחות 3 ל־1. מידע אינו מועבר בצבע בלבד.</li>
 <li><strong>תצוגה:</strong> אפשר להגדיל את הטקסט עד 200 אחוז ללא אובדן תוכן. האתר מתאים את עצמו למסכי נייד, טאבלט ומחשב.</li>
 <li><strong>תפריט נגישות באתר:</strong> הגדלה והקטנה של הטקסט, ניגודיות גבוהה, גווני אפור, הדגשת קישורים, גופן קריא, ריווח טקסט ועצירת אנימציות. ההעדפות נשמרות בדפדפן שלכם בלבד.</li>
-<li><strong>טפסים:</strong> לכל שדה יש תווית גלויה, ושדות חובה מסומנים בטקסט. שדה שלא מולא, או מולא חלקית, מסומן בכוכבית אדומה ובהודעה בטקסט מתחתיו שמסבירה מה חסר, והמיקוד עובר אל השדה הראשון שדורש תיקון. המידע אינו מועבר בצבע בלבד.</li>
+<li><strong>טופס:</strong> לכל שדה יש תווית גלויה, ושדות חובה מסומנים בטקסט. שדה שלא מולא, או מולא חלקית, מסומן בכוכבית אדומה ובהודעה בטקסט מתחתיו שמסבירה מה חסר, והמיקוד עובר אל השדה הראשון שדורש תיקון. המידע אינו מועבר בצבע בלבד.</li>
 <li><strong>גלילה לצד:</strong> בנייד אפשר לדפדף בין כרטיסים בהחלקה, בכפתורי "הקודם" ו"הבא" או במקשי החצים. מי שמעדיף תצוגה רציפה, בלי גלילה לצד, יכול להפעיל "בלי גלילה לצד" בתפריט הנגישות.</li>
-<li><strong>אורך העמוד:</strong> בתחילת כל עמוד יש קישורי דילוג לתוכן ולהרשמה או לטופס, תפריט ניווט לכל הקטעים, וכפתור חזרה לראש העמוד.</li>
-<li><strong>בלי JavaScript:</strong> התפריט, הקישורים והתוכן זמינים גם כשהסקריפטים חסומים. בטפסים יש אז קישורי חיוג והודעה ישירה.</li>
+<li><strong>אורך העמוד:</strong> בתחילת כל עמוד יש קישור דילוג לתוכן הראשי (ובעמוד יצירת הקשר גם לטופס), תפריט ניווט לכל הקטעים, וכפתור חזרה לראש העמוד.</li>
+<li><strong>בלי JavaScript:</strong> התפריט, הקישורים והתוכן זמינים גם כשהסקריפטים חסומים. במקום הטופס יש אז קישורי חיוג והודעה ישירה.</li>
 <li><strong>תנועה:</strong> אין תוכן מהבהב. האנימציות קצרות, והאתר מכבד את הגדרת "הפחתת תנועה" של מערכת ההפעלה.</li>
 </ul>
 
@@ -686,7 +643,7 @@ ACCESS_BODY = f"""
 
 <h2>מגבלות ידועות</h2>
 <ul>
-<li>האתר מפנה לאתרים חיצוניים (Waze, Google Maps, וואטסאפ, אתרי חדשות ואיגודי ג'ודו). הנגישות שלהם באחריות מפעיליהם.</li>
+<li>האתר מפנה לאתרים חיצוניים (Waze, Google Maps, וואטסאפ ואיגודי ג'ודו). הנגישות שלהם באחריות מפעיליהם.</li>
 <li>ייתכן שחלקים מסוימים טרם הונגשו במלואם. אם נתקלתם בקושי, נשמח לדעת ולתקן.</li>
 </ul>
 
@@ -724,8 +681,8 @@ PRIVACY_BODY = f"""
 <h2>העדפות נגישות</h2>
 <p>אם תשתמשו בתפריט הנגישות, ההעדפות שלכם (למשל גודל טקסט) יישמרו באחסון המקומי של הדפדפן במכשיר שלכם בלבד. הן אינן נשלחות אלינו ואינן מועברות לאף גורם.</p>
 
-<h2>טפסי האתר</h2>
-<p>הטפסים באתר, בעמוד הראשי ובעמוד יצירת הקשר, אינם שולחים מידע לשרת. הם מרכיבים הודעה ופותחים וואטסאפ{mail_priv}, במכשיר שלכם. ההודעה נשלחת רק אם תלחצו שם על "שליחה". אם תבחרו להעתיק את ההודעה, ההעתקה נעשית במכשיר שלכם בלבד. השימוש בוואטסאפ ובשירות הדואר שלכם כפוף לתנאים ולמדיניות הפרטיות של מפעיליהם.</p>
+<h2>טופס יצירת הקשר</h2>
+<p>הטופס בעמוד יצירת הקשר אינו שולח מידע לשרת. הם מרכיבים הודעה ופותחים וואטסאפ{mail_priv}, במכשיר שלכם. לפני השליחה יש לסמן שקראתם והסכמתם למדיניות הזו. ההודעה נשלחת רק אם תלחצו שם על "שליחה". אם תבחרו להעתיק את ההודעה, ההעתקה נעשית במכשיר שלכם בלבד. השימוש בוואטסאפ ובשירות הדואר שלכם כפוף לתנאים ולמדיניות הפרטיות של מפעיליהם.</p>
 
 <h2>פנייה אלינו בטלפון או בוואטסאפ</h2>
 <p>אם תפנו אלינו בטלפון או בוואטסאפ, הפרטים שתמסרו (למשל שם, גיל ומספר טלפון) ישמשו לצורך מענה לפנייה ולהרשמה בלבד. פרטים של קטינים נמסרים על ידי הוריהם או האפוטרופוסים שלהם. לא נשלח אליכם הודעות פרסומיות ללא הסכמה מפורשת שלכם.</p>
@@ -734,7 +691,7 @@ PRIVACY_BODY = f"""
 <p>האתר סטטי: אין בו מסד נתונים, אין שרת שמעבד מידע ואין סקריפטים של צד שלישי. מדיניות אבטחה בדפדפן מונעת טעינת תכנים ממקורות חיצוניים.</p>
 
 <h2>קישורים לאתרים אחרים</h2>
-<p>האתר מקשר לשירותים ולאתרים חיצוניים, כמו Waze, Google Maps, וואטסאפ ואתרי חדשות. לאתרים אלה יש מדיניות פרטיות משלהם, ואנחנו לא אחראים להם.</p>
+<p>האתר מקשר לשירותים ולאתרים חיצוניים, כמו Waze, Google Maps, וואטסאפ ואיגודי הג'ודו. לאתרים אלה יש מדיניות פרטיות משלהם, ואנחנו לא אחראים להם.</p>
 
 <h2>הזכויות שלכם</h2>
 <p>אתם זכאים לעיין במידע שנמסר לנו עליכם, לבקש לתקן אותו או למחוק אותו. לכל בקשה, פנו אלינו:</p>
@@ -766,8 +723,8 @@ TERMS_BODY = f"""
 <h2>קניין רוחני</h2>
 <p>התכנים, העיצוב והמיתוג באתר שייכים ל{CLUB} או לבעלי הזכויות בהם. אין להעתיק, להפיץ או לעשות בהם שימוש מסחרי ללא אישור מראש ובכתב. הגופנים באתר מופצים ברישיון SIL Open Font License, וחלק מהסמלים מבוססים על ספריית Feather ברישיון MIT. הנוסחים המלאים של הרישיונות נמצאים בתיקיית assets של האתר.</p>
 
-<h2>קישורים ותכנים של צד שלישי</h2>
-<p>האתר כולל קישורים לאתרים חיצוניים לנוחותכם. אנחנו לא אחראים לתוכן שלהם, לזמינותם או למדיניות הפרטיות שלהם. ציטוטים קצרים מכתבות ומאתרים אחרים מובאים עם ציון המקור וקישור אליו, לצורך מידע. זכויות היוצרים בהם שייכות לבעליהן. אם אתם בעלי זכויות ומבקשים להסיר ציטוט, פנו אלינו ונסיר אותו.</p>
+<h2>קישורים לאתרים אחרים</h2>
+<p>האתר כולל קישורים לאתרים וליישומים חיצוניים (כמו וואטסאפ, Waze, Google Maps ואיגודי הג'ודו) לנוחותכם. אנחנו לא אחראים לתוכן שלהם, לזמינותם או למדיניות הפרטיות שלהם.</p>
 
 <h2>הגבלת אחריות</h2>
 <p>השימוש באתר הוא על אחריות המשתמש. במידה המותרת בדין, {CLUB} לא יישא באחריות לנזק שנגרם משימוש באתר או מהסתמכות על המידע שבו. ההשתתפות באימונים כפופה להנחיות המאמן ולהצהרות שהמועדון מבקש.</p>

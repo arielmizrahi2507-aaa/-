@@ -154,6 +154,9 @@
       if (!v) return 'missing';
       return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? '' : 'partial';
     },
+    consent: function (checked) {
+      return checked ? '' : 'missing';
+    },
     age: function (v) {
       v = v.trim();
       if (!v) return 'missing';
@@ -169,6 +172,7 @@
     name: { missing: 'נא להזין שם מלא.', partial: 'השם לא מלא. נא להזין שם פרטי ושם משפחה.' },
     phone: { missing: 'נא להזין מספר טלפון.', partial: 'מספר הטלפון לא מלא. נא להזין מספר ישראלי, למשל 050-1234567, או מספר בינלאומי שמתחיל ב־+.' },
     email: { partial: 'כתובת המייל לא מלאה. נא להזין כתובת כמו name@example.com.' },
+    consent: { missing: 'כדי לשלוח הודעה צריך לאשר את מדיניות הפרטיות.' },
     age: {
       missing: 'נא להזין את גיל המתאמן או המתאמנת.',
       partial: 'נא להזין גיל במספרים בלבד.',
@@ -182,7 +186,8 @@
   function validateField(field) {
     var rule = field.getAttribute('data-rule');
     if (!rule || !RULES[rule]) return '';
-    var code = RULES[rule](control(field).value);
+    var input = control(field);
+    var code = RULES[rule](input.type === 'checkbox' ? input.checked : input.value);
     if (code === 'missing' && !field.hasAttribute('data-required')) return '';
     return code;
   }
@@ -269,9 +274,11 @@
     var result = form.querySelector('.result');
 
     fields.forEach(function (f) {
-      control(f).addEventListener('input', function () {
+      var recheck = function () {
         if (f.classList.contains('invalid')) setState(f, validateField(f));
-      });
+      };
+      control(f).addEventListener('input', recheck);
+      control(f).addEventListener('change', recheck);
     });
 
     function value(name) {
@@ -367,6 +374,7 @@
     var raf = 0;
     var settle = 0;
     var active = 0;
+    var shown = false;
 
     var wrap = el('div', { 'class': 'hs' });
     track.parentNode.insertBefore(wrap, track);
@@ -390,34 +398,45 @@
 
     function rtl() { return window.getComputedStyle(track).direction === 'rtl'; }
 
-    /* הפס יוצא עד קצה המסך, והכרטיס הראשון נשאר מיושר לטקסט */
+    /* הפס יוצא עד קצה המסך, והכרטיס הראשון נשאר מיושר לטקסט.
+       מודדים את העטיפה (שלא זזה) וכותבים רק כשהמספרים השתנו, כדי שלא יהיה חישוב פריסה מיותר בזמן גלילה */
+    var bleedS = '';
+    var bleedE = '';
     function bleed() {
-      track.style.removeProperty('--hs-s');
-      track.style.removeProperty('--hs-e');
-      if (!carouselOn()) return;
-      var r = track.getBoundingClientRect();
-      var w = doc.documentElement.clientWidth;
-      var start = rtl() ? w - r.right : r.left;
-      var end = rtl() ? r.left : w - r.right;
-      track.style.setProperty('--hs-s', Math.max(0, Math.round(start)) + 'px');
-      track.style.setProperty('--hs-e', Math.max(0, Math.round(end)) + 'px');
+      var s = '';
+      var e = '';
+      if (carouselOn()) {
+        var r = wrap.getBoundingClientRect();
+        var w = doc.documentElement.clientWidth;
+        s = Math.max(0, Math.round(rtl() ? w - r.right : r.left)) + 'px';
+        e = Math.max(0, Math.round(rtl() ? r.left : w - r.right)) + 'px';
+      }
+      if (s === bleedS && e === bleedE) return;
+      bleedS = s;
+      bleedE = e;
+      if (s) { track.style.setProperty('--hs-s', s); track.style.setProperty('--hs-e', e); }
+      else { track.style.removeProperty('--hs-s'); track.style.removeProperty('--hs-e'); }
     }
 
+    var wasScrollable = null;
     function update() {
       raf = 0;
       var max = track.scrollWidth - track.clientWidth;
       var scrollable = carouselOn() && max > 4;
-      ctl.hidden = !scrollable;
-      if (scrollable) {
-        track.setAttribute('tabindex', '0');
-        if (!track.hasAttribute('role')) { track.setAttribute('role', 'group'); addedRole = true; }
-        if (!track.hasAttribute('aria-label')) { track.setAttribute('aria-label', label); addedLabel = true; }
-      } else {
-        track.removeAttribute('tabindex');
-        if (addedRole) { track.removeAttribute('role'); addedRole = false; }
-        if (addedLabel) { track.removeAttribute('aria-label'); addedLabel = false; }
-        return;
+      if (scrollable !== wasScrollable) {
+        wasScrollable = scrollable;
+        ctl.hidden = !scrollable;
+        if (scrollable) {
+          track.setAttribute('tabindex', '0');
+          if (!track.hasAttribute('role')) { track.setAttribute('role', 'group'); addedRole = true; }
+          if (!track.hasAttribute('aria-label')) { track.setAttribute('aria-label', label); addedLabel = true; }
+        } else {
+          track.removeAttribute('tabindex');
+          if (addedRole) { track.removeAttribute('role'); addedRole = false; }
+          if (addedLabel) { track.removeAttribute('aria-label'); addedLabel = false; }
+        }
       }
+      if (!scrollable) return;
       var pos = Math.abs(track.scrollLeft);
       var tr = track.getBoundingClientRect();
       var padStart = parseFloat(window.getComputedStyle(track).paddingInlineStart) || 0;
@@ -431,11 +450,15 @@
       });
       if (pos <= 2) best = 0;
       if (pos >= max - 2) best = list.length - 1;
+      var prevOff = pos <= 2 ? 'true' : 'false';
+      var nextOff = pos >= max - 2 ? 'true' : 'false';
+      if (prev.getAttribute('aria-disabled') !== prevOff) prev.setAttribute('aria-disabled', prevOff);
+      if (next.getAttribute('aria-disabled') !== nextOff) next.setAttribute('aria-disabled', nextOff);
+      if (best === active && shown) return;
       active = best;
+      shown = true;
       if (useCount) dots.textContent = (best + 1) + ' מתוך ' + list.length;
       else [].slice.call(dots.children).forEach(function (d, i) { d.classList.toggle('on', i === best); });
-      prev.setAttribute('aria-disabled', pos <= 2 ? 'true' : 'false');
-      next.setAttribute('aria-disabled', pos >= max - 2 ? 'true' : 'false');
     }
 
     function schedule() { if (!raf) raf = window.requestAnimationFrame(update); }
@@ -499,7 +522,13 @@
 
   [].slice.call(doc.querySelectorAll('[data-hs]')).forEach(initCarousel);
   if (carousels.length) {
-    window.addEventListener('resize', hsRefresh);
+    var lastW = doc.documentElement.clientWidth;
+    window.addEventListener('resize', function () {
+      var w = doc.documentElement.clientWidth;
+      if (w === lastW) return;
+      lastW = w;
+      hsRefresh();
+    });
     window.addEventListener('orientationchange', hsRefresh);
     if (mq) {
       if (mq.addEventListener) mq.addEventListener('change', hsRefresh);

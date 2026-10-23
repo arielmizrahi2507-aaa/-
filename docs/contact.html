@@ -60,11 +60,10 @@
 <a href="index.html#training"><span class="num" aria-hidden="true">05</span><span class="lbl">האימון</span><span class="kj" lang="ja" aria-hidden="true">技</span></a>
 <a href="index.html#schedule"><span class="num" aria-hidden="true">06</span><span class="lbl">מערכת שעות</span><span class="kj" lang="ja" aria-hidden="true">稽古</span></a>
 <a href="index.html#way"><span class="num" aria-hidden="true">07</span><span class="lbl">הדרך</span><span class="kj" lang="ja" aria-hidden="true">道</span></a>
-<a href="index.html#join"><span class="num" aria-hidden="true">08</span><span class="lbl">הרשמה</span><span class="kj" lang="ja" aria-hidden="true">入門</span></a>
-<a href="contact.html" aria-current="page"><span class="num" aria-hidden="true">09</span><span class="lbl">צור קשר</span><span class="kj" lang="ja" aria-hidden="true">縁</span></a>
+<a href="contact.html" aria-current="page"><span class="num" aria-hidden="true">08</span><span class="lbl">צור קשר</span><span class="kj" lang="ja" aria-hidden="true">縁</span></a>
 </nav>
 <div class="side-bottom">
-<a class="side-cta" href="index.html#join">להרשמה ולפרטים</a>
+<a class="side-cta" href="contact.html">צרו קשר</a>
 <div class="side-contact"><a class="tel" href="tel:+972505788781" dir="ltr">050-5788781</a><br>מקור החסידה 9, אילת</div>
 <div class="side-osu" aria-hidden="true"></div>
 </div>
@@ -103,24 +102,28 @@
 </div>
 <div class="field" data-rule="age" data-required="1">
 <label for="cf-age">גיל המתאמן או המתאמנת<span class="req" aria-hidden="true" hidden>*</span><span class="opt">(חובה)</span></label>
-<input id="cf-age" name="age" aria-describedby="cf-age-err" aria-invalid="false" aria-required="true" type="text" maxlength="3" inputmode="numeric" autocomplete="off" placeholder="למשל 8" class="ltr-input">
+<input id="cf-age" name="age" aria-describedby="cf-age-err" aria-invalid="false" aria-required="true" type="text" maxlength="3" inputmode="numeric" placeholder="למשל 8" class="ltr-input">
 <span class="err" id="cf-age-err"></span>
 </div>
 <div class="field">
 <label for="cf-group">קבוצה מבוקשת<span class="req" aria-hidden="true" hidden>*</span><span class="opt">(לא חובה)</span></label>
-<select id="cf-group" name="group" aria-describedby="cf-group-err" aria-invalid="false" autocomplete="off"><option>לא בטוחים, אשמח לייעוץ</option><option>גן וכיתה א׳ (גילאי 4–7)</option><option>כיתה ב׳ ומעלה</option><option>מבוגרים</option></select>
+<select id="cf-group" name="group" aria-describedby="cf-group-err" aria-invalid="false" ><option>לא בטוחים, אשמח לייעוץ</option><option>גן וכיתה א׳ (גילאי 4–7)</option><option>כיתה ב׳ ומעלה</option><option>מבוגרים</option></select>
 <span class="err" id="cf-group-err"></span>
 </div>
 <div class="field">
 <label for="cf-message">הודעה<span class="req" aria-hidden="true" hidden>*</span><span class="opt">(לא חובה)</span></label>
-<textarea id="cf-message" name="message" aria-describedby="cf-message-err" aria-invalid="false" rows="4" maxlength="300" autocomplete="off" placeholder="אפשר לכתוב כאן כל שאלה"></textarea>
+<textarea id="cf-message" name="message" aria-describedby="cf-message-err" aria-invalid="false" rows="4" maxlength="300" placeholder="אפשר לכתוב כאן כל שאלה"></textarea>
 <span class="err" id="cf-message-err"></span>
+</div>
+<div class="field field--check" data-rule="consent" data-required="1">
+<div class="check-row"><input id="cf-consent" name="consent" type="checkbox" aria-describedby="cf-consent-err" aria-invalid="false" aria-required="true"><label for="cf-consent">קראתי והסכמתי ל<a href="privacy.html">מדיניות הפרטיות</a><span class="req" aria-hidden="true" hidden>*</span><span class="opt">(חובה)</span></label></div>
+<span class="err" id="cf-consent-err"></span>
 </div>
 <div class="send-row">
 <button type="button" class="send-wa" data-channel="wa"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-wa"/></svg>שליחה בוואטסאפ</button>
 <button type="button" class="send-mail" data-channel="mail"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-mail"/></svg>שליחה במייל</button>
 </div>
-<p class="form-note">נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע. ראו <a href="privacy.html">מדיניות פרטיות</a>.</p>
+<p class="form-note">נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע.</p>
 <div class="result" id="cf-result" tabindex="-1" role="region" aria-labelledby="cf-result-title" hidden>
 <h3 id="cf-result-title">ההודעה מוכנה</h3>
 <p>אם האפליקציה לא נפתחה, לחצו על אחד הכפתורים, או העתיקו את ההודעה ושלחו אותה ידנית.</p>
