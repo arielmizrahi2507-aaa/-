@@ -339,10 +339,180 @@
 
   [].slice.call(doc.querySelectorAll('form[data-wa]')).forEach(initForm);
 
+  /* ---------- גלילה לצד בנייד ----------
+     קבוצות כרטיסים (data-hs) הופכות לפס שמחליקים בו הצידה: החלקה, כפתורי הקודם והבא, מקשי חצים וגרירה בעכבר.
+     בלי JavaScript, או כשמפעילים "בלי גלילה לצד" בתפריט הנגישות, הכרטיסים נשארים ברשימה רציפה. */
+  var mq = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
+  var carousels = [];
+  var hsRaf = 0;
+
+  function carouselOn() {
+    return !!(mq && mq.matches) && !root.classList.contains('a11y-stack');
+  }
+
+  function hsRefresh() {
+    if (hsRaf) return;
+    hsRaf = window.requestAnimationFrame(function () {
+      hsRaf = 0;
+      carousels.forEach(function (c) { c(); });
+    });
+  }
+
+  function initCarousel(track, n) {
+    var label = track.getAttribute('data-hs');
+    var addedRole = false;
+    var addedLabel = false;
+    var drag = null;
+    var suppress = false;
+    var raf = 0;
+    var settle = 0;
+    var active = 0;
+
+    var wrap = el('div', { 'class': 'hs' });
+    track.parentNode.insertBefore(wrap, track);
+    wrap.appendChild(track);
+    if (!track.id) track.id = 'hs-' + n;
+
+    var list = [].slice.call(track.classList.contains('gloss') ? track.querySelectorAll('dl > div') : track.children);
+    var ctl = el('div', { 'class': 'hs-ctl', hidden: '' });
+    /* עד שישה כרטיסים: נקודות. יותר מכך: מונה, כדי שהשורה לא תתמלא */
+    var useCount = list.length > 6;
+    var dots = el('div', { 'class': useCount ? 'hs-count' : 'hs-dots', 'aria-hidden': 'true' });
+    if (!useCount) list.forEach(function () { dots.appendChild(el('i')); });
+    var btns = el('div', { 'class': 'hs-btns' });
+    var prev = el('button', { type: 'button', 'class': 'hs-btn hs-prev', 'aria-label': 'הקודם: ' + label, 'aria-controls': track.id }, svgIcon('arrow'));
+    var next = el('button', { type: 'button', 'class': 'hs-btn hs-next', 'aria-label': 'הבא: ' + label, 'aria-controls': track.id }, svgIcon('arrow'));
+    btns.appendChild(prev);
+    btns.appendChild(next);
+    ctl.appendChild(dots);
+    ctl.appendChild(btns);
+    wrap.appendChild(ctl);
+
+    function rtl() { return window.getComputedStyle(track).direction === 'rtl'; }
+
+    /* הפס יוצא עד קצה המסך, והכרטיס הראשון נשאר מיושר לטקסט */
+    function bleed() {
+      track.style.removeProperty('--hs-s');
+      track.style.removeProperty('--hs-e');
+      if (!carouselOn()) return;
+      var r = track.getBoundingClientRect();
+      var w = doc.documentElement.clientWidth;
+      var start = rtl() ? w - r.right : r.left;
+      var end = rtl() ? r.left : w - r.right;
+      track.style.setProperty('--hs-s', Math.max(0, Math.round(start)) + 'px');
+      track.style.setProperty('--hs-e', Math.max(0, Math.round(end)) + 'px');
+    }
+
+    function update() {
+      raf = 0;
+      var max = track.scrollWidth - track.clientWidth;
+      var scrollable = carouselOn() && max > 4;
+      ctl.hidden = !scrollable;
+      if (scrollable) {
+        track.setAttribute('tabindex', '0');
+        if (!track.hasAttribute('role')) { track.setAttribute('role', 'group'); addedRole = true; }
+        if (!track.hasAttribute('aria-label')) { track.setAttribute('aria-label', label); addedLabel = true; }
+      } else {
+        track.removeAttribute('tabindex');
+        if (addedRole) { track.removeAttribute('role'); addedRole = false; }
+        if (addedLabel) { track.removeAttribute('aria-label'); addedLabel = false; }
+        return;
+      }
+      var pos = Math.abs(track.scrollLeft);
+      var tr = track.getBoundingClientRect();
+      var padStart = parseFloat(window.getComputedStyle(track).paddingInlineStart) || 0;
+      var isRtl = rtl();
+      var best = 0;
+      var bestD = Infinity;
+      list.forEach(function (it, i) {
+        var r = it.getBoundingClientRect();
+        var d = Math.abs(isRtl ? (tr.right - padStart) - r.right : r.left - (tr.left + padStart));
+        if (d < bestD) { bestD = d; best = i; }
+      });
+      if (pos <= 2) best = 0;
+      if (pos >= max - 2) best = list.length - 1;
+      active = best;
+      if (useCount) dots.textContent = (best + 1) + ' מתוך ' + list.length;
+      else [].slice.call(dots.children).forEach(function (d, i) { d.classList.toggle('on', i === best); });
+      prev.setAttribute('aria-disabled', pos <= 2 ? 'true' : 'false');
+      next.setAttribute('aria-disabled', pos >= max - 2 ? 'true' : 'false');
+    }
+
+    function schedule() { if (!raf) raf = window.requestAnimationFrame(update); }
+
+    function go(dir) {
+      var a = list[0].getBoundingClientRect();
+      var b = list[1] ? list[1].getBoundingClientRect() : null;
+      var step = b ? Math.abs(b.left - a.left) : track.clientWidth * 0.8;
+      track.scrollBy({ left: dir * step * (rtl() ? -1 : 1), behavior: reducedMotion() ? 'auto' : 'smooth' });
+      window.clearTimeout(settle);
+      settle = window.setTimeout(function () { say(label + ': ' + (active + 1) + ' מתוך ' + list.length); }, 600);
+    }
+
+    prev.addEventListener('click', function () { if (prev.getAttribute('aria-disabled') !== 'true') go(-1); });
+    next.addEventListener('click', function () { if (next.getAttribute('aria-disabled') !== 'true') go(1); });
+
+    track.addEventListener('keydown', function (e) {
+      if (e.target !== track || e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        go((e.key === 'ArrowLeft') === rtl() ? 1 : -1);
+      } else if (e.key === 'Home' || e.key === 'End') {
+        e.preventDefault();
+        var toEnd = e.key === 'End';
+        track.scrollTo({ left: toEnd ? (rtl() ? -1 : 1) * (track.scrollWidth - track.clientWidth) : 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      }
+    });
+
+    /* גרירה בעכבר. במגע ההחלקה מובנית בדפדפן */
+    track.addEventListener('pointerdown', function (e) {
+      if (e.pointerType !== 'mouse' || e.button !== 0 || ctl.hidden) return;
+      drag = { x: e.clientX, left: track.scrollLeft, moved: false };
+    });
+    track.addEventListener('pointermove', function (e) {
+      if (!drag) return;
+      var dx = e.clientX - drag.x;
+      if (!drag.moved && Math.abs(dx) > 6) {
+        drag.moved = true;
+        track.classList.add('hs-drag');
+        try { track.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+      }
+      if (drag.moved) track.scrollLeft = drag.left - dx;
+    });
+    function endDrag() {
+      if (!drag) return;
+      var moved = drag.moved;
+      drag = null;
+      track.classList.remove('hs-drag');
+      if (moved) { suppress = true; window.setTimeout(function () { suppress = false; }, 0); }
+    }
+    track.addEventListener('pointerup', endDrag);
+    track.addEventListener('pointercancel', endDrag);
+    track.addEventListener('click', function (e) { if (suppress) { e.preventDefault(); e.stopPropagation(); } }, true);
+    track.addEventListener('dragstart', function (e) { if (carouselOn()) e.preventDefault(); });
+
+    track.addEventListener('scroll', schedule, { passive: true });
+    if ('ResizeObserver' in window) new ResizeObserver(schedule).observe(track);
+
+    carousels.push(function () { bleed(); update(); });
+  }
+
+  [].slice.call(doc.querySelectorAll('[data-hs]')).forEach(initCarousel);
+  if (carousels.length) {
+    window.addEventListener('resize', hsRefresh);
+    window.addEventListener('orientationchange', hsRefresh);
+    if (mq) {
+      if (mq.addEventListener) mq.addEventListener('change', hsRefresh);
+      else if (mq.addListener) mq.addListener(hsRefresh);
+    }
+    if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(hsRefresh);
+    hsRefresh();
+  }
+
   /* ---------- תפריט נגישות ---------- */
   var KEY = 'jk-a11y';
-  var state = { fs: 1, contrast: 0, gray: 0, links: 0, font: 0, spacing: 0, nomotion: 0 };
-  var FLAGS = ['contrast', 'gray', 'links', 'font', 'spacing', 'nomotion'];
+  var state = { fs: 1, contrast: 0, gray: 0, links: 0, font: 0, spacing: 0, nomotion: 0, stack: 0 };
+  var FLAGS = ['contrast', 'gray', 'links', 'font', 'spacing', 'nomotion', 'stack'];
 
   try {
     var saved = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -359,6 +529,7 @@
   function apply() {
     if (state.fs === 1) root.style.removeProperty('--fs'); else root.style.setProperty('--fs', String(state.fs));
     FLAGS.forEach(function (k) { root.classList.toggle('a11y-' + k, !!state[k]); });
+    hsRefresh();
   }
   apply();
 
@@ -368,7 +539,8 @@
     { key: 'links', label: 'הדגשת קישורים', on: 'הדגשת קישורים הופעלה', off: 'הדגשת קישורים כובתה' },
     { key: 'font', label: 'גופן קריא', on: 'גופן קריא הופעל', off: 'גופן קריא כובה' },
     { key: 'spacing', label: 'ריווח טקסט', on: 'ריווח טקסט הופעל', off: 'ריווח טקסט כבה' },
-    { key: 'nomotion', label: 'עצירת אנימציות', on: 'האנימציות נעצרו', off: 'האנימציות חזרו' }
+    { key: 'nomotion', label: 'עצירת אנימציות', on: 'האנימציות נעצרו', off: 'האנימציות חזרו' },
+    { key: 'stack', label: 'בלי גלילה לצד', on: 'התצוגה הרציפה הופעלה, בלי גלילה לצד', off: 'הגלילה לצד חזרה' }
   ];
 
   /* בונים רק בעזרת DOM ו־textContent, בלי innerHTML */

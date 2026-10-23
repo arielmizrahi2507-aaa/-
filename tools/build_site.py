@@ -32,6 +32,7 @@ YY1 = "https://www.yomyom.net/article.asp?id=11579"
 YY2 = "https://www.yomyom.net/article.asp?id=37865"
 YY3 = "https://www.yomyom.net/article.asp?id=62794"
 JI = "https://judoinside.com/judoka/114151/Evgeny_Shmachilin"
+ISRAELDOJO = "https://www.israeldojo.co.il/%D7%9E%D7%95%D7%A8%D7%94-%D7%90%D7%95%D7%9E%D7%A0%D7%95%D7%AA-%D7%9C%D7%97%D7%99%D7%9E%D7%94/judokan2122/"
 CLUB_EMAIL = ""  # the club's e-mail address. Empty on purpose: the e-mail option then opens a ready draft without a recipient
 EMAIL = os.environ.get("JK_EMAIL", CLUB_EMAIL).strip()
 if EMAIL and not re.fullmatch(r"[^\s@\"'<>&]+@[^\s@\"'<>&]+\.[^\s@\"'<>&]{2,}", EMAIL):
@@ -172,7 +173,7 @@ MBAR = f"""<nav class="mbar" aria-label="פעולות מהירות">
 </nav>"""
 
 INIT_JS = ("(function(){var d=document.documentElement;d.classList.add('js');try{var s=JSON.parse(localStorage.getItem('jk-a11y')||'{}');"
-           "if(s.fs>1&&s.fs<=1.4)d.style.setProperty('--fs',s.fs);['contrast','gray','links','font','spacing','nomotion'].forEach(function(k){if(s[k])d.classList.add('a11y-'+k)})}catch(e){}})();")
+           "if(s.fs>1&&s.fs<=1.4)d.style.setProperty('--fs',s.fs);['contrast','gray','links','font','spacing','nomotion','stack'].forEach(function(k){if(s[k])d.classList.add('a11y-'+k)})}catch(e){}})();")
 
 
 INIT_HASH = base64.b64encode(hashlib.sha256(INIT_JS.encode("utf-8")).digest()).decode()
@@ -393,7 +394,7 @@ def index_main():
 <div class="h"><div class="eyebrow">המועדון</div><h2 id="about-title">בית ספר לג'ודו באילת.</h2></div>
 <p>מדריכי הג'ודו המיומנים עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה. המועדון מציע למתאמנים ליגות, תחרויות ומחנות אימונים, ופועל 12 חודשים בשנה.</p>
 </div>
-<div class="cards4">
+<div class="cards4" data-hs="ארבעת עמודי התווך של המועדון">
 <div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">体</div><h3>גוף וכושר</h3><p>המדריכים עובדים עם הילדים והנוער על כושר גופני, זריזות וקואורדינציה. בג'ודו לומדים גם ליפול בבטחה, מיומנות שימושית בכל ספורט וביום־יום.</p></div>
 <div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">心</div><h3>ביטחון ומשמעת</h3><p>פיתוח ביטחון עצמי הוא חלק מהעבודה עם הילדים והנוער, ומעל לכל המועדון מקפיד על משמעת עצמית.</p></div>
 <div class="card-dark"><div class="kj" lang="ja" aria-hidden="true">技</div><h3>טכניקה</h3><p>בג'ודו, טכניקה נכונה מנצחת כוח: לומדים להשתמש בתנועה של בן הזוג ולהפעיל כוח בדיוק ברגע הנכון.</p></div>
@@ -430,9 +431,9 @@ def index_main():
 <h2 id="programs-title">יש מקום לכל גיל.</h2>
 <p>“האקדמיה מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד.” השיעורים מחולקים לפי שכבת גיל.</p>
 </div>
-<ul class="programs" role="list">
+<ul class="programs" role="list" data-hs="החוגים לפי גיל">
 <li class="prog"><div class="prog-top"><span class="prog-no">01</span><span class="prog-age">גילאי 4–7</span></div><h3>גן וכיתה א׳</h3><p>שיעורי ג'ודו לילדים צעירים, בנים ובנות כאחד, החל מגיל ארבע.</p><span class="prog-meta">שיעור של כשעה</span></li>
-<li class="prog"><div class="prog-top"><span class="prog-no">02</span><span class="prog-age">מגיל 7</span></div><h3>כיתה ב׳ ומעלה</h3><p>המדריכים עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
+<li class="prog"><div class="prog-top"><span class="prog-no">02</span><span class="prog-age">מגיל 7</span></div><h3>כיתה ב׳ ומעלה</h3><p>המדריכים עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה.</p><p>נבחרת צעירה לגילאי 10 עד 13: שלושה אימונים בשבוע, כשעה וחצי כל אחד, ואימון מנטלי עם איש מקצוע. <span class="src">({ext(ISRAELDOJO, "Israel Dojo")})</span></p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
 <li class="prog"><div class="prog-top"><span class="prog-no">03</span><span class="prog-age">18+</span></div><h3>מבוגרים</h3><p>גם מבוגרים מתאמנים במועדון, יחד עם קבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
 <li class="prog prog--dark"><div class="prog-top"><span class="prog-no">04</span><span class="prog-age">להמשך הדרך</span></div><h3>ליגות ותחרויות</h3><p>המועדון מציע למתאמנים ליגות, תחרויות ומחנות אימונים.</p></li>
 </ul>
@@ -445,9 +446,11 @@ def index_main():
 <div class="h"><div class="eyebrow">אלופים</div><h2 id="champions-title">בית הספר לג'ודו שמגדל אלופים.</h2></div>
 <p>כך מכנה "יום יום באילת" את ג'ודוקאן בשתי כתבות על המועדון. הנה הנתונים המתועדים, עם המקורות שלהם.</p>
 </div>
-<ul class="champs" role="list">
+<ul class="champs" role="list" data-hs="אלופים והישגים">
 <li class="champ"><div class="champ-num" aria-hidden="true">12</div><h3>12 אלופי ישראל בשנה אחת</h3><p>מתוך כתבה מ־2011: “בשנה החולפת נוספו למועדון ג'ודוקאן 12 אלופי ישראל.”</p><p class="champ-src">{ext(YY1, "יום יום באילת, כתבה מ־2011")}</p></li>
 <li class="champ"><div class="champ-num" aria-hidden="true">2023</div><h3>אלוף ישראל לבוגרים 2023</h3><p>במשקל מעל 100 ק״ג. ג'ודאי שגדל באילת והתאמן בג'ודו אצל דוד בן-ארבון, וב־2024 סיים במקום החמישי בגרנד פרי לינץ שבאוסטריה.</p><p class="champ-src">{ext(JI, "JudoInside")} · {ext(YY3, "יום יום באילת, 2024")}</p></li>
+<li class="champ"><div class="champ-num champ-num--jp" lang="ja" aria-hidden="true">勝</div><h3>מדליסטים בכל גיל ומשקל</h3><p>לפי כתבה ב״יום יום באילת״ מ־2011, כמעט בכל גיל ומשקל, בבנים וגם בבנות, יש בג'ודוקאן בעלי מדליות, וההישגים הבולטים ביותר הם של הבנות.</p><p class="champ-src">{ext(YY1, "יום יום באילת, כתבה מ־2011")}</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">130</div><h3>כ־130 ספורטאים בשנה רגילה</h3><p>כך נמסר בכתבות ישנות ב״יום יום באילת״. המספר העדכני נמסר בשיחה עם המועדון.</p><p class="champ-src">{ext(YY1, "כתבה מ־2011")} · {ext(YY2, "כתבה נוספת")}</p></li>
 </ul>
 </div>
 </section>
@@ -459,7 +462,7 @@ def index_main():
 <p>מבנה האימון דומה ברוב מועדוני הג'ודו בעולם. זהו תיאור כללי של אימון ג'ודו, ופרטי האימון בכל קבוצה נקבעים על ידי המאמן.</p>
 </div>
 <div class="train-grid">
-<ol class="steps" role="list">
+<ol class="steps" role="list" data-hs="שלבי האימון">
 <li class="step"><h3>קידה ופתיחה <span lang="ja" aria-hidden="true">礼</span></h3><p>נכנסים למזרן, מקדמים ברכה ומתחילים יחד.</p></li>
 <li class="step"><h3>חימום <span lang="ja" aria-hidden="true">準備運動</span></h3><p>תנועה, גמישות וחיזוק. בגילאים צעירים, בדרך כלל דרך משחק.</p></li>
 <li class="step"><h3>נפילות <span lang="ja" aria-hidden="true">受身</span></h3><p>לומדים ליפול, להתהפך ולקום בבטחה.</p></li>
@@ -480,6 +483,7 @@ def index_main():
 <p class="note">דוגמה לרצף החגורות. צבעי הביניים משתנים בין מועדונים ואיגודים.</p>
 <div class="glossary">
 <h3>מילון ג'ודו קטן</h3>
+<div class="gloss" data-hs="מילון ג'ודו קטן">
 <dl>
 <div><dt lang="ja">柔道家</dt><dd><b>ג'ודוקה</b>: מי שמתאמן בג'ודו.</dd></div>
 <div><dt lang="ja">先生</dt><dd><b>סנסאי</b>: מורה.</dd></div>
@@ -490,6 +494,7 @@ def index_main():
 <div><dt lang="ja">一本</dt><dd><b>איפון</b>: ניקוד מלא שמסיים את הקרב.</dd></div>
 <div><dt lang="ja">柔道着</dt><dd><b>ג'ודוגי</b>: בגד הג'ודו.</dd></div>
 </dl>
+</div>
 </div>
 </div>
 </div>
@@ -505,7 +510,7 @@ def index_main():
 <div class="sched-kanji" aria-hidden="true"></div>
 </div>
 <div class="sched-main">
-<ul class="days" role="list" aria-label="ימי ושעות פעילות">
+<ul class="days" role="list" aria-label="ימי ושעות פעילות" data-hs="ימי ושעות פעילות">
 <li class="day"><b>ראשון</b><span><bdi dir="ltr">16:00–21:00</bdi></span></li>
 <li class="day"><b>שלישי</b><span><bdi dir="ltr">16:00–21:00</bdi></span></li>
 <li class="day"><b>חמישי</b><span><bdi dir="ltr">16:00–21:00</bdi></span></li>
@@ -532,7 +537,7 @@ def index_main():
 <div class="h"><div class="eyebrow">הדרך</div><h2 id="way-title">הרעיון שמאחורי הטכניקה.</h2></div>
 <p>ג'יגורו קאנו בנה את הג'ודו כשיטת חינוך. את הפילוסופיה שלו מסכמים שני עקרונות. לצדם עומדים שמונה ערכים שהפדרציה הבינלאומית לג'ודו מגדירה לכל מתאמן.</p>
 </div>
-<div class="principles">
+<div class="principles" data-hs="שני עקרונות היסוד">
 <div class="principle"><div class="kj" lang="ja" aria-hidden="true">精力善用</div><h3>ניצול מיטבי של הכוח</h3><p>להשיג את המרב במינימום מאמץ, בעזרת טכניקה נכונה ותזמון נכון.</p></div>
 <div class="principle"><div class="kj" lang="ja" aria-hidden="true">自他共栄</div><h3>התקדמות משותפת</h3><p>מתאמנים זה עם זה ולא זה נגד זה. כשבן הזוג משתפר, גם אני משתפר.</p></div>
 </div>
@@ -540,7 +545,7 @@ def index_main():
 <h3>שמונת ערכי הג'ודו</h3>
 <p>לפי קוד הערכים של ה־IJF. {ext(IJF_VALUES, "קראו באתר ה־IJF")}</p>
 </div>
-<ul class="values" role="list">
+<ul class="values" role="list" data-hs="שמונת ערכי הג'ודו">
 <li><b>נימוס</b><span>מברכים, מודים ומקשיבים.</span></li>
 <li><b>אומץ</b><span>מנסים גם כשקשה.</span></li>
 <li><b>כנות</b><span>אומרים ועושים את האמת.</span></li>
@@ -550,7 +555,7 @@ def index_main():
 <li><b>שליטה עצמית</b><span>פועלים בשקט ובדיוק, גם בלחץ.</span></li>
 <li><b>ידידות</b><span>בן הזוג לאימון הוא שותף, לא יריב.</span></li>
 </ul>
-<ol class="timeline" role="list">
+<ol class="timeline" role="list" data-hs="ציוני דרך בהיסטוריה">
 <li><b>1882</b><span>ג'יגורו קאנו (<span lang="ja">嘉納治五郎</span>) מקים בטוקיו את הקודוקאן (<span lang="ja">講道館</span>), בית הספר שבו נולד הג'ודו.</span></li>
 <li><b>1964</b><span>הג'ודו נכנס לתוכנית המשחקים האולימפיים, בטוקיו.</span></li>
 <li><b>1992</b><span>בברצלונה זוכה ישראל במדליות האולימפיות הראשונות שלה: יעל ארד בכסף ואורן סמדג'ה בארד. שתיהן בג'ודו.</span></li>
@@ -670,6 +675,7 @@ ACCESS_BODY = f"""
 <li><strong>תצוגה:</strong> אפשר להגדיל את הטקסט עד 200 אחוז ללא אובדן תוכן. האתר מתאים את עצמו למסכי נייד, טאבלט ומחשב.</li>
 <li><strong>תפריט נגישות באתר:</strong> הגדלה והקטנה של הטקסט, ניגודיות גבוהה, גווני אפור, הדגשת קישורים, גופן קריא, ריווח טקסט ועצירת אנימציות. ההעדפות נשמרות בדפדפן שלכם בלבד.</li>
 <li><strong>טפסים:</strong> לכל שדה יש תווית גלויה, ושדות חובה מסומנים בטקסט. שדה שלא מולא, או מולא חלקית, מסומן בכוכבית אדומה ובהודעה בטקסט מתחתיו שמסבירה מה חסר, והמיקוד עובר אל השדה הראשון שדורש תיקון. המידע אינו מועבר בצבע בלבד.</li>
+<li><strong>גלילה לצד:</strong> בנייד אפשר לדפדף בין כרטיסים בהחלקה, בכפתורי "הקודם" ו"הבא" או במקשי החצים. מי שמעדיף תצוגה רציפה, בלי גלילה לצד, יכול להפעיל "בלי גלילה לצד" בתפריט הנגישות.</li>
 <li><strong>אורך העמוד:</strong> בתחילת כל עמוד יש קישורי דילוג לתוכן ולהרשמה או לטופס, תפריט ניווט לכל הקטעים, וכפתור חזרה לראש העמוד.</li>
 <li><strong>בלי JavaScript:</strong> התפריט, הקישורים והתוכן זמינים גם כשהסקריפטים חסומים. בטפסים יש אז קישורי חיוג והודעה ישירה.</li>
 <li><strong>תנועה:</strong> אין תוכן מהבהב. האנימציות קצרות, והאתר מכבד את הגדרת "הפחתת תנועה" של מערכת ההפעלה.</li>
