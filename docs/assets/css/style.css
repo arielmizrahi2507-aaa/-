@@ -41,7 +41,7 @@ a:hover{color:var(--accent-deep)}
 button{font:inherit}
 [lang="ja"]{font-family:var(--font-jp);font-weight:800}
 :focus-visible{outline:3px solid var(--ink);outline-offset:3px}
-.side :focus-visible,.band-dark :focus-visible,.foot :focus-visible,.contact-info :focus-visible{outline-color:#fff}
+.side :focus-visible,.band-dark :focus-visible,.join :focus-visible,.foot :focus-visible,.contact-info :focus-visible{outline-color:#fff}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .tel{unicode-bidi:isolate;white-space:nowrap}
 .i{width:1.25em;height:1.25em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -280,13 +280,34 @@ h3{font-weight:900}
 .check-row label a{font-weight:700}
 .field--check.invalid .check-row{outline:2px solid var(--accent-ink);outline-offset:2px;background:#FFF6F5}
 .a11y-contrast .field--check.invalid .check-row{outline-color:#FFEB3B;background:#000}
-.form-fields{display:none;flex-direction:column;gap:1.25rem}
-.js .form-fields{display:flex}
+.form-fields{display:flex;flex-direction:column;gap:1.25rem}
+/* עם JavaScript הטופס המלא (עם כל הבדיקות), בלי JavaScript כרטיס פשוט: תיבה אחת ששולחת לוואטסאפ */
+html:not(.js) .cform[data-wa]{display:none}
+.js .nojs-card{display:none}
+.nojs-help{font-weight:700}
 .ltr-input{direction:ltr;text-align:right}
 .form-note{font-size:.875rem;color:var(--ink-3);text-align:center}
 .result .btn-row .btn{flex:1 1 12rem;padding-inline:1rem}
-.no-js-note{padding:1rem;border:2px solid var(--ink);font-weight:700}
-.js .no-js-note{display:none}
+
+/* ---------- מוכנים להתחיל (פס אדום עם טופס) ---------- */
+.join{background:var(--accent);color:#fff}
+.join-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-wrap:wrap;gap:3.5rem;align-items:center}
+.join-copy{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:1.375rem}
+.join-kj{font-family:var(--font-jp);font-size:1.4rem;font-weight:800;letter-spacing:8px}
+.join h2{font-size:3.5rem;line-height:1.05;color:#fff}
+.join-lead{max-width:440px;font-size:1.25rem;line-height:1.7;font-weight:700}
+.join-list{display:flex;flex-direction:column;gap:.75rem;font-size:1.2rem;font-weight:700}
+.join-list li{display:flex;align-items:center;gap:.75rem}
+.join a{color:#fff}
+.join-more{font-size:1.2rem;font-weight:700}
+.join .cform{flex:1 1 420px;min-width:0;border:0;border-radius:2px;color:var(--ink)}
+.join .cform a:not(.btn){color:var(--accent-ink);text-decoration:underline;text-underline-offset:.2em}
+.join .cform a:not(.btn):hover{color:var(--accent-deep)}
+.join .cform a.btn{color:#fff}
+.join .cform a.btn--line{color:var(--ink)}
+.join .cform a.btn--line:hover{color:#fff}
+.join .cform :focus-visible{outline-color:var(--ink)}
+.join .send-row button{flex-basis:100%}
 
 /* ---------- פוטר ---------- */
 .foot{background:var(--night);color:#fff}
@@ -312,12 +333,11 @@ h3{font-weight:900}
 
 /* ---------- בלי JavaScript, ספרייט, חזרה למעלה ---------- */
 .sprite{position:absolute;width:0;height:0;overflow:hidden}
-.no-js-note a{font-weight:700}
 .to-top{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));z-index:70;display:grid;place-items:center;width:3rem;height:3rem;border:2px solid #fff;border-radius:50%;background:var(--ink);color:#fff;box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}
 .to-top:hover{background:var(--accent-ink);color:#fff}
 .to-top:focus-visible{outline:3px solid var(--ink);outline-offset:3px;box-shadow:0 0 0 3px #fff}
 .to-top[hidden]{display:none}
-.side-contact a,.foot-val a{display:inline-block;min-height:1.5rem}
+.side-contact a,.foot-val a,.nojs-card .form-note a{display:inline-block;min-height:1.5rem}
 .sched-note a,.result p a,.check-row label a{padding-block:.2rem}
 
 /* ---------- אלופים ---------- */
@@ -391,7 +411,7 @@ html.a11y-gray{filter:grayscale(1)}
 .a11y-spacing body{line-height:1.95!important;word-spacing:.12em;letter-spacing:.02em}
 .a11y-spacing p,.a11y-spacing li{margin-bottom:.9em}
 .a11y-nomotion *,.a11y-nomotion *::before,.a11y-nomotion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
-.a11y-contrast body,.a11y-contrast .content,.a11y-contrast .band,.a11y-contrast .band-paper,.a11y-contrast .band-dark,.a11y-contrast .hero,.a11y-contrast .prog,.a11y-contrast .side,.a11y-contrast .foot,.a11y-contrast .mbar,.a11y-contrast .day,.a11y-contrast .days,.a11y-contrast .table-wrap,.a11y-contrast .card-dark,.a11y-contrast .principle,.a11y-contrast .values li{background:#000!important;color:#fff!important}
+.a11y-contrast body,.a11y-contrast .content,.a11y-contrast .band,.a11y-contrast .band-paper,.a11y-contrast .band-dark,.a11y-contrast .join,.a11y-contrast .hero,.a11y-contrast .prog,.a11y-contrast .side,.a11y-contrast .foot,.a11y-contrast .mbar,.a11y-contrast .day,.a11y-contrast .days,.a11y-contrast .table-wrap,.a11y-contrast .card-dark,.a11y-contrast .principle,.a11y-contrast .values li{background:#000!important;color:#fff!important}
 .a11y-contrast h1,.a11y-contrast h2,.a11y-contrast h3,.a11y-contrast h4,.a11y-contrast p,.a11y-contrast li,.a11y-contrast dt,.a11y-contrast dd,.a11y-contrast span,.a11y-contrast small,.a11y-contrast b,.a11y-contrast address,.a11y-contrast summary,.a11y-contrast td,.a11y-contrast th,.a11y-contrast caption,.a11y-contrast label{color:#fff!important}
 .a11y-contrast a,.a11y-contrast .eyebrow,.a11y-contrast .kicker,.a11y-contrast .prog-no,.a11y-contrast .hero h1 span,.a11y-contrast .step::before,.a11y-contrast .glossary dt,.a11y-contrast .timeline b,.a11y-contrast .card-dark .kj,.a11y-contrast .principle .kj{color:#FFEB3B!important}
 .a11y-contrast .btn,.a11y-contrast .mbar a,.a11y-contrast .side-cta{background:#000!important;color:#FFEB3B!important;border:2px solid #FFEB3B!important}
@@ -460,9 +480,9 @@ html.a11y-gray{filter:grayscale(1)}
 }
 @media (max-width:700px){
   .hero h1{font-size:3.25rem}
-  h2,.sched-copy h2{font-size:2.25rem}
+  h2,.sched-copy h2,.join h2{font-size:2.25rem}
   .hero-in{padding-top:2.25rem;padding-bottom:3rem;gap:2rem}
-  .band-in,.sched-in{padding-block:3rem}
+  .band-in,.sched-in,.join-in{padding-block:3rem}
   .band-in{gap:2.5rem}
   .card-dark,.prog{padding:1.75rem 1.4rem}
   .page-head h1{font-size:2.75rem}
@@ -550,8 +570,9 @@ html.a11y-gray{filter:grayscale(1)}
   .side,.mbar,.a11y-root,.hero-art,.to-top{display:none!important}
   .layout{display:block}
   body{padding:0;font-size:12pt}
-  .band-in,.sched-in{padding-block:1.2rem}
-  .band-dark,.foot{background:#fff!important;color:#000!important}
+  .band-in,.sched-in,.join-in{padding-block:1.2rem}
+  .band-dark,.join,.foot{background:#fff!important;color:#000!important}
+  .join h2,.join-lead,.join-list,.join a{color:#000!important}
   .hs-ctl{display:none!important}
   html.js [data-hs]{display:block!important;overflow:visible!important;margin:0!important;padding:0!important}
   a{color:#000}

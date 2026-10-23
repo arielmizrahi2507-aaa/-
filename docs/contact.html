@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-otDt1GDOsscUuwsdvUuShl7tDGbHTJdWaOVh/7lBZGI='; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; upgrade-insecure-requests">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-otDt1GDOsscUuwsdvUuShl7tDGbHTJdWaOVh/7lBZGI='; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action https://wa.me; base-uri 'none'; upgrade-insecure-requests">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>יצירת קשר | ג'ודוקאן אילת</title>
@@ -87,8 +87,7 @@
 <div class="band-in contact-grid">
 <form class="cform" id="contact-form" data-wa="972505788781" data-email="" data-subject="פנייה מהאתר: הרשמה לג'ודוקאן אילת" novalidate>
 <h2 class="form-title">פרטי הפנייה</h2>
-<p class="no-js-note">הטופס דורש JavaScript. אפשר ליצור קשר ישירות: טלפון <a class="tel" href="tel:+972505788781" dir="ltr">050-5788781</a>, <a href="https://wa.me/972505788781?text=%D7%A9%D7%9C%D7%95%D7%9D%2C%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A7%D7%91%D7%9C%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%D7%A2%D7%9C%20%D7%94%D7%A8%D7%A9%D7%9E%D7%94%20%D7%9C%D7%92%27%D7%95%D7%93%D7%95%D7%A7%D7%90%D7%9F%20%D7%90%D7%99%D7%9C%D7%AA.">וואטסאפ</a>.</p>
-<div class="form-fields js-only">
+<div class="form-fields">
 <div class="field" data-rule="name" data-required="1">
 <label for="cf-name">שם מלא<span class="req" aria-hidden="true" hidden>*</span><span class="opt">(חובה)</span></label>
 <input id="cf-name" name="name" aria-describedby="cf-name-err" aria-invalid="false" aria-required="true" type="text" maxlength="60" autocomplete="name" enterkeyhint="next" placeholder="שם פרטי ושם משפחה">
@@ -140,6 +139,27 @@
 </div>
 </div>
 </div>
+</form>
+<form class="cform nojs-card" id="cf-nojs" method="get" action="https://wa.me/972505788781" target="_blank">
+<h2 class="form-title">פרטי הפנייה</h2>
+<p class="nojs-help">משלימים את הפרטים בתיבה ולוחצים על השליחה. ההודעה נפתחת בוואטסאפ, ושם שולחים אותה.</p>
+<div class="field">
+<label for="cf-nojs-text">הפרטים שלכם</label>
+<textarea id="cf-nojs-text" name="text" rows="7" maxlength="400" required>שלום, אשמח לקבל פרטים על הרשמה לג'ודוקאן אילת.
+
+שם:
+טלפון:
+גיל המתאמן או המתאמנת:
+</textarea>
+</div>
+<div class="field field--check">
+<div class="check-row"><input id="cf-nojs-consent" type="checkbox" required><label for="cf-nojs-consent">קראתי והסכמתי ל<a href="privacy.html">מדיניות הפרטיות</a></label></div>
+</div>
+<div class="send-row">
+<button type="submit" class="send-wa"><svg class="i" aria-hidden="true" focusable="false"><use href="#i-wa"/></svg>שליחה בוואטסאפ</button>
+</div>
+<p class="form-note">נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע.</p>
+<p class="form-note">או התקשרו: <a class="tel" href="tel:+972505788781" dir="ltr">050-5788781</a></p>
 </form>
 <aside class="contact-info" aria-labelledby="ci-title">
 <h2 id="ci-title">פרטי קשר</h2>

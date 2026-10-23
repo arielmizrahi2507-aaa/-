@@ -177,7 +177,7 @@ INIT_JS = ("(function(){var d=document.documentElement;d.classList.add('js');try
 
 INIT_HASH = base64.b64encode(hashlib.sha256(INIT_JS.encode("utf-8")).digest()).decode()
 CSP = ("default-src 'none'; script-src 'self' 'sha256-" + INIT_HASH + "'; style-src 'self'; img-src 'self'; font-src 'self'; "
-       "connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'; upgrade-insecure-requests")
+       "connect-src 'none'; frame-src 'none'; object-src 'none'; form-action https://wa.me; base-uri 'none'; upgrade-insecure-requests")
 
 
 def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=None, skip2=None):
@@ -290,29 +290,62 @@ def form_result(p, mail=False):
 </div>"""
 
 
-def contact_form():
-    options = "".join(f"<option>{o}</option>" for o in GROUP_OPTIONS)
-    mail_btn = f'<button type="button" class="send-mail" data-channel="mail">{icon("mail")}שליחה במייל</button>'
-    no_js_mail = f', <a href="mailto:{EMAIL}">מייל</a>' if EMAIL else ""
-    return f"""<form class="cform" id="contact-form" data-wa="{WA}" data-email="{EMAIL}" data-subject="{MAIL_SUBJECT}" novalidate>
-<h2 class="form-title">פרטי הפנייה</h2>
-<p class="no-js-note">הטופס דורש JavaScript. אפשר ליצור קשר ישירות: טלפון {tel("tel")}, <a href="{WA_LINK}">וואטסאפ</a>{no_js_mail}.</p>
-<div class="form-fields js-only">
-{field("cf", "name", "שם מלא", ctl("cf", "name", "input", 'type="text" maxlength="60" autocomplete="name" enterkeyhint="next" placeholder="שם פרטי ושם משפחה"'), True, "name")}
-{field("cf", "phone", "טלפון", ctl("cf", "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="050-0000000" class="ltr-input"'), True, "phone")}
-{field("cf", "email", "אימייל", ctl("cf", "email", "input", 'type="email" maxlength="80" autocomplete="email" enterkeyhint="next" placeholder="כתובת המייל שלכם" class="ltr-input"'), False, "email")}
-{field("cf", "age", "גיל המתאמן או המתאמנת", ctl("cf", "age", "input", 'type="text" maxlength="3" inputmode="numeric" enterkeyhint="next" placeholder="למשל 8" class="ltr-input"'), True, "age")}
-{field("cf", "group", "קבוצה מבוקשת", ctl("cf", "group", "select", '', options))}
-{field("cf", "message", "הודעה", ctl("cf", "message", "textarea", 'rows="4" maxlength="300" placeholder="אפשר לכתוב כאן כל שאלה"'))}
-{consent_field("cf")}
+NOJS_MESSAGE = "שלום, אשמח לקבל פרטים על הרשמה לג'ודוקאן אילת.\n\nשם:\nטלפון:\nגיל המתאמן או המתאמנת:\n"
+
+
+def nojs_card(p, title, tag):
+    """What a visitor gets when scripts do not run: one box with a ready message to complete, sent to WhatsApp by a plain GET form
+    (wa.me reads the text parameter). The checkbox has no name, so it is checked by the browser but not sent."""
+    return f"""<form class="cform nojs-card" id="{p}-nojs" method="get" action="https://wa.me/{WA}" target="_blank">
+<{tag} class="form-title">{title}</{tag}>
+<p class="nojs-help">משלימים את הפרטים בתיבה ולוחצים על השליחה. ההודעה נפתחת בוואטסאפ, ושם שולחים אותה.</p>
+<div class="field">
+<label for="{p}-nojs-text">הפרטים שלכם</label>
+<textarea id="{p}-nojs-text" name="text" rows="7" maxlength="400" required>{NOJS_MESSAGE}</textarea>
+</div>
+<div class="field field--check">
+<div class="check-row"><input id="{p}-nojs-consent" type="checkbox" required><label for="{p}-nojs-consent">קראתי והסכמתי ל<a href="privacy.html">מדיניות הפרטיות</a></label></div>
+</div>
 <div class="send-row">
-<button type="button" class="send-wa" data-channel="wa">{icon("wa")}שליחה בוואטסאפ</button>
-{mail_btn}
+<button type="submit" class="send-wa">{icon("wa")}שליחה בוואטסאפ</button>
 </div>
 <p class="form-note">{FORM_NOTE}</p>
-{form_result("cf", True)}
-</div>
+<p class="form-note">או התקשרו: {tel("tel")}</p>
 </form>"""
+
+
+def details_form(p, form_id, title, tag, full):
+    """The form with all the checks (needs scripts) followed by the plain card for visitors without scripts.
+    full: the contact page form (also e-mail and a free message); otherwise the short form of the home page."""
+    options = "".join(f"<option>{o}</option>" for o in GROUP_OPTIONS)
+    name = field(p, "name", "שם מלא", ctl(p, "name", "input", 'type="text" maxlength="60" autocomplete="name" enterkeyhint="next" placeholder="שם פרטי ושם משפחה"'), True, "name")
+    phone = field(p, "phone", "טלפון", ctl(p, "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="050-0000000" class="ltr-input"'), True, "phone")
+    email = field(p, "email", "אימייל", ctl(p, "email", "input", 'type="email" maxlength="80" autocomplete="email" enterkeyhint="next" placeholder="כתובת המייל שלכם" class="ltr-input"'), False, "email") if full else ""
+    age = field(p, "age", "גיל המתאמן או המתאמנת", ctl(p, "age", "input", 'type="text" maxlength="3" inputmode="numeric" enterkeyhint="next" placeholder="למשל 8" class="ltr-input"'), True, "age")
+    group = field(p, "group", "קבוצה מבוקשת", ctl(p, "group", "select", '', options))
+    message = field(p, "message", "הודעה", ctl(p, "message", "textarea", 'rows="4" maxlength="300" placeholder="אפשר לכתוב כאן כל שאלה"')) if full else ""
+    rows = "\n".join(x for x in (name, phone, email, age, group, message, consent_field(p)) if x)
+    return f"""<form class="cform" id="{form_id}" data-wa="{WA}" data-email="{EMAIL}" data-subject="{MAIL_SUBJECT}" novalidate>
+<{tag} class="form-title">{title}</{tag}>
+<div class="form-fields">
+{rows}
+<div class="send-row">
+<button type="button" class="send-wa" data-channel="wa">{icon("wa")}שליחה בוואטסאפ</button>
+<button type="button" class="send-mail" data-channel="mail">{icon("mail")}שליחה במייל</button>
+</div>
+<p class="form-note">{FORM_NOTE}</p>
+{form_result(p, True)}
+</div>
+</form>
+{nojs_card(p, title, tag)}"""
+
+
+def contact_form():
+    return details_form("cf", "contact-form", "פרטי הפנייה", "h2", True)
+
+
+def home_form():
+    return details_form("jf", "join-form", "השאירו פרטים", "h3", False)
 
 
 def contact_info():
@@ -568,6 +601,23 @@ def index_main():
 </div>
 </section>
 
+<section id="join" class="join" aria-labelledby="join-title" tabindex="-1">
+<div class="join-in">
+<div class="join-copy">
+<div class="join-kj" lang="ja" aria-hidden="true">始めよう</div>
+<h2 id="join-title">מוכנים<br>להתחיל?</h2>
+<p class="join-lead">התקשרו או כתבו בוואטסאפ לפרטים על הקבוצות, השעות, העלויות ודרך ההרשמה.</p>
+<ul class="join-list" role="list">
+<li>{icon("check", "i")}פעילות 12 חודשים בשנה</li>
+<li>{icon("check", "i")}בנים ובנות, מגיל 4 ועד מבוגרים</li>
+<li>{icon("check", "i")}ליגות, תחרויות ומחנות אימונים</li>
+</ul>
+<p class="join-more">או חייגו ישירות: {tel("tel")}</p>
+<p class="join-more join-more--2">או <a href="contact.html">עברו לעמוד יצירת הקשר</a> למילוי טופס מלא.</p>
+</div>
+{home_form()}
+</div>
+</section>
 
 </main>"""
 
@@ -644,7 +694,7 @@ ACCESS_BODY = f"""
 <li><strong>טופס:</strong> לכל שדה יש תווית גלויה, ושדות חובה מסומנים בטקסט. שדה שלא מולא, או מולא חלקית, מסומן בכוכבית אדומה ובהודעה בטקסט מתחתיו שמסבירה מה חסר, והמיקוד עובר אל השדה הראשון שדורש תיקון. המידע אינו מועבר בצבע בלבד.</li>
 <li><strong>גלילה לצד:</strong> בנייד אפשר לדפדף בין כרטיסים בהחלקה, בכפתורי "הקודם" ו"הבא" או במקשי החצים. מי שמעדיף תצוגה רציפה, בלי גלילה לצד, יכול להפעיל "בלי גלילה לצד" בתפריט הנגישות.</li>
 <li><strong>אורך העמוד:</strong> בתחילת כל עמוד יש קישור דילוג לתוכן הראשי (ובעמוד יצירת הקשר גם לטופס), תפריט ניווט לכל הקטעים, וכפתור חזרה לראש העמוד.</li>
-<li><strong>בלי JavaScript:</strong> התפריט, הקישורים והתוכן זמינים גם כשהסקריפטים חסומים. במקום הטופס יש אז קישורי חיוג והודעה ישירה.</li>
+<li><strong>בלי JavaScript:</strong> התפריט, הקישורים והתוכן זמינים גם כשהסקריפטים חסומים. במקום הטופס המלא יש אז כרטיס פשוט: תיבה אחת עם הודעה מוכנה שנשלחת בוואטסאפ, וקישור חיוג.</li>
 <li><strong>תנועה:</strong> אין תוכן מהבהב. האנימציות קצרות, והאתר מכבד את הגדרת "הפחתת תנועה" של מערכת ההפעלה.</li>
 </ul>
 
@@ -692,7 +742,7 @@ PRIVACY_BODY = f"""
 <p>אם תשתמשו בתפריט הנגישות, ההעדפות שלכם (למשל גודל טקסט) יישמרו באחסון המקומי של הדפדפן במכשיר שלכם בלבד. הן אינן נשלחות אלינו ואינן מועברות לאף גורם.</p>
 
 <h2>טופס יצירת הקשר</h2>
-<p>הטופס בעמוד יצירת הקשר אינו שולח מידע לשרת. הם מרכיבים הודעה ופותחים וואטסאפ{mail_priv}, במכשיר שלכם. לפני השליחה יש לסמן שקראתם והסכמתם למדיניות הזו. ההודעה נשלחת רק אם תלחצו שם על "שליחה". אם תבחרו להעתיק את ההודעה, ההעתקה נעשית במכשיר שלכם בלבד. השימוש בוואטסאפ ובשירות הדואר שלכם כפוף לתנאים ולמדיניות הפרטיות של מפעיליהם.</p>
+<p>הטפסים באתר, בעמוד יצירת הקשר ובפס האדום שבסוף עמוד הבית, אינם שולחים מידע לשרת. הם מרכיבים הודעה ופותחים וואטסאפ{mail_priv}, במכשיר שלכם. לפני השליחה יש לסמן שקראתם והסכמתם למדיניות הזו. ההודעה נשלחת רק אם תלחצו שם על "שליחה". בדפדפן שלא מפעיל סקריפטים מוצג במקומם כרטיס פשוט עם תיבת הודעה אחת, והדפדפן עצמו פותח וואטסאפ עם הטקסט שבתיבה כשלוחצים על "שליחה בוואטסאפ". אם תבחרו להעתיק את ההודעה, ההעתקה נעשית במכשיר שלכם בלבד. השימוש בוואטסאפ ובשירות הדואר שלכם כפוף לתנאים ולמדיניות הפרטיות של מפעיליהם.</p>
 
 <h2>פנייה אלינו בטלפון או בוואטסאפ</h2>
 <p>אם תפנו אלינו בטלפון או בוואטסאפ, הפרטים שתמסרו (למשל שם, גיל ומספר טלפון) ישמשו לצורך מענה לפנייה ולהרשמה בלבד. פרטים של קטינים נמסרים על ידי הוריהם או האפוטרופוסים שלהם. לא נשלח אליכם הודעות פרסומיות ללא הסכמה מפורשת שלכם.</p>
