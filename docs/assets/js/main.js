@@ -1,10 +1,28 @@
 /* ג'ודוקאן אילת | main.js
-   אין עוגיות, אין מעקב, אין בקשות לצד שלישי. localStorage משמש רק לשמירת העדפות נגישות במכשיר של הגולש. */
+   אין עוגיות, אין מעקב, אין בקשות לצד שלישי. localStorage משמש רק לשמירת העדפות נגישות במכשיר של הגולש.
+   כל מה שכאן הוא שיפור הדרגתי: בלי JavaScript התפריט, הקישורים והתוכן ממשיכים לעבוד. */
 (function () {
   'use strict';
 
   var doc = document;
   var root = doc.documentElement;
+
+  /* ---------- אזור הודעות לקוראי מסך ---------- */
+  var live = doc.createElement('div');
+  live.className = 'a11y-live';
+  live.setAttribute('aria-live', 'polite');
+  live.setAttribute('role', 'status');
+  doc.body.appendChild(live);
+
+  function say(msg) {
+    live.textContent = '';
+    window.setTimeout(function () { live.textContent = msg; }, 30);
+  }
+
+  function reducedMotion() {
+    return root.classList.contains('a11y-nomotion') ||
+      (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
 
   /* ---------- תפריט צד / תפריט נייד ---------- */
   var side = doc.querySelector('.side');
@@ -29,23 +47,63 @@
     });
   }
 
-  /* קישורי עוגן: סוגרים תפריט ומעבירים מיקוד אל הקטע, כדי שגם מקלדת וקורא מסך יגיעו אליו */
+  /* ---------- גלילה לעוגנים ----------
+     גלילה ידנית, כדי שהקישורים יעבדו גם בתצוגות שחוסמות ניווט לפי #, כמו מסגרות מוגבלות בתוך אפליקציות. */
+  function goTo(id, hash) {
+    var target = doc.getElementById(id);
+    if (!target) return false;
+    if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
+    try {
+      target.scrollIntoView({ behavior: reducedMotion() ? 'auto' : 'smooth', block: 'start' });
+    } catch (err) {
+      target.scrollIntoView();
+    }
+    window.setTimeout(function () {
+      try { target.focus({ preventScroll: true }); } catch (err) { target.focus(); }
+    }, 80);
+    try { history.replaceState(null, '', hash); } catch (err) { /* מסגרת מוגבלת: ממשיכים בלי לעדכן את הכתובת */ }
+    return true;
+  }
+
   doc.addEventListener('click', function (e) {
-    var a = e.target.closest ? e.target.closest('a[href*="#"]') : null;
-    if (!a) return;
+    var a = e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a || e.defaultPrevented || a.target === '_blank') return;
+    var raw = a.getAttribute('href');
     var url;
     try { url = new URL(a.href, location.href); } catch (err) { return; }
-    if (url.pathname !== location.pathname || !url.hash || url.hash.length < 2) return;
-    var target = doc.getElementById(decodeURIComponent(url.hash.slice(1)));
-    if (!target) return;
+    if (url.protocol !== location.protocol || url.host !== location.host || url.pathname !== location.pathname) return;
+
+    if (raw === '#') {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      var brand = doc.querySelector('.brand');
+      if (brand) window.setTimeout(function () { try { brand.focus({ preventScroll: true }); } catch (err) { brand.focus(); } }, 80);
+      return;
+    }
+    if (!url.hash || url.hash.length < 2) return;
+    var id;
+    try { id = decodeURIComponent(url.hash.slice(1)); } catch (err) { return; }
+    if (!doc.getElementById(id)) return;
+    e.preventDefault();
     setMenu(false);
-    window.setTimeout(function () {
-      if (!target.hasAttribute('tabindex')) target.setAttribute('tabindex', '-1');
-      target.focus({ preventScroll: true });
-    }, 60);
+    goTo(id, url.hash);
   });
 
-  /* סימון הקטע הפעיל בתפריט */
+  /* ---------- כפתור חזרה למעלה (העמוד ארוך) ---------- */
+  var toTop = doc.querySelector('.to-top');
+  if (toTop) {
+    var ticking = false;
+    var updateTop = function () {
+      ticking = false;
+      toTop.hidden = window.pageYOffset < 900;
+    };
+    window.addEventListener('scroll', function () {
+      if (!ticking) { ticking = true; window.requestAnimationFrame(updateTop); }
+    }, { passive: true });
+    updateTop();
+  }
+
+  /* ---------- סימון הקטע הפעיל בתפריט ---------- */
   var navLinks = [].slice.call(doc.querySelectorAll('.side-nav a[href^="#"]'));
   if (navLinks.length && 'IntersectionObserver' in window) {
     var map = {};
@@ -68,55 +126,218 @@
     });
   }
 
-  /* ---------- טופס הרשמה: מרכיב הודעת וואטסאפ, לא שולח מידע לשרת ---------- */
-  var form = doc.getElementById('wa-form');
-  if (form) {
-    var waNumber = form.getAttribute('data-wa');
-    var nameEl = form.elements['jk-name'];
-    var phoneEl = form.elements['jk-phone'];
-    var groupEl = form.elements['jk-group'];
-
-    var setErr = function (input, msg) {
-      var err = doc.getElementById(input.id + '-err');
-      var bad = !!msg;
-      input.setAttribute('aria-invalid', bad ? 'true' : 'false');
-      if (err) {
-        err.textContent = msg || '';
-        err.classList.toggle('on', bad);
+  /* ---------- טפסים: אימות, כוכבית אדומה, וואטסאפ ומייל ----------
+     שום מידע לא נשלח לשרת. מרכיבים הודעה ופותחים את האפליקציה במכשיר של הגולש. */
+  var RULES = {
+    name: function (v) {
+      v = v.replace(/\s+/g, ' ').trim();
+      if (!v) return 'missing';
+      var words = v.split(' ');
+      if (words.length < 2 || words.some(function (w) { return w.length < 2; })) return 'partial';
+      return '';
+    },
+    phone: function (v) {
+      v = v.trim();
+      if (!v) return 'missing';
+      var digits = v.replace(/\D/g, '');
+      if (/^(\+|00)/.test(v)) {
+        /* מספר בינלאומי: +972 הופך למספר מקומי, ומספר זר נבדק לפי אורך */
+        digits = digits.replace(/^00/, '');
+        if (/^972/.test(digits)) digits = '0' + digits.slice(3).replace(/^0/, '');
+        else return digits.length >= 8 && digits.length <= 15 ? '' : 'partial';
       }
-      return bad;
-    };
+      if (/^0(5\d|7\d)\d{7}$/.test(digits) || /^0[2-489]\d{7}$/.test(digits)) return '';
+      return 'partial';
+    },
+    email: function (v) {
+      v = v.trim();
+      if (!v) return 'missing';
+      return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) ? '' : 'partial';
+    },
+    age: function (v) {
+      v = v.trim();
+      if (!v) return 'missing';
+      if (!/^\d{1,3}$/.test(v)) return 'partial';
+      var n = parseInt(v, 10);
+      if (n < 4) return 'low';
+      if (n > 99) return 'high';
+      return '';
+    }
+  };
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-      var name = nameEl.value.replace(/\s+/g, ' ').trim();
-      var phone = phoneEl.value.trim();
-      var firstBad = null;
+  var MSG = {
+    name: { missing: 'נא להזין שם מלא.', partial: 'השם לא מלא. נא להזין שם פרטי ושם משפחה.' },
+    phone: { missing: 'נא להזין מספר טלפון.', partial: 'מספר הטלפון לא מלא. נא להזין מספר ישראלי, למשל 050-1234567, או מספר בינלאומי שמתחיל ב־+.' },
+    email: { partial: 'כתובת המייל לא מלאה. נא להזין כתובת כמו name@example.com.' },
+    age: {
+      missing: 'נא להזין את גיל המתאמן או המתאמנת.',
+      partial: 'נא להזין גיל במספרים בלבד.',
+      low: 'המועדון מקבל מתאמנים מגיל 4.',
+      high: 'נא להזין גיל עד 99.'
+    }
+  };
 
-      if (name.length < 2) {
-        setErr(nameEl, 'נא להזין שם מלא.');
-        firstBad = firstBad || nameEl;
-      } else { setErr(nameEl, ''); }
+  function control(field) { return field.querySelector('input,select,textarea'); }
 
-      if (phone && !/^[0-9+\-\s()]{7,18}$/.test(phone)) {
-        setErr(phoneEl, 'מספר הטלפון נראה לא תקין. אפשר להשאיר ריק.');
-        firstBad = firstBad || phoneEl;
-      } else { setErr(phoneEl, ''); }
-
-      if (firstBad) { firstBad.focus(); return; }
-
-      var lines = ['שלום, אשמח לקבל פרטים על הרשמה לג\'ודוקאן אילת.', 'שם: ' + name];
-      if (phone) lines.push('טלפון: ' + phone);
-      lines.push('קבוצה: ' + groupEl.value);
-      var url = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(lines.join('\n'));
-      var w = window.open(url, '_blank', 'noopener');
-      if (!w) location.href = url;
-    });
-
-    [nameEl, phoneEl].forEach(function (el) {
-      el.addEventListener('input', function () { if (el.getAttribute('aria-invalid') === 'true') setErr(el, ''); });
-    });
+  function validateField(field) {
+    var rule = field.getAttribute('data-rule');
+    if (!rule || !RULES[rule]) return '';
+    var code = RULES[rule](control(field).value);
+    if (code === 'missing' && !field.hasAttribute('data-required')) return '';
+    return code;
   }
+
+  /* סימון שדה: כוכבית אדומה, מסגרת, הודעה בטקסט ו־aria-invalid, כך שהמידע לא מועבר בצבע בלבד */
+  function setState(field, code) {
+    var rule = field.getAttribute('data-rule');
+    var input = control(field);
+    var err = field.querySelector('.err');
+    var star = field.querySelector('.req');
+    var bad = !!code;
+    field.classList.toggle('invalid', bad);
+    input.setAttribute('aria-invalid', bad ? 'true' : 'false');
+    if (star) star.hidden = !bad;
+    if (err) {
+      err.textContent = bad ? ((MSG[rule] && MSG[rule][code]) || 'נא להשלים את השדה.') : '';
+      err.classList.toggle('on', bad);
+    }
+    return bad;
+  }
+
+  function copyText(text, done) {
+    function fallback() {
+      var ta = doc.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      doc.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = doc.execCommand('copy'); } catch (err) { ok = false; }
+      doc.body.removeChild(ta);
+      done(ok);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else {
+      fallback();
+    }
+  }
+
+  doc.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-copy],[data-copy-from]') : null;
+    if (!b) return;
+    if (b.getAttribute('data-busy')) return;
+    var text = b.getAttribute('data-copy');
+    var src = null;
+    if (text === null) {
+      src = doc.getElementById(b.getAttribute('data-copy-from'));
+      text = src ? src.value : '';
+    }
+    copyText(text, function (ok) {
+      say(ok ? 'הועתק' : 'ההעתקה לא הצליחה. אפשר לסמן ולהעתיק ידנית.');
+      if (!ok && src) { src.focus(); src.select(); }
+      var kids = [].slice.call(b.childNodes);
+      b.setAttribute('data-busy', '1');
+      b.textContent = ok ? 'הועתק' : 'לא הועתק';
+      window.setTimeout(function () {
+        b.textContent = '';
+        kids.forEach(function (n) { b.appendChild(n); });
+        b.removeAttribute('data-busy');
+      }, 1800);
+    });
+  });
+
+  /* פתיחה בלשונית חדשה באמצעות קישור זמני: אין חלון קופץ שנחסם, ואין ניווט כפול של הדף עצמו */
+  function openInNewTab(url) {
+    var a = doc.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.hidden = true;
+    doc.body.appendChild(a);
+    a.click();
+    doc.body.removeChild(a);
+  }
+
+  function initForm(form) {
+    var waNumber = form.getAttribute('data-wa');
+    var email = form.getAttribute('data-email') || '';
+    var subject = form.getAttribute('data-subject') || '';
+    var fields = [].slice.call(form.querySelectorAll('.field[data-rule]'));
+    var result = form.querySelector('.result');
+
+    fields.forEach(function (f) {
+      control(f).addEventListener('input', function () {
+        if (f.classList.contains('invalid')) setState(f, validateField(f));
+      });
+    });
+
+    function value(name) {
+      var el = form.elements[name];
+      return el ? el.value.replace(/\s+/g, ' ').trim() : '';
+    }
+
+    function buildMessage() {
+      var lines = ['שלום, אשמח לקבל פרטים על הרשמה לג\'ודוקאן אילת.', '', 'שם: ' + value('name')];
+      if (value('phone')) lines.push('טלפון: ' + value('phone'));
+      if (value('email')) lines.push('אימייל: ' + value('email'));
+      if (value('age')) lines.push('גיל המתאמן או המתאמנת: ' + value('age'));
+      if (value('group')) lines.push('קבוצה: ' + value('group'));
+      var msgEl = form.elements.message;
+      if (msgEl && msgEl.value.trim()) lines.push('הודעה: ' + msgEl.value.trim());
+      return lines.join('\n');
+    }
+
+    /* אירוע לחיצה ולא submit: תצוגות מוגבלות (iframe בלי allow-forms) חוסמות שליחת טפסים לפני שהסקריפט רץ */
+    function send(ch) {
+      var bad = [];
+      fields.forEach(function (f) { if (setState(f, validateField(f))) bad.push(f); });
+
+      if (bad.length) {
+        if (result) result.hidden = true;
+        control(bad[0]).focus();
+        say(bad.length === 1 ? 'יש להשלים שדה אחד' : 'יש להשלים ' + bad.length + ' שדות');
+        return;
+      }
+
+      var text = buildMessage();
+      var waUrl = 'https://wa.me/' + waNumber + '?text=' + encodeURIComponent(text);
+      /* בלי כתובת מוגדרת נפתחת טיוטה בלי נמען; עם כתובת היא מתמלאת אוטומטית */
+      var mailUrl = 'mailto:' + email + '?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(text.replace(/\n/g, '\r\n'));
+
+      /* הלוח נשאר גם אם האפליקציה לא נפתחת (למשל בתצוגה מוגבלת): אפשר ללחוץ שוב או להעתיק */
+      if (result) {
+        var area = result.querySelector('textarea');
+        var openWa = result.querySelector('.js-open-wa');
+        var openMail = result.querySelector('.js-open-mail');
+        if (area) area.value = text;
+        if (openWa) openWa.href = waUrl;
+        if (openMail) openMail.href = mailUrl;
+        result.hidden = false;
+      }
+
+      if (ch === 'mail') {
+        try { window.location.href = mailUrl; } catch (err) { /* הלוח מספק גיבוי */ }
+      } else {
+        openInNewTab(waUrl);
+      }
+      if (result) result.focus();
+    }
+
+    [].slice.call(form.querySelectorAll('button[data-channel]')).forEach(function (b) {
+      b.addEventListener('click', function (e) { e.preventDefault(); send(b.getAttribute('data-channel')); });
+    });
+    form.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.isComposing || !e.target || e.target.tagName !== 'INPUT') return;
+      e.preventDefault();
+      send('wa');
+    });
+    form.addEventListener('submit', function (e) { e.preventDefault(); send('wa'); });
+  }
+
+  [].slice.call(doc.querySelectorAll('form[data-wa]')).forEach(initForm);
 
   /* ---------- תפריט נגישות ---------- */
   var KEY = 'jk-a11y';
@@ -141,9 +362,6 @@
   }
   apply();
 
-  var live;
-  function say(msg) { if (live) { live.textContent = ''; window.setTimeout(function () { live.textContent = msg; }, 30); } }
-
   var OPTIONS = [
     { key: 'contrast', label: 'ניגודיות גבוהה', on: 'ניגודיות גבוהה הופעלה', off: 'ניגודיות גבוהה כובתה' },
     { key: 'gray', label: 'גווני אפור', on: 'גווני אפור הופעלו', off: 'גווני אפור כובו' },
@@ -153,22 +371,34 @@
     { key: 'nomotion', label: 'עצירת אנימציות', on: 'האנימציות נעצרו', off: 'האנימציות חזרו' }
   ];
 
-  function el(tag, attrs, html) {
+  /* בונים רק בעזרת DOM ו־textContent, בלי innerHTML */
+  function el(tag, attrs, content) {
     var n = doc.createElement(tag);
     Object.keys(attrs || {}).forEach(function (k) { n.setAttribute(k, attrs[k]); });
-    if (html) n.innerHTML = html;
+    [].concat(content || []).forEach(function (c) {
+      n.appendChild(typeof c === 'string' ? doc.createTextNode(c) : c);
+    });
     return n;
   }
 
-  var icon = '<svg class="i" aria-hidden="true" focusable="false"><use href="#i-access"></use></svg>';
-  var closeIcon = '<svg class="i" aria-hidden="true" focusable="false"><use href="#i-close"></use></svg>';
+  function svgIcon(name) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = doc.createElementNS(ns, 'svg');
+    var use = doc.createElementNS(ns, 'use');
+    svg.setAttribute('class', 'i');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    use.setAttribute('href', '#i-' + name);
+    svg.appendChild(use);
+    return svg;
+  }
 
   var wrap = el('div', { 'class': 'a11y-root' });
-  var toggle = el('button', { type: 'button', 'class': 'a11y-toggle', 'aria-expanded': 'false', 'aria-controls': 'a11y-panel' }, icon + '<span class="a11y-label">נגישות</span>');
+  var toggle = el('button', { type: 'button', 'class': 'a11y-toggle', 'aria-expanded': 'false', 'aria-controls': 'a11y-panel' }, [svgIcon('access'), el('span', { 'class': 'a11y-label' }, 'נגישות')]);
   var panel = el('div', { id: 'a11y-panel', 'class': 'a11y-panel', role: 'dialog', 'aria-labelledby': 'a11y-title', hidden: '' });
   var head = el('div', { 'class': 'a11y-head' });
   head.appendChild(el('h2', { id: 'a11y-title' }, 'תפריט נגישות'));
-  var closeBtn = el('button', { type: 'button', 'class': 'a11y-close', 'aria-label': 'סגירת תפריט הנגישות' }, closeIcon);
+  var closeBtn = el('button', { type: 'button', 'class': 'a11y-close', 'aria-label': 'סגירת תפריט הנגישות' }, svgIcon('close'));
   head.appendChild(closeBtn);
   panel.appendChild(head);
 
@@ -195,14 +425,11 @@
   panel.appendChild(grid);
 
   var statement = el('p', { 'class': 'a11y-foot' });
-  var base = doc.body.getAttribute('data-base') || '';
-  statement.innerHTML = '<a href="' + base + 'accessibility.html">הצהרת נגישות</a>';
+  statement.appendChild(el('a', { href: 'accessibility.html' }, 'הצהרת נגישות'));
   panel.appendChild(statement);
 
-  live = el('div', { 'class': 'a11y-live', 'aria-live': 'polite', role: 'status' });
   wrap.appendChild(panel);
   wrap.appendChild(toggle);
-  wrap.appendChild(live);
   doc.body.appendChild(wrap);
 
   function setPanel(open) {

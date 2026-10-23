@@ -41,7 +41,7 @@ a:hover{color:var(--accent-deep)}
 button{font:inherit}
 [lang="ja"]{font-family:var(--font-jp);font-weight:800}
 :focus-visible{outline:3px solid var(--ink);outline-offset:3px}
-.side :focus-visible,.band-dark :focus-visible,.join :focus-visible,.foot :focus-visible{outline-color:#fff}
+.side :focus-visible,.band-dark :focus-visible,.join :focus-visible,.foot :focus-visible,.contact-info :focus-visible{outline-color:#fff}
 .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .tel{unicode-bidi:isolate;white-space:nowrap}
 .i{width:1.25em;height:1.25em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -280,11 +280,16 @@ h3{font-weight:900}
 .form-title{font-size:1.625rem;font-weight:900}
 .field{display:flex;flex-direction:column;gap:.5rem}
 .field label{font-size:.9375rem;font-weight:700}
-.field input,.field select{min-height:3rem;padding:.85rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1.0625rem}
-.field input:focus,.field select:focus{outline:3px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
+.field input,.field select,.field textarea{min-height:3rem;padding:.85rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1.0625rem}
+.field input:focus,.field select:focus,.field textarea:focus{outline:3px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
 .field input[aria-invalid="true"]{border-color:var(--accent-ink)}
-.err{display:none;color:var(--accent-ink);font-size:.95rem;font-weight:700}
-.err.on{display:block}
+.field textarea{min-height:5.5rem;resize:vertical;line-height:1.6}
+.err{display:none;align-items:flex-start;gap:.45rem;color:var(--accent-ink);font-size:.95rem;font-weight:700;line-height:1.5}
+.err.on{display:flex}
+.err.on::before{content:"!";flex:none;display:grid;place-items:center;width:1.25rem;height:1.25rem;margin-top:.12rem;border-radius:50%;background:var(--accent-ink);color:#fff;font-size:.85rem;line-height:1}
+.opt{margin-inline-start:.4rem;color:var(--ink-3);font-size:.85rem;font-weight:500}
+.req{margin-inline-start:.25rem;color:var(--accent-ink);font-size:1.4em;font-weight:900;line-height:1}
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--accent-ink);background:#FFF6F5}
 .form button{display:inline-flex;align-items:center;justify-content:center;gap:.6rem;min-height:3.25rem;padding:1rem;border:0;border-radius:2px;background:var(--ink);color:#fff;font-size:1.2rem;font-weight:700;cursor:pointer}
 .form button:hover{filter:brightness(1.3)}
 .form-fields{display:none;flex-direction:column;gap:1.25rem}
@@ -294,6 +299,14 @@ h3{font-weight:900}
 .form-or{display:flex;gap:.7rem;flex-wrap:wrap;justify-content:center}
 .join .form-or a{display:inline-flex;align-items:center;gap:.4rem;color:var(--accent-ink);font-weight:700}
 .join .form-or a:hover{color:var(--accent-deep)}
+.join .form a:not(.btn){color:var(--accent-ink);text-decoration:underline;text-underline-offset:.2em}
+.join .form a:not(.btn):hover{color:var(--accent-deep)}
+.join .form a.btn{color:#fff}
+.join .form a.btn--line{color:var(--ink)}
+.join .form a.btn--line:hover{color:#fff}
+.result .btn-row .btn{flex:1 1 12rem;padding-inline:1rem}
+.form button.btn--line{background:transparent;border:2px solid var(--ink);color:var(--ink)}
+.form button.btn--line:hover{background:var(--ink);color:#fff;filter:none}
 .no-js-note{padding:1rem;border:2px solid var(--ink);font-weight:700}
 .js .no-js-note{display:none}
 
@@ -318,6 +331,54 @@ h3{font-weight:900}
 .foot-bar [lang="ja"]{letter-spacing:4px}
 .foot-bar p{margin:0}
 .foot-bar{padding-bottom:4.75rem}
+
+/* ---------- בלי JavaScript, ספרייט, חזרה למעלה ---------- */
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+.no-js-note a{font-weight:700}
+.to-top{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));z-index:70;display:grid;place-items:center;width:3rem;height:3rem;border:2px solid #fff;border-radius:50%;background:var(--ink);color:#fff;box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}
+.to-top:hover{background:var(--accent-ink);color:#fff}
+.to-top:focus-visible{outline:3px solid var(--ink);outline-offset:3px;box-shadow:0 0 0 3px #fff}
+.to-top[hidden]{display:none}
+.press a,.sched-note a,.side-contact a,.foot-val a,.join-more a,.values-title a,.champ-src a,.form-note a,.result p a{display:inline-block;min-height:1.5rem}
+
+/* ---------- אלופים ---------- */
+.champs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,18.75rem),1fr));gap:1.5rem}
+.champ{display:flex;flex-direction:column;gap:.9rem;padding:2.25rem 1.9rem;border:1px solid var(--rule);background:#fff}
+.champ-num{color:var(--accent);font-size:5.5rem;font-weight:900;line-height:.95;letter-spacing:-1px}
+.champ h3{font-size:1.5rem;line-height:1.25}
+.champ p{margin:0;font-size:1.0625rem;line-height:1.7;color:var(--ink-2)}
+.champ .champ-src{margin-top:auto;padding-top:.5rem;font-size:.95rem;color:var(--ink-3)}
+.champ::after{content:"";width:2.5rem;height:3px;background:var(--accent)}
+
+/* ---------- עמוד יצירת קשר ---------- */
+.page-head .band-in{gap:1.2rem;padding-bottom:2.5rem}
+.page-head h1{font-size:4.5rem;line-height:1.05;font-weight:900;letter-spacing:-1px}
+.page-head .lead{max-width:46rem;font-size:1.25rem;line-height:1.7;color:var(--ink-2)}
+.contact-grid{display:flex;flex-direction:row;flex-wrap:wrap;gap:clamp(1.5rem,4vw,3rem);align-items:flex-start}
+.contact-grid>.cform{flex:1.3 1 24rem;min-width:0}
+.contact-grid>.contact-info{flex:.7 1 18rem;min-width:0}
+.cform{display:flex;flex-direction:column;gap:1.25rem;padding:clamp(1.4rem,3vw,2.4rem);border:1px solid var(--rule);background:#fff}
+.cform .form-title{font-size:1.7rem;font-weight:900}
+.send-row{display:flex;flex-wrap:wrap;gap:.75rem}
+.send-row button{flex:1 1 min(14rem,100%);min-width:0;max-width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.6rem;min-height:3.4rem;padding:.9rem 1.4rem;border:2px solid transparent;border-radius:2px;color:#fff;font:700 1.2rem/1.2 var(--font);cursor:pointer}
+.send-row button:hover{filter:brightness(.92)}
+.send-wa{background:var(--accent);border-color:var(--accent)}
+.send-mail{background:var(--ink);border-color:var(--ink)}
+.result{padding:1.2rem 1.25rem;border:2px solid var(--ink);background:var(--paper)}
+.result[hidden]{display:none}
+.result h3{margin-bottom:.4rem;font-size:1.3rem}
+.result p{margin-bottom:.8rem;color:var(--ink-2)}
+.result textarea{display:block;width:100%;min-height:9rem;margin-bottom:.9rem;padding:.8rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1rem;line-height:1.6;resize:vertical}
+.contact-info{padding:clamp(1.4rem,3vw,2.2rem);background:var(--night);color:var(--on-night-2)}
+.contact-info h2{margin-bottom:.4rem;font-size:1.7rem;color:#fff}
+.contact-info a{color:#fff}
+.ci-row{padding:1.1rem 0;border-top:1px solid var(--night-2)}
+.ci-label{color:var(--accent-soft);font-size:.875rem;font-weight:700;letter-spacing:2px}
+.ci-val{margin-top:.25rem;color:#fff;font-size:1.15rem;font-style:normal;line-height:1.6;overflow-wrap:anywhere}
+.ci-btn,.send-row button,.result .btn{white-space:normal;text-align:center}
+.ci-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.7rem}
+.ci-btn{display:inline-flex;align-items:center;gap:.5rem;max-width:100%;min-height:2.75rem;padding:.4rem 1rem;border:1px solid var(--night-4);background:transparent;color:#fff;font:700 1rem/1.2 var(--font);text-decoration:none;cursor:pointer}
+.ci-btn:hover{border-color:var(--accent);background:var(--accent);color:#fff}
 
 /* ---------- סרגל פעולה במובייל ---------- */
 .mbar{position:fixed;inset-inline:0;bottom:0;z-index:60;display:none;grid-template-columns:1fr 1fr;border-top:2px solid var(--ink);background:#fff;padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -345,7 +406,7 @@ h3{font-weight:900}
 .a11y-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
 /* מצבי נגישות על <html> */
-.a11y-gray .layout{filter:grayscale(1)}
+html.a11y-gray{filter:grayscale(1)}
 .a11y-links a{background-color:#FFF59D!important;color:#000!important;text-decoration:underline!important;text-decoration-thickness:2px!important;text-underline-offset:3px!important;outline:2px solid #000}
 .a11y-font body,.a11y-font .content,.a11y-font h1,.a11y-font h2,.a11y-font h3,.a11y-font .btn,.a11y-font summary{font-family:Arial,"Heebo",sans-serif!important;letter-spacing:.015em}
 .a11y-spacing body{line-height:1.95!important;word-spacing:.12em;letter-spacing:.02em}
@@ -366,6 +427,14 @@ h3{font-weight:900}
 .a11y-contrast .prog-meta,.a11y-contrast .coach-tag{background:#fff!important;color:#000!important}
 .a11y-contrast .field input,.a11y-contrast .field select{background:#000;color:#fff;border-color:#fff}
 .a11y-contrast .table-wrap th{background:#222!important}
+.a11y-contrast .cform,.a11y-contrast .contact-info,.a11y-contrast .champ,.a11y-contrast .result,.a11y-contrast .page-head{background:#000!important;color:#fff!important}
+.a11y-contrast .cform,.a11y-contrast .champ,.a11y-contrast .result{border-color:#fff!important}
+.a11y-contrast .champ-num,.a11y-contrast .req,.a11y-contrast .ci-label{color:#FFEB3B!important}
+.a11y-contrast .send-row button,.a11y-contrast .ci-btn,.a11y-contrast .to-top{background:#000!important;color:#FFEB3B!important;border:2px solid #FFEB3B!important}
+.a11y-contrast .field textarea,.a11y-contrast .result textarea{background:#000;color:#fff;border-color:#fff}
+.a11y-contrast .field.invalid input,.a11y-contrast .field.invalid select,.a11y-contrast .field.invalid textarea{background:#000;border-color:#FFEB3B}
+.a11y-contrast .err{color:#FFEB3B!important}
+.a11y-contrast .err.on::before{background:#FFEB3B;color:#000}
 .a11y-contrast :focus-visible{outline-color:#FFEB3B!important}
 
 /* ---------- עמודים משפטיים ---------- */
@@ -388,28 +457,47 @@ h3{font-weight:900}
   .coach{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:900px){
-  html{scroll-padding-top:5.5rem}
+  html{scroll-padding-top:7.5rem;scroll-padding-bottom:5rem}
+  /* בלי JavaScript הכותרת הדביקה גבוהה יותר (שורת קישורים תחת השם) */
+  html:not(.js){scroll-padding-top:9.5rem}
   .layout{display:block}
-  .side{position:sticky;top:0;width:auto;height:auto;max-height:100vh;max-height:100dvh;padding:.75rem 1rem;gap:0;border-left:0;border-bottom:3px solid var(--accent)}
-  .menu-btn{display:inline-flex}
-  .side-nav,.side-bottom{display:none}
-  .side.open .side-nav{display:flex;margin-top:.75rem}
-  .side.open .side-bottom{display:flex;margin-top:1.25rem;padding-bottom:.5rem}
-  .side-osu{display:none!important}
+  .side{position:sticky;top:0;width:auto;height:auto;max-height:100vh;max-height:100dvh;padding:.75rem 1rem;gap:.6rem;border-left:0;border-bottom:3px solid var(--accent)}
+  /* בלי JavaScript התפריט נשאר גלוי, כשורת קישורים נגללת */
+  .side-nav{flex-direction:row;gap:.4rem;overflow-x:auto;padding-bottom:.4rem;scrollbar-width:thin}
+  .side-nav a{flex:none;padding:.55rem .85rem;border:1px solid var(--night-4);border-radius:2px;font-size:1rem}
+  .side-nav .num,.side-nav .kj{display:none}
+  .side-bottom,.side-osu{display:none!important}
+  /* עם JavaScript התפריט מתקפל מאחורי הכפתור */
+  .js .menu-btn{display:inline-flex}
+  .js .side{gap:0}
+  .js .side-nav{display:none;flex-direction:column;gap:0;overflow:visible;padding-bottom:0}
+  .js .side-nav a{flex:initial;padding:.7rem .25rem;border:0;border-bottom:1px solid var(--night-3);border-radius:0;font-size:1.0625rem}
+  .js .side-nav .num,.js .side-nav .kj{display:block}
+  .js .side.open .side-nav{display:flex;margin-top:.75rem}
+  .js .side.open .side-bottom{display:flex!important;margin-top:1.25rem;padding-bottom:.5rem}
   .train-grid{grid-template-columns:minmax(0,1fr)}
   .principles{grid-template-columns:minmax(0,1fr)}
+  .contact-grid>.cform,.contact-grid>.contact-info{flex:1 1 100%}
 }
 @media (max-width:760px){
   body{padding-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px))}
   .mbar{display:grid}
-  .a11y-root{bottom:calc(3.5rem + 14px + env(safe-area-inset-bottom,0px))}
+  .a11y-root,.to-top{bottom:calc(3.5rem + 14px + env(safe-area-inset-bottom,0px))}
   .timeline{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:700px){
   .hero h1{font-size:3.25rem}
   h2,.sched-copy h2,.join h2{font-size:2.25rem}
-  .hero-in{padding-top:3rem;padding-bottom:4rem;gap:2.5rem}
-  .band-in,.sched-in,.join-in{padding-block:4rem}
+  .hero-in{padding-top:2.25rem;padding-bottom:3rem;gap:2rem}
+  .band-in,.sched-in,.join-in{padding-block:3rem}
+  .band-in{gap:2.5rem}
+  .card-dark,.prog{padding:1.75rem 1.4rem}
+  .page-head h1{font-size:2.75rem}
+  .champ{padding:1.75rem 1.4rem}
+  .champ-num{font-size:4.25rem}
+  .cform{padding:1.4rem 1.1rem}
+  .press li{margin-bottom:.55rem}
+  .press a{padding-block:.3rem}
   .hero-art{min-height:0;padding-bottom:5rem}
   .hero-vert{display:none}
   .hero-quote{right:0;left:0;max-width:none;bottom:0}
@@ -433,11 +521,11 @@ h3{font-weight:900}
   *,*::before,*::after{animation:none!important;transition:none!important}
 }
 @media (forced-colors:active){
-  .btn,.a11y-toggle,.a11y-opt,.menu-btn,.side-cta{border:2px solid ButtonText}
+  .btn,.a11y-toggle,.a11y-opt,.menu-btn,.side-cta,.send-row button,.ci-btn,.to-top{border:2px solid ButtonText}
   .sun,.belt-bar,.kohaku{forced-color-adjust:none}
 }
 @media print{
-  .side,.mbar,.a11y-root,.hero-art{display:none!important}
+  .side,.mbar,.a11y-root,.hero-art,.to-top{display:none!important}
   .layout{display:block}
   body{padding:0;font-size:12pt}
   .band-in,.sched-in,.join-in{padding-block:1.2rem}
