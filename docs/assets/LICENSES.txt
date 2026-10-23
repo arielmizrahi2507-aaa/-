@@ -36,9 +36,10 @@ SOFTWARE.
 
 Club logo
 ---------
-The club's logo (the red circle with the judoka; assets/img/logo-128.png, logo-192.png, logo-800.webp, favicon-32.png,
-apple-touch-icon.png and the logo inside og-image.jpg) was supplied by the owner of the site and belongs to Judokan Eilat.
-It is not covered by the licenses above and may not be copied or reused without the club's permission.
+The club's logo (the red circle with the judoka; assets/img/logo.svg, logo-192.png, favicon-32.png, apple-touch-icon.png and
+the logo inside og-image.jpg) was supplied by the owner of the site and belongs to Judokan Eilat. The vector file is a clean
+redrawing of the logo from a photograph of the club's shirt print (same shapes and lettering, flat colours). It is not
+covered by the licenses above and may not be copied or reused without the club's permission.
 
 Other graphics
 --------------

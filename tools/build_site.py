@@ -35,8 +35,9 @@ MAIL_SUBJECT = "פנייה מהאתר: הרשמה לג'ודוקאן אילת"
 
 NEWTAB = '<span class="sr-only"> (נפתח בלשונית חדשה)</span>'
 
-# the club's logo (circle only); the files are made from tools/logo/logo-master.webp by tools/make_logo_assets.py
-BRAND_MARK = '<img class="brand-mark" src="assets/img/logo-128.png" width="128" height="128" alt="" decoding="async">'
+# the club's logo (circle only): assets/img/logo.svg, a vector redrawn from the photo of the club's shirt print;
+# the PNG icons are made from it by tools/make_logo_assets.py
+BRAND_MARK = '<img class="brand-mark" src="assets/img/logo.svg" width="1000" height="1000" alt="" decoding="async">'
 LOGO_ALT = "לוגו המועדון: ג'ודוקא בזריקה בתוך עיגול אדום, ומעליו הכיתוב ג'ודוקאן אילת"
 OG_ALT = "לוגו ג'ודוקאן אילת, מועדון ג'ודו באילת"
 
@@ -372,7 +373,7 @@ def index_main():
 </ul>
 </div>
 <div class="hero-art">
-<div class="sun"><picture><source srcset="assets/img/logo-800.webp" type="image/webp"><img src="assets/img/logo-192.png" width="800" height="800" alt="{LOGO_ALT}" fetchpriority="high"></picture></div>
+<div class="sun"><img src="assets/img/logo.svg" width="1000" height="1000" alt="{LOGO_ALT}" fetchpriority="high"></div>
 <div class="hero-vert" lang="ja" aria-hidden="true">礼に始まり礼に終わる</div>
 <p class="hero-quote">מעל לכל אנחנו מקפידים על משמעת עצמית ועל כבוד לאחר.</p>
 </div>
