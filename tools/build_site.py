@@ -35,6 +35,11 @@ MAIL_SUBJECT = "פנייה מהאתר: הרשמה לג'ודוקאן אילת"
 
 NEWTAB = '<span class="sr-only"> (נפתח בלשונית חדשה)</span>'
 
+# the club's logo (circle only); the files are made from tools/logo/logo-master.webp by tools/make_logo_assets.py
+BRAND_MARK = '<img class="brand-mark" src="assets/img/logo-128.png" width="128" height="128" alt="" decoding="async">'
+LOGO_ALT = "לוגו המועדון: ג'ודוקא בזריקה בתוך עיגול אדום, ומעליו הכיתוב ג'ודוקאן אילת"
+OG_ALT = "לוגו ג'ודוקאן אילת, מועדון ג'ודו באילת"
+
 
 def ext(url, text, cls=""):
     c = f' class="{cls}"' if cls else ""
@@ -97,7 +102,7 @@ def sidebar(home, current=None):
     return f"""<header class="side" id="side">
 <div class="side-top">
 <a class="brand" href="{base}#top">
-<span class="brand-mark" lang="ja" aria-hidden="true">柔</span>
+{BRAND_MARK}
 <span class="brand-text"><b>{CLUB}</b><small lang="en" dir="ltr">JUDOKAN · EILAT JUDO</small></span>
 </a>
 <button type="button" class="menu-btn" aria-label="פתיחת תפריט" aria-expanded="false" aria-controls="site-nav">{icon("menu", "i")}</button>
@@ -120,7 +125,7 @@ def footer(home):
 <div class="foot-in">
 <div class="foot-grid">
 <div class="foot-col">
-<div class="foot-brand"><span class="brand-mark" lang="ja" aria-hidden="true">柔</span><b>{CLUB}</b></div>
+<div class="foot-brand">{BRAND_MARK}<b>{CLUB}</b></div>
 <p>מועדון ג'ודו באילת. בנים ובנות מגיל 4, נוער ומבוגרים.</p>
 </div>
 <div class="foot-col">
@@ -185,7 +190,11 @@ def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=
 <meta property="og:site_name" content="{CLUB}">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
-<meta property="og:image" content="assets/img/og-image.png">
+<meta property="og:image" content="assets/img/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{OG_ALT}">
 <meta name="twitter:card" content="summary_large_image">
 """
     skip2_html = f'<a class="skip" href="{skip2[0]}">{skip2[1]}</a>\n' if skip2 else ""
@@ -200,8 +209,8 @@ def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=
 <meta name="description" content="{desc}">
 <meta name="theme-color" content="#EE362E">
 <meta name="color-scheme" content="light">
-{ogtags}<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+{ogtags}<link rel="icon" href="assets/img/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="icon" href="assets/img/logo-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
 <link rel="preload" href="assets/fonts/heebo-hebrew.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="assets/css/style.css">
@@ -363,7 +372,7 @@ def index_main():
 </ul>
 </div>
 <div class="hero-art">
-<div class="sun" aria-hidden="true"><span class="sun-kanji" lang="ja">柔道</span></div>
+<div class="sun"><picture><source srcset="assets/img/logo-800.webp" type="image/webp"><img src="assets/img/logo-192.png" width="800" height="800" alt="{LOGO_ALT}" fetchpriority="high"></picture></div>
 <div class="hero-vert" lang="ja" aria-hidden="true">礼に始まり礼に終わる</div>
 <p class="hero-quote">מעל לכל אנחנו מקפידים על משמעת עצמית ועל כבוד לאחר.</p>
 </div>

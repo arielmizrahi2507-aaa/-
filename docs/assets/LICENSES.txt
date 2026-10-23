@@ -34,11 +34,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+Club logo
+---------
+The club's logo (the red circle with the judoka; assets/img/logo-128.png, logo-192.png, logo-800.webp, favicon-32.png,
+apple-touch-icon.png and the logo inside og-image.jpg) was supplied by the owner of the site and belongs to Judokan Eilat.
+It is not covered by the licenses above and may not be copied or reused without the club's permission.
+
 Other graphics
 --------------
-The other icons (menu, close, check, arrow, accessibility, speech bubble) were drawn for this site. The "柔" mark
-is a character from the Shippori Mincho font inside a red circle; the favicon and the Open Graph image are built
-from it. None of these is the logo of WhatsApp, Waze, Google or any other company, and none is an official logo
-of the club.
+The other icons (menu, close, check, arrow, accessibility, speech bubble) were drawn for this site. None of these is the
+logo of WhatsApp, Waze, Google or any other company.
 
 No JavaScript libraries, no external stylesheets, no analytics and no tracking scripts are used.
