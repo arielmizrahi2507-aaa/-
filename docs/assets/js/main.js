@@ -69,9 +69,17 @@
     var a = e.target.closest ? e.target.closest('a[href]') : null;
     if (!a || e.defaultPrevented || a.target === '_blank') return;
     var raw = a.getAttribute('href');
-    var url;
-    try { url = new URL(a.href, location.href); } catch (err) { return; }
-    if (url.protocol !== location.protocol || url.host !== location.host || url.pathname !== location.pathname) return;
+    var hash;
+    if (raw.charAt(0) === '#') {
+      /* קישור לקטע בעמוד עצמו. בודקים לפי הטקסט שבקישור ולא לפי הכתובת המלאה: בתצוגה מוטמעת (srcdoc)
+         הכתובת מתפרשת ביחס לדף המארח, והקישור היה מנווט את המסגרת אל הדף ההוא */
+      hash = raw;
+    } else {
+      var url;
+      try { url = new URL(a.href, location.href); } catch (err) { return; }
+      if (url.protocol !== location.protocol || url.host !== location.host || url.pathname !== location.pathname) return;
+      hash = url.hash;
+    }
 
     if (raw === '#') {
       e.preventDefault();
@@ -80,9 +88,9 @@
       if (brand) window.setTimeout(function () { try { brand.focus({ preventScroll: true }); } catch (err) { brand.focus(); } }, 80);
       return;
     }
-    if (!url.hash || url.hash.length < 2) {
+    if (!hash || hash.length < 2) {
       /* קישור לעמוד שכבר פתוח (למשל "צור קשר" מתוך עמוד יצירת הקשר): לא טוענים אותו מחדש, כדי שהטופס לא יתרוקן */
-      if (!url.hash) {
+      if (!hash) {
         e.preventDefault();
         setMenu(false);
         window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
@@ -90,11 +98,11 @@
       return;
     }
     var id;
-    try { id = decodeURIComponent(url.hash.slice(1)); } catch (err) { return; }
+    try { id = decodeURIComponent(hash.slice(1)); } catch (err) { return; }
     if (!doc.getElementById(id)) return;
     e.preventDefault();
     setMenu(false);
-    goTo(id, url.hash);
+    goTo(id, hash);
   });
 
   /* ---------- כפתור חזרה למעלה (העמוד ארוך) ---------- */

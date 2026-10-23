@@ -435,21 +435,17 @@ html.a11y-gray{filter:grayscale(1)}
 }
 @media (max-width:900px){
   html{scroll-padding-top:7.5rem;scroll-padding-bottom:5rem}
-  /* בלי JavaScript הכותרת הדביקה גבוהה יותר (שורת קישורים תחת השם) */
-  html:not(.js){scroll-padding-top:9.5rem}
+  /* בלי JavaScript הכותרת לא דביקה, ולכן אין צורך בריווח לכותרת בגלילה לקטעים */
+  html:not(.js){scroll-padding-top:1rem}
   .layout{display:block}
-  .side{position:sticky;top:0;width:auto;height:auto;max-height:100vh;max-height:100dvh;padding:.75rem 1rem;gap:.6rem;border-left:0;border-bottom:3px solid var(--accent)}
-  /* בלי JavaScript התפריט נשאר גלוי, כשורת קישורים נגללת */
-  .side-nav{flex-direction:row;gap:.4rem;overflow-x:auto;padding-bottom:.4rem;scrollbar-width:thin}
-  .side-nav a{flex:none;padding:.55rem .85rem;border:1px solid var(--night-4);border-radius:2px;font-size:1rem}
-  .side-nav .num,.side-nav .kj{display:none}
+  .side{position:sticky;top:0;width:auto;height:auto;max-height:100vh;max-height:100dvh;padding:.75rem 1rem;gap:0;border-left:0;border-bottom:3px solid var(--accent)}
+  /* בלי JavaScript אין כפתור שמקפל את התפריט: הרשימה גלויה מתחת לשם, באותו סגנון כמו במחשב (מספר, שם ותו יפני), והכותרת לא דביקה */
+  html:not(.js) .side{position:static;max-height:none}
+  html:not(.js) .side-nav{margin-top:.75rem}
   .side-bottom,.side-osu{display:none!important}
   /* עם JavaScript התפריט מתקפל מאחורי הכפתור */
   .js .menu-btn{display:inline-flex}
-  .js .side{gap:0}
-  .js .side-nav{display:none;flex-direction:column;gap:0;overflow:visible;padding-bottom:0}
-  .js .side-nav a{flex:initial;padding:.7rem .25rem;border:0;border-bottom:1px solid var(--night-3);border-radius:0;font-size:1.0625rem}
-  .js .side-nav .num,.js .side-nav .kj{display:block}
+  .js .side-nav{display:none}
   .js .side.open .side-nav{display:flex;margin-top:.75rem}
   .js .side.open .side-bottom{display:flex!important;margin-top:1.25rem;padding-bottom:.5rem}
   .train-grid{grid-template-columns:minmax(0,1fr)}
