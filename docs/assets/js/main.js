@@ -80,7 +80,15 @@
       if (brand) window.setTimeout(function () { try { brand.focus({ preventScroll: true }); } catch (err) { brand.focus(); } }, 80);
       return;
     }
-    if (!url.hash || url.hash.length < 2) return;
+    if (!url.hash || url.hash.length < 2) {
+      /* קישור לעמוד שכבר פתוח (למשל "צור קשר" מתוך עמוד יצירת הקשר): לא טוענים אותו מחדש, כדי שהטופס לא יתרוקן */
+      if (!url.hash) {
+        e.preventDefault();
+        setMenu(false);
+        window.scrollTo({ top: 0, behavior: reducedMotion() ? 'auto' : 'smooth' });
+      }
+      return;
+    }
     var id;
     try { id = decodeURIComponent(url.hash.slice(1)); } catch (err) { return; }
     if (!doc.getElementById(id)) return;
@@ -336,10 +344,15 @@
     [].slice.call(form.querySelectorAll('button[data-channel]')).forEach(function (b) {
       b.addEventListener('click', function (e) { e.preventDefault(); send(b.getAttribute('data-channel')); });
     });
+    /* Enter (ב"הבא" במקלדת של הטלפון) עובר לשדה הבא: לא מאמת ולא שולח, כדי שלא יישארו תקועים בשדה השם אחרי שם פרטי בלבד.
+       שליחה רק בשני הכפתורים. */
     form.addEventListener('keydown', function (e) {
-      if (e.key !== 'Enter' || e.isComposing || !e.target || e.target.tagName !== 'INPUT') return;
+      if (e.key !== 'Enter' || e.isComposing || !e.target || e.target.tagName !== 'INPUT' || e.target.type === 'checkbox') return;
       e.preventDefault();
-      send('wa');
+      var all = [].slice.call(form.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea'))
+        .filter(function (c) { return !c.disabled && c.offsetParent !== null; });
+      var next = all[all.indexOf(e.target) + 1];
+      if (next) next.focus();
     });
     form.addEventListener('submit', function (e) { e.preventDefault(); send('wa'); });
   }

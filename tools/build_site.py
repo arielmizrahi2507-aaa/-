@@ -298,10 +298,10 @@ def contact_form():
 <h2 class="form-title">פרטי הפנייה</h2>
 <p class="no-js-note">הטופס דורש JavaScript. אפשר ליצור קשר ישירות: טלפון {tel("tel")}, <a href="{WA_LINK}">וואטסאפ</a>{no_js_mail}.</p>
 <div class="form-fields js-only">
-{field("cf", "name", "שם מלא", ctl("cf", "name", "input", 'type="text" maxlength="60" autocomplete="name" placeholder="שם פרטי ושם משפחה"'), True, "name")}
-{field("cf", "phone", "טלפון", ctl("cf", "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="050-0000000" class="ltr-input"'), True, "phone")}
-{field("cf", "email", "אימייל", ctl("cf", "email", "input", 'type="email" maxlength="80" autocomplete="email" placeholder="כתובת המייל שלכם" class="ltr-input"'), False, "email")}
-{field("cf", "age", "גיל המתאמן או המתאמנת", ctl("cf", "age", "input", 'type="text" maxlength="3" inputmode="numeric" placeholder="למשל 8" class="ltr-input"'), True, "age")}
+{field("cf", "name", "שם מלא", ctl("cf", "name", "input", 'type="text" maxlength="60" autocomplete="name" enterkeyhint="next" placeholder="שם פרטי ושם משפחה"'), True, "name")}
+{field("cf", "phone", "טלפון", ctl("cf", "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="050-0000000" class="ltr-input"'), True, "phone")}
+{field("cf", "email", "אימייל", ctl("cf", "email", "input", 'type="email" maxlength="80" autocomplete="email" enterkeyhint="next" placeholder="כתובת המייל שלכם" class="ltr-input"'), False, "email")}
+{field("cf", "age", "גיל המתאמן או המתאמנת", ctl("cf", "age", "input", 'type="text" maxlength="3" inputmode="numeric" enterkeyhint="next" placeholder="למשל 8" class="ltr-input"'), True, "age")}
 {field("cf", "group", "קבוצה מבוקשת", ctl("cf", "group", "select", '', options))}
 {field("cf", "message", "הודעה", ctl("cf", "message", "textarea", 'rows="4" maxlength="300" placeholder="אפשר לכתוב כאן כל שאלה"'))}
 {consent_field("cf")}
