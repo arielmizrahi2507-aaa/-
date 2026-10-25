@@ -24,7 +24,7 @@ cd tools/tests && npm ci                       # once per fresh checkout (Node 2
 python3 -m venv tools/tests/.venv && tools/tests/.venv/bin/pip install -r tools/tests/requirements.txt
                                                # optional: enables cjk-scan (otherwise it is skipped); the runner finds this venv by itself
 node tools/tests/run-all.mjs --strict          # everything, ~4 min (3 suites at a time); exit code 0 only if every suite passed and none was skipped
-node tools/tests/run-all.mjs --quick           # fast subset while iterating, ~2 min
+node tools/tests/run-all.mjs --quick           # fast subset while iterating, ~1 min
 node tools/tests/run-all.mjs --only forms,menu # chosen suites (--list shows the names); --jobs 1 runs them one by one (~9 min for everything)
 python3 tools/make_preview.py                  # build/preview/judokan-eilat-site.html
 ```
