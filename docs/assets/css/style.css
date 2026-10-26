@@ -511,6 +511,7 @@ html.a11y-gray{filter:grayscale(1)}
 /* ---------- גלילה לצד (נייד) ---------- */
 .hs{min-width:0;max-width:100%}
 .hs-stage{display:contents}
+.hs-probe{position:fixed;top:0;left:0;width:1px;height:100vh;height:100svh;visibility:hidden;pointer-events:none}
 [data-hs]{--hs-w:min(82%,20rem)}
 .cards4[data-hs]{--hs-w:min(80%,19rem)}
 .programs[data-hs]{--hs-w:min(82%,19.5rem)}
@@ -534,12 +535,12 @@ html.a11y-gray{filter:grayscale(1)}
   html.js:not(.a11y-stack) .gloss > dl{flex:none;display:flex;gap:1rem;margin:0}
   html.js:not(.a11y-stack) .gloss dl > div{flex:0 0 11.5rem;display:flex;flex-direction:column;gap:.5rem;padding:1.1rem;border:1px solid var(--rule);background:#fff;scroll-snap-align:start;scroll-snap-stop:always}
   html.js:not(.a11y-stack) .gloss dt{font-size:1.6rem}
-  /* הפס נעצר בגלילה: העטיפה גבוהה כמו מרחק הגלילה של הכרטיסים (--hs-d) ועוד גובה הבמה, והבמה נדבקת מתחת לכותרת וממלאת את המסך הפנוי.
-     השוליים השליליים (--hs-g) מחזירים את הפס למקומו הרגיל לפני העצירה ואחריה, והבמה עצמה שקופה ולא תופסת נגיעות */
+  /* A pinned strip: the wrapper is as tall as the stage plus the way the cards travel (--hs-d), and the stage sticks under the header and fills the free screen.
+     The negative margins (--hs-g) give the strip back its normal place before and after the pin, and the stage itself is transparent and takes no taps. */
   html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d));margin-block:calc(var(--hs-g) * -1)}
   html.js:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
   html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
-  /* פס שלא נכנס במסך נמוך נעצר בכל זאת כשהכרטיסים מהודקים קצת: פחות ריווח וכותרות מספר קטנות יותר, בלי לשנות את גודל הטקסט הקריא */
+  /* A strip that does not fit a short screen is pinned anyway with tighter cards: less padding and smaller number glyphs, the same readable text size. */
   html.js:not(.a11y-stack) .hs.hs-tight .prog,html.js:not(.a11y-stack) .hs.hs-tight .champ,html.js:not(.a11y-stack) .hs.hs-tight .card-dark,html.js:not(.a11y-stack) .hs.hs-tight .principle{padding-block:1.1rem;gap:.55rem}
   html.js:not(.a11y-stack) .hs.hs-tight .prog h3{font-size:1.45rem}
   html.js:not(.a11y-stack) .hs.hs-tight .champ-num{font-size:3rem}
@@ -548,6 +549,9 @@ html.a11y-gray{filter:grayscale(1)}
 }
 @media (max-width:900px) and (pointer:fine){
   html.js:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
+  /* mouse and touchpad: a pinned strip is moved by the page scroll (and by the keys and the drag, which are script-driven), never by the wheel itself.
+     A touchpad always adds a little sideways drift, and a strip that can scroll sideways would take the whole scroll gesture from the page. */
+  html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{overflow-x:hidden}
 }
 .a11y-contrast [data-hs] > *,.a11y-contrast .gloss dl > div{background:#000!important;color:#fff!important;border-color:#fff!important}
 @media (prefers-reduced-motion:reduce){
@@ -559,7 +563,7 @@ html.a11y-gray{filter:grayscale(1)}
   .belt-bar,.kohaku{forced-color-adjust:none}
 }
 @media print{
-  .side,.mbar,.a11y-root,.hero-art,.to-top{display:none!important}
+  .side,.mbar,.a11y-root,.hero-art,.to-top,.hs-probe{display:none!important}
   .layout{display:block}
   body{padding:0;font-size:12pt}
   .band-in,.sched-in,.join-in{padding-block:1.2rem}

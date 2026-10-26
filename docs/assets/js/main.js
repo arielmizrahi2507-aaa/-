@@ -33,7 +33,7 @@
     side.classList.toggle('open', open);
     menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     menuBtn.setAttribute('aria-label', open ? 'סגירת תפריט' : 'פתיחת תפריט');
-    /* כשהתפריט פתוח לא מודדים את הכותרת, ולכן אחרי הסגירה מודדים שוב (למשל אם הטלפון הסתובב בינתיים) */
+    /* The header is not measured while the menu is open, so measure again after it closes (the phone may have been turned meanwhile). */
     if (!open) hsRefresh();
   }
 
@@ -377,15 +377,18 @@
   var mq = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
   var carousels = [];
   var hsRaf = 0;
+  var hsFirst = true;
 
-  var pins = [];       /* לכל פס פונקציה שמיישרת אותו לפי מקום הדף */
+  var pins = [];       /* one function per strip that puts its cards where the page scroll says */
   var pinRaf = 0;
-  var pinTop = 0;      /* הקצה התחתון של הכותרת הדביקה */
-  var pinView = 0;     /* הגובה הפנוי, בין הכותרת לסרגל התחתון */
-  var PIN_ROOM = 16;   /* כמה מקום נשאר מעל הפס ומתחתיו */
+  var pinTop = 0;      /* bottom edge of the sticky header */
+  var pinView = 0;     /* free height between the header and the bottom bar */
+  var PIN_ROOM = 16;   /* room kept above and below a pinned strip */
   var stickyOk = !!(window.CSS && window.CSS.supports && window.CSS.supports('position', 'sticky'));
-  /* מסגרת שמתרחבת לגובה התוכן (חלק מהמציגים המוטמעים) לא גוללת בעצמה, ושם אין מה לעצור */
-  var pageScrolls = window.innerHeight > 0 && doc.documentElement.scrollHeight > window.innerHeight * 1.5;
+  /* A frame that grows to the height of its content (some embedding viewers) does not scroll by itself, so there is nothing to pin. */
+  var pageScrolls = false;
+  var probe = null;
+  var viewKey = '';
 
   function carouselOn() {
     return !!(mq && mq.matches) && !root.classList.contains('a11y-stack');
@@ -395,8 +398,19 @@
     return carouselOn() && stickyOk && pageScrolls && !reducedMotion();
   }
 
-  /* כשהתפריט פתוח הכותרת גבוהה מהרגיל, ולכן אז לא מודדים */
+  /* The small viewport (browser toolbars shown), so the stage never grows or shrinks while the visitor scrolls and the toolbars come and go.
+     Where the unit is unsupported the probe falls back to 100vh and innerHeight is the smaller of the two. */
+  function viewHeight() {
+    if (!probe) {
+      probe = el('div', { 'class': 'hs-probe', 'aria-hidden': 'true' });
+      doc.body.appendChild(probe);
+    }
+    return Math.min(probe.offsetHeight || window.innerHeight, window.innerHeight);
+  }
+
+  /* While the phone menu covers the page the header is taller than usual, so it is not measured then. */
   function measureView() {
+    pageScrolls = root.scrollHeight > window.innerHeight + 120;
     if (side && side.classList.contains('open')) return;
     var top = 0;
     var h = 0;
@@ -408,7 +422,8 @@
     var bar = doc.querySelector('.mbar');
     var barH = bar && window.getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
     pinTop = Math.ceil(top + h);
-    pinView = Math.max(0, Math.floor(window.innerHeight - pinTop - barH));
+    pinView = Math.max(0, Math.floor(viewHeight() - pinTop - barH));
+    viewKey = doc.documentElement.clientWidth + ':' + viewHeight();
   }
 
   function pinSync() {
@@ -416,7 +431,7 @@
     pins.forEach(function (f) { f(); });
   }
 
-  /* גלילה מיידית של הדף, גם כשבסגנון מוגדרת גלילה חלקה */
+  /* Scroll the page at once, even where the stylesheet asks for smooth scrolling. */
   function jumpBy(dy) {
     var prev = root.style.scrollBehavior;
     root.style.scrollBehavior = 'auto';
@@ -424,13 +439,52 @@
     root.style.scrollBehavior = prev;
   }
 
+  /* The element the visitor is looking at: the first thing outside the strips, going down from just under the header. A strip and the content
+     after it stay next to each other whether the strip is pinned or not, but the pinning zone (the way the cards travel) sits between the strip
+     and what came before it, so content below the strip is the anchor that does not move when pinning is switched. Inside a zone, with nothing
+     else in sight, the strip's own wrapper is the anchor. The transparent stage of a pinned strip takes no hits, so what lies under it is found. */
+  function pickAnchor() {
+    var x = Math.floor(window.innerWidth / 2);
+    var inside = null;
+    if (!doc.elementsFromPoint) return null;
+    for (var y = pinTop + 8; y < window.innerHeight; y += 24) {
+      var list = doc.elementsFromPoint(x, y);
+      var e = null;
+      for (var i = 0; i < list.length && !e; i++) {
+        if (list[i] !== root && list[i] !== doc.body && !list[i].closest('.side, .mbar, .a11y-root, .to-top, .a11y-live, .hs-probe')) e = list[i];
+      }
+      if (!e) continue;
+      if (e.closest('.hs') || e.querySelector('.hs')) { if (!inside && e.closest('.hs')) inside = e.closest('.hs'); continue; }
+      return { el: e, mt: parseFloat(window.getComputedStyle(e).marginTop) || 0 };
+    }
+    return inside ? { el: inside, mt: parseFloat(window.getComputedStyle(inside).marginTop) || 0 } : null;
+  }
+
+  /* Strips start or stop being pinned (about 7,400 px of layout) and cards get tighter, usually above the part of the page the visitor is on.
+     The visitor stays where they are: whatever shifted the anchor is scrolled back. A wrapper's own negative margin is not a shift of its content. */
+  function hsRun() {
+    var a = pickAnchor();
+    var before = a ? a.el.getBoundingClientRect().top : 0;
+    var prevAnchoring = root.style.overflowAnchor;
+    root.style.overflowAnchor = 'none';
+    measureView();
+    carousels.forEach(function (c) { c(); });
+    if (a && a.el.isConnected) {
+      var mt = parseFloat(window.getComputedStyle(a.el).marginTop) || 0;
+      var dy = (a.el.getBoundingClientRect().top - before) - (mt - a.mt);
+      if (Math.abs(dy) > 1) jumpBy(dy);
+    }
+    root.style.overflowAnchor = prevAnchoring;
+    pinSync();
+  }
+
+  /* The first run is immediate, before the browser scrolls to a link's section or restores the position of a reloaded page. */
   function hsRefresh() {
+    if (hsFirst) { hsFirst = false; hsRun(); return; }
     if (hsRaf) return;
     hsRaf = window.requestAnimationFrame(function () {
       hsRaf = 0;
-      measureView();
-      carousels.forEach(function (c) { c(); });
-      pinSync();
+      hsRun();
     });
   }
 
@@ -444,7 +498,7 @@
     var settle = 0;
     var active = 0;
 
-    /* .hs היא העטיפה שגבוהה כמו מרחק הגלילה, ו־.hs-stage היא הבמה שנדבקת למסך בזמן שהכרטיסים זזים. כשאין עצירה הבמה לא מייצרת תיבה */
+    /* .hs is as tall as the way the cards travel, and .hs-stage is the box that sticks to the screen while they move. Without pinning the stage has no box. */
     var wrap = el('div', { 'class': 'hs' });
     var stage = el('div', { 'class': 'hs-stage' });
     track.parentNode.insertBefore(wrap, track);
@@ -560,17 +614,17 @@
     track.addEventListener('click', function (e) { if (suppress) { e.preventDefault(); e.stopPropagation(); } }, true);
     track.addEventListener('dragstart', function (e) { if (carouselOn()) e.preventDefault(); });
 
-    /* ---- עצירת הפס בזמן גלילת הדף ----
-       כשהפס נעצר, גלילת הדף ב־p פיקסלים מזיזה את הכרטיסים p פיקסלים הצידה, עד סוף הפס. כמה גללו אפשר לדעת ממקום העטיפה במסך.
-       כשהפס זז מעצמו (החלקה, גרירה, מקשי החצים, חיפוש בדף, מיקוד), מעבירים את הדף למקום המתאים, כך ששני הכיוונים נשארים מסונכרנים */
+    /* ---- pinning the strip while the page scrolls ----
+       A pinned strip moves its cards p pixels sideways for p pixels of page scroll, up to the end of the strip. How far the page scrolled is read from
+       the place of the wrapper on the screen. When the strip is moved by something else (a swipe, the drag, the arrow keys, find in page, focus,
+       a screen reader) the page is scrolled to the matching place, so both directions stay in step. */
     var pinned = false;
     var pinD = 0;
-    var written = 0;     /* המקום שהסקריפט עצמו כתב, כדי להבדיל בין הד של הכתיבה לבין תנועה של הגולש */
-    var holdUntil = 0;
+    var written = 0;     /* the place the script itself wrote, to tell the echo of its own write from the visitor's move */
     var adoptTimer = 0;
     var dirSign = -1;
 
-    /* פס שלא נכנס בגובה המסך הפנוי ננסה פעם נוספת עם כרטיסים מהודקים (פחות ריווח, אותו גודל טקסט). אם גם אז לא נכנס, הוא נשאר פס רגיל */
+    /* A strip that does not fit the free height is tried once more with tighter cards (less padding, same text size). If it still does not fit it stays a plain strip. */
     function pinFits() {
       wrap.classList.remove('hs-tight');
       var th = track.offsetHeight;
@@ -605,7 +659,7 @@
     }
 
     function pinPlace() {
-      if (!pinned || Date.now() < holdUntil) return;
+      if (!pinned) return;
       var r = wrap.getBoundingClientRect();
       var want = Math.max(0, Math.min(pinD, pinTop - r.top));
       if (Math.abs(Math.abs(track.scrollLeft) - want) < 0.75) return;
@@ -621,8 +675,7 @@
       if (r.bottom < 0 || r.top > window.innerHeight) return;
       var cur = Math.abs(track.scrollLeft);
       var raw = pinTop - r.top;
-      holdUntil = 0;
-      /* כבר מסונכרנים, גם כשהדף מעבר לקצה הפס (שם הכרטיסים נשארים בקצה): אין סיבה להזיז את הדף */
+      /* Already in step, also when the page is beyond the end of the strip (the cards wait at the end there): nothing to move. */
       if (Math.abs(cur - Math.max(0, Math.min(pinD, raw))) < 1) return;
       written = cur;
       jumpBy(cur - raw);
@@ -630,7 +683,6 @@
 
     track.addEventListener('scroll', function () {
       if (!pinned || Math.abs(Math.abs(track.scrollLeft) - written) <= 1.5) return;
-      holdUntil = Date.now() + 200;
       window.clearTimeout(adoptTimer);
       adoptTimer = window.setTimeout(pinAdopt, 130);
     }, { passive: true });
@@ -643,15 +695,9 @@
 
   [].slice.call(doc.querySelectorAll('[data-hs]')).forEach(initCarousel);
   if (carousels.length) {
-    var lastW = doc.documentElement.clientWidth;
-    var lastH = window.innerHeight;
     window.addEventListener('resize', function () {
-      var w = doc.documentElement.clientWidth;
-      var h = window.innerHeight;
-      /* שינוי קטן בגובה הוא סרגל הכתובות בנייד שמתכווץ, ולא צריך לחשב מחדש */
-      if (w === lastW && Math.abs(h - lastH) < 160) return;
-      lastW = w;
-      lastH = h;
+      /* viewKey is the width and the small-viewport height: toolbars coming and going do not change it, a resized window does */
+      if (doc.documentElement.clientWidth + ':' + viewHeight() === viewKey) return;
       hsRefresh();
     });
     window.addEventListener('orientationchange', hsRefresh);
@@ -668,7 +714,6 @@
       else if (rm.addListener) rm.addListener(hsRefresh);
     }
     if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(hsRefresh);
-    hsRefresh();
   }
 
   /* ---------- תפריט נגישות ---------- */

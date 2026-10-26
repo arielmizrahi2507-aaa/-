@@ -17,6 +17,12 @@ const summary = p => p.evaluate(() => ({
   docH: document.documentElement.scrollHeight,
   sideways: document.documentElement.scrollWidth > innerWidth,
 }));
+// how far the stage of each pinned strip is from the free screen (between the header and the bottom bar)
+const freeFit = () => {
+  const side = document.querySelector('.side'), bar = document.querySelector('.mbar');
+  const free = (bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().top : innerHeight) - side.getBoundingClientRect().bottom;
+  return [...document.querySelectorAll('.hs.hs-pin')].map(h => Math.abs(h.querySelector('.hs-stage').getBoundingClientRect().height - free));
+};
 // one strip: where its box is in the document, how far its cards travel, where the stage sticks
 const geom = (p, i) => p.evaluate(i => {
   const hs = document.querySelectorAll('.hs')[i], t = hs.querySelector('[data-hs]');
@@ -36,8 +42,8 @@ const live = (p, i) => p.evaluate(i => {
   return { y: scrollY, left: Math.abs(t.scrollLeft), hsTop: hr.top, hsBottom: hr.bottom, stageTop: sr.top, stageBottom: sr.bottom, trackTop: tr.top, trackBottom: tr.bottom, headerBottom, barTop, seen };
 }, i);
 
-async function open(opts, size = { width: 390, height: 844 }) {
-  const ctx = await b.newContext({ viewport: size, deviceScaleFactor: 1, isMobile: size.width < 900, hasTouch: size.width < 900, ...opts });
+async function open(opts, size = { width: 390, height: 844 }, mobile = size.width < 900) {
+  const ctx = await b.newContext({ viewport: size, deviceScaleFactor: 1, isMobile: mobile, hasTouch: mobile, ...opts });
   const p = await ctx.newPage();
   const errs = [];
   p.on('pageerror', e => errs.push(String(e)));
@@ -77,6 +83,7 @@ async function phoneRun(size, name, expectTight) {
   const s = await summary(p);
   ok(s.pins === 9 && s.strips === 9, `${name}: all nine strips are pinned (${s.pins} of ${s.strips})`);
   ok(!s.sideways, `${name}: the page itself does not scroll sideways`);
+  ok(await p.evaluate(() => [...document.querySelectorAll('.hs-pin [data-hs]')].every(t => getComputedStyle(t).overflowX === 'auto')), `${name}: on a touch screen a pinned strip can still be swiped sideways`);
   const g = [];
   for (let i = 0; i < s.strips; i++) g.push(await geom(p, i));
   const tightNow = g.filter(x => x.tight).length;
@@ -217,6 +224,64 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await ctx.close();
 }
 
+// ---------- the Claude desktop app: a narrow panel, a mouse or a touchpad, a visible scrollbar, no touch screen ----------
+{
+  const { ctx, p } = await open({}, { width: 341, height: 591 }, false);
+  const s = await summary(p);
+  ok(s.pins === 9, `a 341x591 panel pins all nine strips (${s.pins})`);
+  ok(await p.evaluate(() => matchMedia('(pointer:fine)').matches && !matchMedia('(pointer:coarse)').matches), 'the panel has a mouse or touchpad and no touch screen');
+  ok(await p.evaluate(() => [...document.querySelectorAll('.hs-pin [data-hs]')].every(t => getComputedStyle(t).overflowX === 'hidden')), 'with a mouse or touchpad a pinned strip takes no sideways scrolling of its own, the page scroll moves it');
+  const idx = await p.evaluate(() => [...document.querySelectorAll('.hs')].findIndex(h => h.querySelector('.gloss')));
+  const x = await geom(p, idx);
+  await goY(p, x.top - x.pinTop + 50);
+  const box = await p.locator('.hs').nth(idx).locator('[data-hs]').boundingBox();
+  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);   // the pointer rests on the strip
+  const a = await live(p, idx);
+  for (let k = 0; k < 4; k++) { await p.mouse.wheel(0, 100); await p.waitForTimeout(60); }      // a mouse wheel
+  for (let k = 0; k < 6; k++) { await p.mouse.wheel(4, 100); await p.waitForTimeout(60); }      // a touchpad: always a little sideways drift
+  await p.waitForTimeout(700);
+  const a2 = await live(p, idx);
+  ok(near(a2.y - a.y, 1000, 6), `a touchpad that drifts sideways over a strip still scrolls the page (${Math.round(a2.y - a.y)} of 1000px)`);
+  ok(near(a2.left - a.left, a2.y - a.y, 4), `the cards follow the page scroll of a touchpad (${Math.round(a2.left - a.left)}px of ${Math.round(a2.y - a.y)}px)`);
+  // dragging the strip with the mouse still works and the page follows
+  const d0 = await live(p, idx);
+  await p.mouse.move(box.x + 250, box.y + box.height / 2);
+  await p.mouse.down(); await p.mouse.move(box.x + 100, box.y + box.height / 2, { steps: 8 }); await p.mouse.up();
+  await p.waitForTimeout(700);
+  const d1 = await live(p, idx);
+  ok(Math.abs(d1.left - d0.left) > 80 && near(d1.left, Math.min(x.d, Math.max(0, d1.y - (x.top - x.pinTop))), 3), `dragging a pinned strip with the mouse moves the cards and the page follows (${Math.round(d0.left)} to ${Math.round(d1.left)})`);
+  await ctx.close();
+}
+
+// ---------- the window is resized in height: the stage follows ----------
+{
+  const { ctx, p } = await open({}, { width: 341, height: 591 }, false);
+  await p.setViewportSize({ width: 341, height: 520 }); await p.waitForTimeout(800);
+  const fit = await p.evaluate(freeFit);
+  ok(fit.length >= 6 && fit.every(d => d <= 2.5), `after the window got lower the pinned strips fill the new free screen (${fit.length} pinned, largest difference ${Math.round(Math.max(...fit))}px)`);
+  let hidden = 0;
+  const n = await p.evaluate(() => document.querySelectorAll('.hs').length);
+  for (let i = 0; i < n; i++) {
+    const x = await geom(p, i);
+    if (!x.pinned) continue;
+    await goY(p, x.top - x.pinTop + Math.round(x.d / 2));
+    const l = await live(p, i);
+    if (l.trackTop < l.headerBottom - 1 || l.trackBottom > l.barTop + 1) hidden++;
+  }
+  ok(hidden === 0, `after the window got lower no pinned strip is hidden by the header or the bottom bar (${hidden})`);
+  await ctx.close();
+}
+
+// ---------- a frame as tall as the page does not scroll by itself: nothing to pin ----------
+{
+  const { ctx, p } = await open({}, { width: 390, height: 900 });
+  ok((await summary(p)).pins === 9, 'a 390x900 window pins the strips');
+  await p.setViewportSize({ width: 390, height: 24000 }); await p.waitForTimeout(900);
+  const s = await summary(p);
+  ok(s.pins === 0 && s.docH <= 24100, `a frame that grew to the height of the page pins nothing and leaves no blank scroll space (${s.pins} pinned, page ${s.docH}px)`);
+  await ctx.close();
+}
+
 // ---------- where it must not happen ----------
 {
   const { ctx, p } = await open({});
@@ -287,11 +352,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await p.keyboard.press('Escape'); await p.waitForTimeout(500);
   const s = await summary(p);
   ok(s.pins > 0 && s.pins < s.strips, `turning the phone while the menu is open: after closing it the strips are measured for the new size (${s.pins} of ${s.strips} pinned)`);
-  const fit = await p.evaluate(() => {
-    const side = document.querySelector('.side'), bar = document.querySelector('.mbar');
-    const free = (bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().top : innerHeight) - side.getBoundingClientRect().bottom;
-    return [...document.querySelectorAll('.hs.hs-pin')].map(h => Math.abs(h.querySelector('.hs-stage').getBoundingClientRect().height - free));
-  });
+  const fit = await p.evaluate(freeFit);
   ok(fit.length > 0 && fit.every(d => d <= 2.5), `turning the phone while the menu is open: the pinned strips fill the new free screen, not the old one (largest difference ${Math.round(Math.max(...fit))}px)`);
   await ctx.close();
 }
@@ -303,15 +364,33 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await ctx.close();
 }
 
-// ---------- landing on a section, and print ----------
+// ---------- landing on a section: a fresh load of a link (also on a slow phone), a reload, and the options ----------
 {
+  for (const h of ['join', 'way']) {
+    let worst = 0;
+    for (let k = 0; k < 2; k++) {
+      const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+      const p = await ctx.newPage();
+      const cdp = await ctx.newCDPSession(p);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
+      await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });   // a new page every time, so the pinning really happens after the load starts
+      await p.waitForTimeout(1500);
+      worst = Math.max(worst, Math.abs(await p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h) - 120));
+      await ctx.close();
+    }
+    ok(worst <= 3, `a link to #${h} opened on a phone four times slower lands under the header (off by ${worst}px at worst)`);
+  }
   const { ctx, p } = await open({});
-  const r = await p.evaluate(() => 0);
-  void r;
-  await p.goto(BASE + 'index.html#way', { waitUntil: 'load' });
-  await p.waitForTimeout(1000);
-  const top = await p.evaluate(() => Math.round(document.getElementById('way').getBoundingClientRect().top));
-  ok(near(top, 120, 3), `a link to #way lands on the section with the usual room under the header (${top}px)`);
+  const topOf = id => p.evaluate(id => Math.round(document.getElementById(id).getBoundingClientRect().top), id);
+  await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
+  const t0 = await topOf('faq');
+  await p.reload({ waitUntil: 'load' }); await p.waitForTimeout(1200);
+  ok(near(await topOf('faq'), t0, 3), `reloading the page keeps the visitor at the same place (${t0}px then ${await topOf('faq')}px)`);
+  await p.tap('.a11y-toggle'); await p.waitForTimeout(150);
+  await p.locator('.a11y-opt', { hasText: 'עצירת אנימציות' }).tap(); await p.waitForTimeout(700);
+  ok(near(await topOf('faq'), t0, 3), `turning the pinning off in the accessibility menu keeps the visitor at the same place (${t0}px then ${await topOf('faq')}px)`);
+  await p.locator('.a11y-opt', { hasText: 'עצירת אנימציות' }).tap(); await p.waitForTimeout(700);
+  ok(near(await topOf('faq'), t0, 3), `turning it on again keeps the visitor at the same place too (${await topOf('faq')}px)`);
   await p.emulateMedia({ media: 'print' });
   await p.waitForTimeout(200);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs')].every(h => getComputedStyle(h.querySelector('.hs-stage')).position === 'static' && Math.abs(h.getBoundingClientRect().height - h.querySelector('[data-hs]').getBoundingClientRect().height) < 2)), 'print: no empty pinning space between the cards');
