@@ -23,7 +23,7 @@ const geom = (p, i) => p.evaluate(i => {
   const pinTop = parseFloat(hs.style.getPropertyValue('--hs-top'));
   const bar = document.querySelector('.mbar');
   const barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
-  return { label: t.getAttribute('data-hs'), pinned: hs.classList.contains('hs-pin'), top: hs.getBoundingClientRect().top + scrollY, h: hs.getBoundingClientRect().height, d: t.scrollWidth - t.clientWidth, pinTop, barH, n: (t.classList.contains('gloss') ? t.querySelectorAll('dl > div') : t.children).length };
+  return { label: t.getAttribute('data-hs'), pinned: hs.classList.contains('hs-pin'), top: hs.getBoundingClientRect().top + scrollY, h: hs.getBoundingClientRect().height, d: t.scrollWidth - t.clientWidth, th: t.offsetHeight, tight: hs.classList.contains('hs-tight'), pinTop, barH, n: (t.classList.contains('gloss') ? t.querySelectorAll('dl > div') : t.children).length };
 }, i);
 const live = (p, i) => p.evaluate(i => {
   const hs = document.querySelectorAll('.hs')[i], t = hs.querySelector('[data-hs]'), st = hs.querySelector('.hs-stage');
@@ -47,39 +47,55 @@ async function open(opts, size = { width: 390, height: 844 }) {
   return { ctx, p, errs };
 }
 
-// ---------- baseline: how tall the page is without the pinning ----------
-let baseH = 0, baseTrackTop = 0;
-{
-  const { ctx, p } = await open({ reducedMotion: 'reduce' });
+// ---------- baseline: how tall the page and the strips are without the pinning ----------
+const baselines = {};
+async function baseline(size) {
+  const key = size.width + 'x' + size.height;
+  if (baselines[key]) return baselines[key];
+  const { ctx, p } = await open({ reducedMotion: 'reduce' }, size);
   const s = await summary(p);
-  baseH = s.docH;
-  baseTrackTop = await p.evaluate(() => document.querySelector('[data-hs]').getBoundingClientRect().top + scrollY);
-  ok(s.pins === 0, `reduced motion: no strip is pinned (${s.pins})`);
-  ok(await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].every(t => t.getAttribute('tabindex') === '0')), 'reduced motion: the strips still swipe (focusable scrollers)');
-  ok(await p.evaluate(() => [...document.querySelectorAll('.hs')].every(h => getComputedStyle(h).height === h.querySelector('[data-hs]').getBoundingClientRect().height + 'px' || Math.abs(h.getBoundingClientRect().height - h.querySelector('[data-hs]').getBoundingClientRect().height) < 2)), 'reduced motion: the strips take only their own height');
+  const base = {
+    docH: s.docH,
+    trackTop: await p.evaluate(() => document.querySelector('[data-hs]').getBoundingClientRect().top + scrollY),
+    th: await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].map(t => t.offsetHeight)),
+  };
+  if (!Object.keys(baselines).length) {
+    ok(s.pins === 0, `reduced motion: no strip is pinned (${s.pins})`);
+    ok(await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].every(t => t.getAttribute('tabindex') === '0')), 'reduced motion: the strips still swipe (focusable scrollers)');
+    ok(await p.evaluate(() => [...document.querySelectorAll('.hs')].every(h => Math.abs(h.getBoundingClientRect().height - h.querySelector('[data-hs]').getBoundingClientRect().height) < 2)), 'reduced motion: the strips take only their own height');
+    ok(await p.evaluate(() => document.querySelectorAll('.hs-tight').length === 0), 'reduced motion: no card is tightened');
+  }
   await ctx.close();
+  return (baselines[key] = base);
 }
+const baseH = (await baseline({ width: 390, height: 844 })).docH;
 
-// ---------- phone: page scroll moves every strip ----------
-{
-  const { ctx, p, errs } = await open({});
+// ---------- phone: page scroll moves every strip (a tall screen, and a short one where the tall strips need tighter cards) ----------
+async function phoneRun(size, name, expectTight) {
+  const base = await baseline(size);
+  const { ctx, p, errs } = await open({}, size);
   const s = await summary(p);
-  ok(s.pins === 9 && s.strips === 9, `a 390x844 phone pins all nine strips (${s.pins} of ${s.strips})`);
-  ok(!s.sideways, 'the page itself does not scroll sideways');
+  ok(s.pins === 9 && s.strips === 9, `${name}: all nine strips are pinned (${s.pins} of ${s.strips})`);
+  ok(!s.sideways, `${name}: the page itself does not scroll sideways`);
   const g = [];
   for (let i = 0; i < s.strips; i++) g.push(await geom(p, i));
-  const travel = g.reduce((a, x) => a + x.d, 0);
-  ok(near(s.docH - baseH, travel, 12), `the page is longer by exactly the way the cards travel (${s.docH - baseH}px, travel ${travel}px)`);
+  const tightNow = g.filter(x => x.tight).length;
+  ok(expectTight ? tightNow >= 3 : tightNow === 0, `${name}: ${expectTight ? 'the tall strips are tightened to fit' : 'no card is tightened when everything fits'} (${tightNow} tightened)`);
+  if (tightNow) {
+    ok(await p.evaluate(() => [...document.querySelectorAll('.hs-tight')].every(h => [...h.querySelectorAll('p')].every(el => getComputedStyle(el).fontSize === '16px' || getComputedStyle(el).fontSize === '17px'))), `${name}: tightened cards keep the size of the text`);
+  }
+  const travel = g.reduce((a, x, i) => a + x.d + (x.th - base.th[i]), 0);
+  ok(near(s.docH - base.docH, travel, 12), `${name}: the page is longer by exactly the way the cards travel (${s.docH - base.docH}px, expected ${travel}px)`);
   const trackTop = await p.evaluate(() => document.querySelector('[data-hs]').getBoundingClientRect().top + scrollY);
-  ok(near(trackTop, baseTrackTop, 2), `before it is pinned the first strip sits exactly where it sits without pinning (${Math.round(trackTop)}px, otherwise ${Math.round(baseTrackTop)}px)`);
-  ok(await p.evaluate(() => [...document.querySelectorAll('.hs-stage')].every(st => getComputedStyle(st).pointerEvents === 'none' && getComputedStyle(st.querySelector('[data-hs]')).pointerEvents === 'auto')), 'the stage never takes a tap or a click, only the cards do');
+  ok(near(trackTop, base.trackTop, 2), `${name}: before it is pinned the first strip sits exactly where it sits without pinning (${Math.round(trackTop)}px, otherwise ${Math.round(base.trackTop)}px)`);
+  ok(await p.evaluate(() => [...document.querySelectorAll('.hs-stage')].every(st => getComputedStyle(st).pointerEvents === 'none' && getComputedStyle(st.querySelector('[data-hs]')).pointerEvents === 'auto')), `${name}: the stage never takes a tap or a click, only the cards do`);
   // the stage's empty room overlaps the text above and below the strip: a link there must still be reachable
   await p.evaluate(() => document.querySelector('.sched-note a').scrollIntoView({ block: 'center', behavior: 'instant' }));
   await frames(p);
-  ok(await p.evaluate(() => { const a = document.querySelector('.sched-note a'); const r = a.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return a === e || a.contains(e); }), 'a link that sits under the empty room of a strip can be tapped');
+  ok(await p.evaluate(() => { const a = document.querySelector('.sched-note a'); const r = a.getBoundingClientRect(); const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return a === e || a.contains(e); }), `${name}: a link that sits under the empty room of a strip can be tapped`);
 
   for (let i = 0; i < g.length; i++) {
-    const x = g[i], tag = `[${x.label}]`;
+    const x = g[i], tag = `[${name}: ${x.label}]`;
     const start = x.top - x.pinTop;           // page scroll at which the stage reaches the header
     await goY(p, Math.max(0, start - 300));
     let s0 = await live(p, i);
@@ -117,13 +133,15 @@ let baseH = 0, baseTrackTop = 0;
   // a jump to the end and back leaves every strip at the right end, also those far away
   await goY(p, 1e6);
   const ends = await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].map(t => Math.abs(t.scrollLeft) >= t.scrollWidth - t.clientWidth - 1.5));
-  ok(ends.every(Boolean), `jumping to the bottom of the page leaves every strip at its last card (${ends.filter(Boolean).length} of ${ends.length})`);
+  ok(ends.every(Boolean), `${name}: jumping to the bottom of the page leaves every strip at its last card (${ends.filter(Boolean).length} of ${ends.length})`);
   await goY(p, 0);
   const starts = await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].map(t => Math.abs(t.scrollLeft) <= 1.5));
-  ok(starts.every(Boolean), `jumping back to the top leaves every strip at its first card (${starts.filter(Boolean).length} of ${starts.length})`);
-  ok(errs.length === 0, 'no script errors: ' + errs.join(' | '));
+  ok(starts.every(Boolean), `${name}: jumping back to the top leaves every strip at its first card (${starts.filter(Boolean).length} of ${starts.length})`);
+  ok(errs.length === 0, `${name}: no script errors: ` + errs.join(' | '));
   await ctx.close();
 }
+await phoneRun({ width: 390, height: 844 }, '390x844', false);
+await phoneRun({ width: 390, height: 560 }, '390x560', true);
 
 // ---------- a real finger, the keys, and "reveal this card" ----------
 {

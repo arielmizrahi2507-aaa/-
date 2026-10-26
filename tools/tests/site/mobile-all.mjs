@@ -115,6 +115,17 @@ if (JS) {
   }
 }
 
+// the red band: the contact details come below the form (the owner's request), with and without scripts
+{
+  const o = await p.evaluate(() => {
+    const aside = document.querySelector('#join .contact-info');
+    const form = [...document.querySelectorAll('#join .cform')].find(f => getComputedStyle(f).display !== 'none');
+    const a = aside.getBoundingClientRect(), f = form.getBoundingClientRect();
+    return { after: !!(form.compareDocumentPosition(aside) & Node.DOCUMENT_POSITION_FOLLOWING), below: a.top >= f.bottom - 1, id: form.id };
+  });
+  ok(o.after && o.below, `the contact details come below the form (${o.id}): after it in the page (${o.after}) and under it on the screen (${o.below})`);
+}
+
 // to-top
 await p.goto(BASE + 'index.html', { waitUntil: 'load' });
 if (JS) {

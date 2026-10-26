@@ -592,9 +592,11 @@ def index_main():
 <li>{icon("check", "i")}בנים ובנות, מגיל 4 ועד מבוגרים</li>
 <li>{icon("check", "i")}ליגות, תחרויות ומחנות אימונים</li>
 </ul>
+</div>
+<div class="join-side">
+{join_form()}
 {contact_info()}
 </div>
-{join_form()}
 </div>
 </section>
 

@@ -382,6 +382,7 @@
   var pinRaf = 0;
   var pinTop = 0;      /* הקצה התחתון של הכותרת הדביקה */
   var pinView = 0;     /* הגובה הפנוי, בין הכותרת לסרגל התחתון */
+  var PIN_ROOM = 16;   /* כמה מקום נשאר מעל הפס ומתחתיו */
   var stickyOk = !!(window.CSS && window.CSS.supports && window.CSS.supports('position', 'sticky'));
   /* מסגרת שמתרחבת לגובה התוכן (חלק מהמציגים המוטמעים) לא גוללת בעצמה, ושם אין מה לעצור */
   var pageScrolls = window.innerHeight > 0 && doc.documentElement.scrollHeight > window.innerHeight * 1.5;
@@ -569,10 +570,23 @@
     var adoptTimer = 0;
     var dirSign = -1;
 
+    /* פס שלא נכנס בגובה המסך הפנוי ננסה פעם נוספת עם כרטיסים מהודקים (פחות ריווח, אותו גודל טקסט). אם גם אז לא נכנס, הוא נשאר פס רגיל */
+    function pinFits() {
+      wrap.classList.remove('hs-tight');
+      var th = track.offsetHeight;
+      if (th > 0 && th <= pinView - PIN_ROOM) return th;
+      wrap.classList.add('hs-tight');
+      th = track.offsetHeight;
+      if (th > 0 && th <= pinView - PIN_ROOM) return th;
+      wrap.classList.remove('hs-tight');
+      return 0;
+    }
+
     function pinMeasure() {
       var max = track.scrollWidth - track.clientWidth;
-      var th = track.offsetHeight;
-      var want = pinOn() && max > 4 && th > 0 && th <= pinView - 24;
+      var th = pinOn() && max > 4 ? pinFits() : 0;
+      if (!th) wrap.classList.remove('hs-tight');
+      var want = th > 0;
       if (want) {
         wrap.style.setProperty('--hs-top', pinTop + 'px');
         wrap.style.setProperty('--hs-stage', pinView + 'px');

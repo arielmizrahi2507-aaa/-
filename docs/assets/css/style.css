@@ -294,6 +294,7 @@ html:not(.js) .cform[data-wa]{display:none}
 .join{background:var(--accent);color:#fff}
 .join-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-wrap:wrap;gap:3.5rem;align-items:flex-start}
 .join-copy{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:1.375rem}
+.join-side{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:2.5rem}
 .join-kj{font-family:var(--font-jp);font-size:1.4rem;font-weight:800;letter-spacing:8px}
 .join h2{font-size:3.5rem;line-height:1.05;color:#fff}
 .join-lead{max-width:440px;font-size:1.25rem;line-height:1.7;font-weight:700}
@@ -301,6 +302,7 @@ html:not(.js) .cform[data-wa]{display:none}
 .join-list li{display:flex;align-items:center;gap:.75rem}
 .join a{color:#fff}
 .join .cform{flex:1 1 420px;min-width:0;border:0;border-radius:2px;color:var(--ink)}
+.join .join-side .cform{flex:none}
 .join .cform a:not(.btn){color:var(--accent-ink);text-decoration:underline;text-underline-offset:.2em}
 .join .cform a:not(.btn):hover{color:var(--accent-deep)}
 .join .cform a.btn{color:#fff}
@@ -537,6 +539,12 @@ html.a11y-gray{filter:grayscale(1)}
   html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d));margin-block:calc(var(--hs-g) * -1)}
   html.js:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
   html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
+  /* פס שלא נכנס במסך נמוך נעצר בכל זאת כשהכרטיסים מהודקים קצת: פחות ריווח וכותרות מספר קטנות יותר, בלי לשנות את גודל הטקסט הקריא */
+  html.js:not(.a11y-stack) .hs.hs-tight .prog,html.js:not(.a11y-stack) .hs.hs-tight .champ,html.js:not(.a11y-stack) .hs.hs-tight .card-dark,html.js:not(.a11y-stack) .hs.hs-tight .principle{padding-block:1.1rem;gap:.55rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .prog h3{font-size:1.45rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .champ-num{font-size:3rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .kj{font-size:3rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .prog p,html.js:not(.a11y-stack) .hs.hs-tight .champ p,html.js:not(.a11y-stack) .hs.hs-tight .card-dark p,html.js:not(.a11y-stack) .hs.hs-tight .principle p{line-height:1.5}
 }
 @media (max-width:900px) and (pointer:fine){
   html.js:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
