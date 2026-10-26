@@ -33,6 +33,8 @@
     side.classList.toggle('open', open);
     menuBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
     menuBtn.setAttribute('aria-label', open ? 'סגירת תפריט' : 'פתיחת תפריט');
+    /* כשהתפריט פתוח לא מודדים את הכותרת, ולכן אחרי הסגירה מודדים שוב (למשל אם הטלפון הסתובב בינתיים) */
+    if (!open) hsRefresh();
   }
 
   if (menuBtn) {
@@ -369,20 +371,65 @@
 
   /* ---------- גלילה לצד בנייד ----------
      קבוצות כרטיסים (data-hs) הופכות לפס שמחליקים בו הצידה: החלקה באצבע, גרירה בעכבר, ובמקלדת מקשי החצים. בלי כפתורים ובלי נקודות.
-     בלי JavaScript, או כשמפעילים "בלי גלילה לצד" בתפריט הנגישות, הכרטיסים נשארים ברשימה רציפה. */
+     בנוסף, כשגוללים את הדף למטה ומגיעים לפס, הוא נעצר במקומו והגלילה הרגילה של הדף מזיזה את הכרטיסים הצידה, ואחרי הכרטיס האחרון
+     הדף ממשיך להיגלל כרגיל. התנועה הזאת מתבטלת בהגדרת "הפחתת תנועה" של המכשיר, ב"עצירת אנימציות" וב"בלי גלילה לצד" בתפריט הנגישות,
+     ובפס שגבוה מהמסך הפנוי (טלפון על הצד, טקסט מוגדל). בלי JavaScript, או כשמפעילים "בלי גלילה לצד", הכרטיסים נשארים ברשימה רציפה. */
   var mq = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
   var carousels = [];
   var hsRaf = 0;
 
+  var pins = [];       /* לכל פס פונקציה שמיישרת אותו לפי מקום הדף */
+  var pinRaf = 0;
+  var pinTop = 0;      /* הקצה התחתון של הכותרת הדביקה */
+  var pinView = 0;     /* הגובה הפנוי, בין הכותרת לסרגל התחתון */
+  var stickyOk = !!(window.CSS && window.CSS.supports && window.CSS.supports('position', 'sticky'));
+  /* מסגרת שמתרחבת לגובה התוכן (חלק מהמציגים המוטמעים) לא גוללת בעצמה, ושם אין מה לעצור */
+  var pageScrolls = window.innerHeight > 0 && doc.documentElement.scrollHeight > window.innerHeight * 1.5;
+
   function carouselOn() {
     return !!(mq && mq.matches) && !root.classList.contains('a11y-stack');
+  }
+
+  function pinOn() {
+    return carouselOn() && stickyOk && pageScrolls && !reducedMotion();
+  }
+
+  /* כשהתפריט פתוח הכותרת גבוהה מהרגיל, ולכן אז לא מודדים */
+  function measureView() {
+    if (side && side.classList.contains('open')) return;
+    var top = 0;
+    var h = 0;
+    if (side) {
+      var cs = window.getComputedStyle(side);
+      top = cs.position === 'sticky' ? (parseFloat(cs.top) || 0) : 0;
+      h = side.getBoundingClientRect().height;
+    }
+    var bar = doc.querySelector('.mbar');
+    var barH = bar && window.getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
+    pinTop = Math.ceil(top + h);
+    pinView = Math.max(0, Math.floor(window.innerHeight - pinTop - barH));
+  }
+
+  function pinSync() {
+    pinRaf = 0;
+    pins.forEach(function (f) { f(); });
+  }
+
+  /* גלילה מיידית של הדף, גם כשבסגנון מוגדרת גלילה חלקה */
+  function jumpBy(dy) {
+    var prev = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+    window.scrollBy(0, dy);
+    root.style.scrollBehavior = prev;
   }
 
   function hsRefresh() {
     if (hsRaf) return;
     hsRaf = window.requestAnimationFrame(function () {
       hsRaf = 0;
+      measureView();
       carousels.forEach(function (c) { c(); });
+      pinSync();
     });
   }
 
@@ -396,9 +443,12 @@
     var settle = 0;
     var active = 0;
 
+    /* .hs היא העטיפה שגבוהה כמו מרחק הגלילה, ו־.hs-stage היא הבמה שנדבקת למסך בזמן שהכרטיסים זזים. כשאין עצירה הבמה לא מייצרת תיבה */
     var wrap = el('div', { 'class': 'hs' });
+    var stage = el('div', { 'class': 'hs-stage' });
     track.parentNode.insertBefore(wrap, track);
-    wrap.appendChild(track);
+    wrap.appendChild(stage);
+    stage.appendChild(track);
     if (!track.id) track.id = 'hs-' + n;
 
     var list = [].slice.call(track.classList.contains('gloss') ? track.querySelectorAll('dl > div') : track.children);
@@ -509,25 +559,99 @@
     track.addEventListener('click', function (e) { if (suppress) { e.preventDefault(); e.stopPropagation(); } }, true);
     track.addEventListener('dragstart', function (e) { if (carouselOn()) e.preventDefault(); });
 
-    track.addEventListener('scroll', schedule, { passive: true });
-    if ('ResizeObserver' in window) new ResizeObserver(schedule).observe(track);
+    /* ---- עצירת הפס בזמן גלילת הדף ----
+       כשהפס נעצר, גלילת הדף ב־p פיקסלים מזיזה את הכרטיסים p פיקסלים הצידה, עד סוף הפס. כמה גללו אפשר לדעת ממקום העטיפה במסך.
+       כשהפס זז מעצמו (החלקה, גרירה, מקשי החצים, חיפוש בדף, מיקוד), מעבירים את הדף למקום המתאים, כך ששני הכיוונים נשארים מסונכרנים */
+    var pinned = false;
+    var pinD = 0;
+    var written = 0;     /* המקום שהסקריפט עצמו כתב, כדי להבדיל בין הד של הכתיבה לבין תנועה של הגולש */
+    var holdUntil = 0;
+    var adoptTimer = 0;
+    var dirSign = -1;
 
-    carousels.push(function () { bleed(); update(); });
+    function pinMeasure() {
+      var max = track.scrollWidth - track.clientWidth;
+      var th = track.offsetHeight;
+      var want = pinOn() && max > 4 && th > 0 && th <= pinView - 24;
+      if (want) {
+        wrap.style.setProperty('--hs-top', pinTop + 'px');
+        wrap.style.setProperty('--hs-stage', pinView + 'px');
+        wrap.style.setProperty('--hs-d', max + 'px');
+        wrap.style.setProperty('--hs-g', Math.floor((pinView - th) / 2) + 'px');
+        dirSign = rtl() ? -1 : 1;
+      } else if (pinned) {
+        ['--hs-top', '--hs-stage', '--hs-d', '--hs-g'].forEach(function (k) { wrap.style.removeProperty(k); });
+      }
+      if (want !== pinned) {
+        pinned = want;
+        wrap.classList.toggle('hs-pin', want);
+        written = Math.abs(track.scrollLeft);
+      }
+      pinD = max;
+    }
+
+    function pinPlace() {
+      if (!pinned || Date.now() < holdUntil) return;
+      var r = wrap.getBoundingClientRect();
+      var want = Math.max(0, Math.min(pinD, pinTop - r.top));
+      if (Math.abs(Math.abs(track.scrollLeft) - want) < 0.75) return;
+      written = want;
+      track.scrollLeft = dirSign * want;
+    }
+    pins.push(pinPlace);
+
+    function pinAdopt() {
+      adoptTimer = 0;
+      if (!pinned) return;
+      var r = wrap.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) return;
+      var cur = Math.abs(track.scrollLeft);
+      var raw = pinTop - r.top;
+      holdUntil = 0;
+      /* כבר מסונכרנים, גם כשהדף מעבר לקצה הפס (שם הכרטיסים נשארים בקצה): אין סיבה להזיז את הדף */
+      if (Math.abs(cur - Math.max(0, Math.min(pinD, raw))) < 1) return;
+      written = cur;
+      jumpBy(cur - raw);
+    }
+
+    track.addEventListener('scroll', function () {
+      if (!pinned || Math.abs(Math.abs(track.scrollLeft) - written) <= 1.5) return;
+      holdUntil = Date.now() + 200;
+      window.clearTimeout(adoptTimer);
+      adoptTimer = window.setTimeout(pinAdopt, 130);
+    }, { passive: true });
+
+    track.addEventListener('scroll', schedule, { passive: true });
+    if ('ResizeObserver' in window) new ResizeObserver(hsRefresh).observe(track);
+
+    carousels.push(function () { bleed(); update(); pinMeasure(); });
   }
 
   [].slice.call(doc.querySelectorAll('[data-hs]')).forEach(initCarousel);
   if (carousels.length) {
     var lastW = doc.documentElement.clientWidth;
+    var lastH = window.innerHeight;
     window.addEventListener('resize', function () {
       var w = doc.documentElement.clientWidth;
-      if (w === lastW) return;
+      var h = window.innerHeight;
+      /* שינוי קטן בגובה הוא סרגל הכתובות בנייד שמתכווץ, ולא צריך לחשב מחדש */
+      if (w === lastW && Math.abs(h - lastH) < 160) return;
       lastW = w;
+      lastH = h;
       hsRefresh();
     });
     window.addEventListener('orientationchange', hsRefresh);
+    window.addEventListener('scroll', function () {
+      if (!pinRaf) pinRaf = window.requestAnimationFrame(pinSync);
+    }, { passive: true });
     if (mq) {
       if (mq.addEventListener) mq.addEventListener('change', hsRefresh);
       else if (mq.addListener) mq.addListener(hsRefresh);
+    }
+    var rm = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+    if (rm) {
+      if (rm.addEventListener) rm.addEventListener('change', hsRefresh);
+      else if (rm.addListener) rm.addListener(hsRefresh);
     }
     if (doc.fonts && doc.fonts.ready) doc.fonts.ready.then(hsRefresh);
     hsRefresh();

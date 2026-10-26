@@ -46,6 +46,7 @@ const SUITES = [
   { name: 'captions', group: 'site', file: 'site/captions-test.mjs', quick: true },
   { name: 'content-parity', group: 'site', file: 'site/content-parity-test.mjs', quick: true },
   { name: 'carousel', group: 'site', file: 'site/carousel-test.mjs' },
+  { name: 'pinned-scroll', group: 'site', file: 'site/pinned-scroll-test.mjs' },
   { name: 'keyboard', group: 'site', file: 'site/kbd-all.mjs' },
   { name: 'reflow', group: 'site', file: 'site/reflow-test.mjs' },
   { name: 'mobile-390', group: 'site', file: 'site/mobile-all.mjs', args: ['on', '390'], quick: true },

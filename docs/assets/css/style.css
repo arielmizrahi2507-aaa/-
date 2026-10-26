@@ -508,6 +508,7 @@ html.a11y-gray{filter:grayscale(1)}
 }
 /* ---------- גלילה לצד (נייד) ---------- */
 .hs{min-width:0;max-width:100%}
+.hs-stage{display:contents}
 [data-hs]{--hs-w:min(82%,20rem)}
 .cards4[data-hs]{--hs-w:min(80%,19rem)}
 .programs[data-hs]{--hs-w:min(82%,19.5rem)}
@@ -531,6 +532,11 @@ html.a11y-gray{filter:grayscale(1)}
   html.js:not(.a11y-stack) .gloss > dl{flex:none;display:flex;gap:1rem;margin:0}
   html.js:not(.a11y-stack) .gloss dl > div{flex:0 0 11.5rem;display:flex;flex-direction:column;gap:.5rem;padding:1.1rem;border:1px solid var(--rule);background:#fff;scroll-snap-align:start;scroll-snap-stop:always}
   html.js:not(.a11y-stack) .gloss dt{font-size:1.6rem}
+  /* הפס נעצר בגלילה: העטיפה גבוהה כמו מרחק הגלילה של הכרטיסים (--hs-d) ועוד גובה הבמה, והבמה נדבקת מתחת לכותרת וממלאת את המסך הפנוי.
+     השוליים השליליים (--hs-g) מחזירים את הפס למקומו הרגיל לפני העצירה ואחריה, והבמה עצמה שקופה ולא תופסת נגיעות */
+  html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d));margin-block:calc(var(--hs-g) * -1)}
+  html.js:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
+  html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
 }
 @media (max-width:900px) and (pointer:fine){
   html.js:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
@@ -552,5 +558,7 @@ html.a11y-gray{filter:grayscale(1)}
   .band-dark,.join,.foot{background:#fff!important;color:#000!important}
   .join h2,.join-lead,.join-list,.join a{color:#000!important}
   html.js [data-hs]{display:block!important;overflow:visible!important;margin:0!important;padding:0!important}
+  html.js .hs.hs-pin{height:auto!important;margin-block:0!important}
+  html.js .hs.hs-pin > .hs-stage{display:block!important;position:static!important;height:auto!important}
   a{color:#000}
 }
