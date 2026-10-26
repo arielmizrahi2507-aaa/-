@@ -374,7 +374,7 @@ def index_main():
 <div class="hero-copy">
 <div class="kicker">מועדון ג'ודו · אילת</div>
 <h1 id="hero-title">משמעת עצמית.<br>כבוד לאחר.<br><span>ג'ודו.</span></h1>
-<p class="hero-lead">אנחנו מציעים שיעורי ג'ודו, אומנות לחימה יפנית, לילדים צעירים, לנערים ולבוגרים, בנים ובנות כאחד, החל מגיל ארבע.</p>
+<p class="hero-lead">אנחנו מציעים שיעורי ג'ודו, אומנות לחימה יפנית, לילדים צעירים, לנערים ולבוגרים, בנים ובנות כאחד, החל מגיל ארבע. השיעור הראשון בחינם.</p>
 <div class="btn-row">
 <a class="btn" href="#join">צרו קשר {icon("arrow", "i arrow")}</a>
 <a class="btn btn--line" href="#programs">לכל הגילאים</a>
@@ -575,7 +575,7 @@ def index_main():
 <details><summary>מה לובשים ומה מביאים?</summary><div class="ans"><p>לאימון מקובל להגיע בבגדי ספורט נוחים, עם ציפורניים קצרות וללא תכשיטים. כדאי לברר מול המאמן מה הציוד הנדרש, כולל בגד ג'ודו.</p></div></details>
 <details><summary>האם יש תחרויות?</summary><div class="ans"><p>כן. אצלנו יש ליגות, תחרויות ומחנות אימונים.</p></div></details>
 <details><summary>האם מבוגרים יכולים להצטרף?</summary><div class="ans"><p>כן. מבוגרים מתאמנים אצלנו בקבוצה של מבוגרים. לפרטים על הקבוצה, התקשרו.</p></div></details>
-<details><summary>איך נרשמים וכמה זה עולה?</summary><div class="ans"><p>ההרשמה מתבצעת בטלפון, בוואטסאפ או דרך <a href="#join">הטופס שבסוף העמוד</a>. פרטי המסלולים והעלויות מתעדכנים לפי הגיל והקבוצה, ואנחנו נמסור אותם בשיחה.</p></div></details>
+<details><summary>איך נרשמים וכמה זה עולה?</summary><div class="ans"><p>ההרשמה מתבצעת בטלפון, בוואטסאפ או דרך <a href="#join">הטופס שבסוף העמוד</a>. פרטי המסלולים והעלויות מתעדכנים לפי הגיל והקבוצה, ואנחנו נמסור אותם בשיחה. השיעור הראשון בחינם.</p></div></details>
 <details><summary>איך מגיעים?</summary><div class="ans"><p>אנחנו נמצאים ב{STREET}, אילת. אפשר לנווט ישירות עם {ext(WAZE, '<span lang="en" dir="ltr">Waze</span>')} או {ext(GMAPS, '<span lang="en" dir="ltr">Google Maps</span>')}, וגם מהכפתורים בתחתית האתר.</p></div></details>
 </div>
 </div>
@@ -588,6 +588,7 @@ def index_main():
 <h2 id="join-title">מוכנים<br>להתחיל?</h2>
 <p class="join-lead">התקשרו או כתבו בוואטסאפ לפרטים על הקבוצות, השעות, העלויות ודרך ההרשמה.</p>
 <ul class="join-list" role="list">
+<li>{icon("check", "i")}השיעור הראשון בחינם</li>
 <li>{icon("check", "i")}פעילות 12 חודשים בשנה</li>
 <li>{icon("check", "i")}בנים ובנות, מגיל 4 ועד מבוגרים</li>
 <li>{icon("check", "i")}ליגות, תחרויות ומחנות אימונים</li>
