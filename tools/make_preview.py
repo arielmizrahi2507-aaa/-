@@ -3,10 +3,10 @@
 
     python3 tools/make_preview.py        # writes build/preview/ (ignored by git); JK_PREVIEW_OUT overrides the folder
 
-Fonts, CSS, JS and images are inlined. The contact page and the three legal pages are embedded as "views" in the same file.
+Fonts, CSS, JS and images are inlined. The three legal pages are embedded as "views" in the same file (the contact details and the form are in the red band of the home page).
 
 Navigation does not depend on JavaScript, because some viewers block scripts:
-every link to another page becomes a fragment link (#view-contact ...) and CSS (:target) shows that view.
+every link to another page becomes a fragment link (#view-privacy ...) and CSS (:target) shows that view.
 When scripts do run, a small router shows the view by class instead (and closes the phone menu).
 When scripts do not run, a banner says so and tells how to see the full site.
 The finished page is wrapped once more: a plain page whose only content is an <iframe srcdoc> holding the site. Inside a srcdoc
@@ -59,7 +59,7 @@ body = body.replace('<script src="assets/js/main.js" defer></script>', "")
 
 # the other pages become views placed BEFORE the home page's <main>, so that CSS (~) can hide the home page when one is shown
 views = ""
-for name in ("contact", "accessibility", "privacy", "terms"):
+for name in ("accessibility", "privacy", "terms"):
     _, b = split(read(name + ".html"))
     m = re.search(r'<main id="main" tabindex="-1">(.*?)</main>', b, re.S)
     views += f'<main id="view-{name}" class="view" tabindex="-1">{m.group(1)}</main>\n'
@@ -68,10 +68,10 @@ assert body.count(HOME_MAIN) == 1
 body = body.replace(HOME_MAIN, views + HOME_MAIN, 1)
 
 # links to other pages become fragment links to the views
-body = re.sub(r'href="(contact|accessibility|privacy|terms)\.html"', lambda m: f'href="#view-{m.group(1)}"', body)
+body = re.sub(r'href="(accessibility|privacy|terms)\.html"', lambda m: f'href="#view-{m.group(1)}"', body)
 body = re.sub(r'href="index\.html#([^"]+)"', r'href="#\1"', body)
 body = body.replace('href="index.html"', 'href="#top"')
-assert not re.search(r'href="(contact|accessibility|privacy|terms|index)\.html', body), "a link to a page was left"
+assert not re.search(r'href="(accessibility|privacy|terms|index)\.html', body), "a link to a page was left"
 
 # the logo images are inlined as data URIs (the bundle has to be one file)
 MIME = {".png": "image/png", ".webp": "image/webp", ".jpg": "image/jpeg", ".svg": "image/svg+xml"}

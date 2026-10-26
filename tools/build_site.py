@@ -81,7 +81,8 @@ NAV = [
     ("training", "האימון", "技"),
     ("schedule", "מערכת שעות", "稽古"),
     ("way", "הדרך", "道"),
-    ("contact.html", "צור קשר", "縁"),
+    ("faq", "שאלות נפוצות", "問"),
+    ("join", "צור קשר", "縁"),
 ]
 
 
@@ -112,7 +113,7 @@ def sidebar(home, current=None):
 {nav}
 </nav>
 <div class="side-bottom">
-<a class="side-cta" href="contact.html">צרו קשר</a>
+<a class="side-cta" href="{base}#join">צרו קשר</a>
 <div class="side-contact">{tel("tel")}<br>{ADDR}</div>
 <div class="side-osu" aria-hidden="true"></div>
 </div>
@@ -148,7 +149,7 @@ def footer(home):
 </div>
 </div>
 <nav class="foot-links" aria-label="מידע משפטי וקישורים שימושיים">
-<a href="contact.html">יצירת קשר</a>
+<a href="{base}#join">יצירת קשר</a>
 <a href="{base}#faq">שאלות נפוצות</a>
 <a href="accessibility.html">הצהרת נגישות</a>
 <a href="privacy.html">מדיניות פרטיות</a>
@@ -178,6 +179,9 @@ INIT_JS = ("(function(){var d=document.documentElement;d.classList.add('js');try
 INIT_HASH = base64.b64encode(hashlib.sha256(INIT_JS.encode("utf-8")).digest()).decode()
 CSP = ("default-src 'none'; script-src 'self' 'sha256-" + INIT_HASH + "'; style-src 'self'; img-src 'self'; font-src 'self'; "
        "connect-src 'none'; frame-src 'none'; object-src 'none'; form-action https://wa.me; base-uri 'none'; upgrade-insecure-requests")
+
+
+BUILT = []   # the pages this run wrote
 
 
 def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=None, skip2=None):
@@ -234,10 +238,11 @@ def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=
 """
     with open(os.path.join(DOCS, filename), "w", encoding="utf-8") as f:
         f.write(html)
+    BUILT.append(filename)
 
 
 # ---------------------------------------------------------------- forms
-GROUP_OPTIONS = ["לא בטוחים, אשמח לייעוץ", "גן וכיתה א׳ (גילאי 4–7)", "כיתה ב׳ ומעלה", "מבוגרים"]
+GROUP_OPTIONS = ["לא בטוחים, אשמח לייעוץ", "גן וכיתה א׳ (גילאי 4 עד 7)", "כיתה ב׳ ומעלה", "מבוגרים"]
 
 FORM_NOTE = 'נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע.'
 
@@ -340,49 +345,24 @@ def details_form(p, form_id, title, tag, full):
 {nojs_card(p, title, tag)}"""
 
 
-def contact_form():
-    return details_form("cf", "contact-form", "פרטי הפנייה", "h2", True)
+def join_form():
+    """The one form of the site (the red band): name, phone, e-mail, age, group, a free message and the consent box."""
+    return details_form("jf", "join-form", "השאירו פרטים", "h3", True)
 
 
-def home_form():
-    return details_form("jf", "join-form", "השאירו פרטים", "h3", False)
-
-
-def contact_info():
+def contact_info(tag="h3", cid="join-info-title"):
     mail_row = ""
     if EMAIL:
         mail_row = (f'<div class="ci-row"><div class="ci-label">אימייל</div><div class="ci-val"><a href="mailto:{EMAIL}" dir="ltr">{EMAIL}</a></div>'
                     f'<div class="ci-actions"><button type="button" class="ci-btn" data-copy="{EMAIL}">{icon("copy")}העתקה<span class="sr-only"> של כתובת המייל</span></button></div></div>')
-    return f"""<aside class="contact-info" aria-labelledby="ci-title">
-<h2 id="ci-title">פרטי קשר</h2>
+    return f"""<aside class="contact-info" aria-labelledby="{cid}">
+<{tag} id="{cid}">פרטי קשר</{tag}>
 <div class="ci-row"><div class="ci-label">טלפון</div><div class="ci-val">{tel("tel")}</div><div class="ci-actions"><a class="ci-btn" href="tel:{PHONE_TEL}">{icon("phone")}חיוג</a><button type="button" class="ci-btn" data-copy="{PHONE}">{icon("copy")}העתקה<span class="sr-only"> של מספר הטלפון</span></button></div></div>
 <div class="ci-row"><div class="ci-label">וואטסאפ</div><div class="ci-val">הודעה אל אותו מספר</div><div class="ci-actions">{ext(WA_LINK, icon("wa") + "כתבו בוואטסאפ", "ci-btn")}</div></div>
 {mail_row}
 <div class="ci-row"><div class="ci-label">כתובת</div><address class="ci-val">{ADDR}</address><div class="ci-actions">{ext(WAZE, icon("nav") + "Waze", "ci-btn")}{ext(GMAPS, icon("pin") + "Google Maps", "ci-btn")}</div></div>
 <div class="ci-row"><div class="ci-label">ימי פעילות</div><div class="ci-val">ראשון, שלישי וחמישי<br><bdi dir="ltr">16:00–21:00</bdi></div></div>
 </aside>"""
-
-
-def contact_main():
-    lead = "ממלאים את הטופס ובוחרים איך לשלוח: בוואטסאפ או במייל."
-    return f"""<main id="main" tabindex="-1">
-
-<section class="band page-head" aria-labelledby="contact-title" tabindex="-1">
-<div class="band-in">
-<div class="kicker">צור קשר</div>
-<h1 id="contact-title">נשמח לשמוע מכם.</h1>
-<p class="lead">{lead} האתר לא שומר שום מידע.</p>
-</div>
-</section>
-
-<section class="band band-paper" aria-label="טופס ופרטי קשר" tabindex="-1">
-<div class="band-in contact-grid">
-{contact_form()}
-{contact_info()}
-</div>
-</section>
-
-</main>"""
 
 
 # ---------------------------------------------------------------- index
@@ -394,10 +374,10 @@ def index_main():
 <div class="hero-copy">
 <div class="kicker">מועדון ג'ודו · אילת</div>
 <h1 id="hero-title">משמעת עצמית.<br>כבוד לאחר.<br><span>ג'ודו.</span></h1>
-<p class="hero-lead">אנחנו מציעים שיעורי ג'ודו, אומנות לחימה יפנית, לילדים צעירים בנים ובנות כאחד, החל מגיל ארבע.</p>
+<p class="hero-lead">אנחנו מציעים שיעורי ג'ודו, אומנות לחימה יפנית, לילדים צעירים, לנערים ולבוגרים, בנים ובנות כאחד, החל מגיל ארבע.</p>
 <div class="btn-row">
-<a class="btn" href="contact.html">צרו קשר {icon("arrow", "i arrow")}</a>
-<a class="btn btn--line" href="#programs">לכל החוגים</a>
+<a class="btn" href="#join">צרו קשר {icon("arrow", "i arrow")}</a>
+<a class="btn btn--line" href="#programs">לכל הגילאים</a>
 </div>
 <ul class="stats" role="list">
 <li class="stat"><b><bdi dir="ltr">4+</bdi></b><span>גיל התחלה</span></li>
@@ -450,9 +430,9 @@ def index_main():
 <p>האקדמיה שלנו מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד. השיעורים מחולקים לפי שכבת גיל.</p>
 </div>
 <ul class="programs" role="list" data-hs="החוגים לפי גיל">
-<li class="prog"><div class="prog-top"><span class="prog-no">01</span><span class="prog-age">גילאי 4–7</span></div><h3>גן וכיתה א׳</h3><p>שיעורי ג'ודו לילדים צעירים, בנים ובנות כאחד, החל מגיל ארבע.</p><span class="prog-meta">שיעור של כשעה</span></li>
-<li class="prog"><div class="prog-top"><span class="prog-no">02</span><span class="prog-age">מגיל 7</span></div><h3>כיתה ב׳ ומעלה</h3><p>המדריכים שלנו עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה.</p><p>אצלנו פועלת נבחרת צעירה לגילאי 10 עד 13: שלושה אימונים בשבוע, כשעה וחצי כל אחד, ואימון מנטלי עם איש מקצוע.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
-<li class="prog"><div class="prog-top"><span class="prog-no">03</span><span class="prog-age">18+</span></div><h3>מבוגרים</h3><p>גם מבוגרים מתאמנים אצלנו, יחד עם קבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
+<li class="prog"><div class="prog-top"><span class="prog-no">01</span><span class="prog-age">גילאי <bdi dir="ltr">4–7</bdi></span></div><h3>גן וכיתה א׳</h3><p>שיעורי ג'ודו לילדים צעירים, בנים ובנות כאחד, החל מגיל ארבע.</p><span class="prog-meta">שיעור של כשעה</span></li>
+<li class="prog"><div class="prog-top"><span class="prog-no">02</span><span class="prog-age">גילאי <bdi dir="ltr">7–18</bdi></span></div><h3>כיתה ב׳ ומעלה</h3><p>המדריכים שלנו עובדים עם הילדים והנוער על פיתוח ביטחון עצמי, כושר גופני, זריזות וקואורדינציה.</p><p>אצלנו פועלת נבחרת צעירה לגילאי 10 עד 13: שלושה אימונים בשבוע, כשעה וחצי כל אחד, ואימון מנטלי עם איש מקצוע.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
+<li class="prog"><div class="prog-top"><span class="prog-no">03</span><span class="prog-age">18+</span></div><h3>מבוגרים</h3><p>גם מבוגרים מתאמנים אצלנו, בקבוצה של מבוגרים. לפרטים על הקבוצה, התקשרו.</p><span class="prog-meta">שיעור של כשעה וחצי</span></li>
 <li class="prog prog--dark"><div class="prog-top"><span class="prog-no">04</span><span class="prog-age">להמשך הדרך</span></div><h3>ליגות ותחרויות</h3><p>אנחנו מציעים למתאמנים ליגות, תחרויות ומחנות אימונים.</p></li>
 </ul>
 </div>
@@ -465,10 +445,10 @@ def index_main():
 <p>כמה נתונים על הדרך של המתאמנים שלנו.</p>
 </div>
 <ul class="champs" role="list" data-hs="אלופים והישגים">
-<li class="champ"><div class="champ-num" aria-hidden="true">12</div><h3>12 אלופי ישראל בשנה אחת</h3><p>ב־2011 נוספו לנו 12 אלופי ישראל בשנה אחת.</p></li>
-<li class="champ"><div class="champ-num" aria-hidden="true">2023</div><h3>אלוף ישראל לבוגרים 2023</h3><p>אחד המתאמנים שלנו, שגדל באילת ומתאמן אצלנו מגיל צעיר, הוא אלוף ישראל לבוגרים 2023 במשקל מעל 100 ק״ג. ב־2024 סיים במקום החמישי בגרנד פרי לינץ שבאוסטריה.</p></li>
-<li class="champ"><div class="champ-num champ-num--jp" lang="ja" aria-hidden="true">勝</div><h3>מדליסטים בכל גיל ומשקל</h3><p>ב־2011 היו לנו בעלי מדליות כמעט בכל גיל ומשקל, בבנים וגם בבנות, וההישגים הבולטים ביותר היו של הבנות.</p></li>
-<li class="champ"><div class="champ-num" aria-hidden="true">130</div><h3>כ־130 ספורטאים בשנה רגילה</h3><p>בשנה רגילה התאמנו אצלנו כ־130 ספורטאים.</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">12</div><h3>12 אלופי ישראל בשנה אחת</h3><p>בשנת 2011 נוספו לנו 12 אלופי ישראל בשנה אחת.</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">2023</div><h3>אלוף ישראל לבוגרים 2023</h3><p>אחד המתאמנים שלנו, שגדל באילת ומתאמן אצלנו מגיל צעיר, הוא אלוף ישראל לבוגרים 2023 במשקל מעל 100 ק״ג. בשנת 2024 סיים במקום החמישי בגרנד פרי לינץ שבאוסטריה.</p></li>
+<li class="champ"><div class="champ-num champ-num--jp" lang="ja" aria-hidden="true">勝</div><h3>מדליסטים בכל גיל ומשקל</h3><p>בשנת 2011 היו לנו בעלי מדליות כמעט בכל גיל ומשקל, בבנים וגם בבנות, וההישגים הבולטים ביותר היו של הבנות.</p></li>
+<li class="champ"><div class="champ-num" aria-hidden="true">130</div><h3>כ־130 מתאמנים בשנה רגילה</h3><p>בשנה רגילה התאמנו אצלנו כ־130 מתאמנים.</p></li>
 </ul>
 </div>
 </section>
@@ -494,9 +474,9 @@ def index_main():
 <ol class="belts" role="list" aria-label="רצף החגורות בג'ודו">
 <li class="belt belt--w"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">לבנה<small>התחלה</small></span></li>
 <li class="belt belt--c"><span class="belt-bar" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="belt-label">חגורות צבעוניות<small>דרגות קיו</small></span></li>
-<li class="belt belt--b"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">שחורה<small>דאן 1–5</small></span></li>
-<li class="belt belt--k"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">אדומה־<wbr>לבנה<small>דאן 6–8</small></span></li>
-<li class="belt belt--r"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">אדומה<small>דאן 9–10</small></span></li>
+<li class="belt belt--b"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">שחורה<small>דאן <bdi dir="ltr">1–5</bdi></small></span></li>
+<li class="belt belt--k"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">אדומה־<wbr>לבנה<small>דאן <bdi dir="ltr">6–8</bdi></small></span></li>
+<li class="belt belt--r"><span class="belt-bar" aria-hidden="true"></span><span class="belt-label">אדומה<small>דאן <bdi dir="ltr">9–10</bdi></small></span></li>
 </ol>
 <p class="note">דוגמה לרצף החגורות. צבעי הביניים משתנים בין מועדונים ואיגודים.</p>
 <div class="glossary">
@@ -538,9 +518,9 @@ def index_main():
 <caption>משך השיעורים לפי קבוצה</caption>
 <thead><tr><th scope="col">קבוצה</th><th scope="col">גילאים</th><th scope="col">משך שיעור</th></tr></thead>
 <tbody>
-<tr><td>גן וכיתה א׳</td><td>4–7</td><td>כשעה</td></tr>
-<tr><td>כיתה ב׳ ומעלה</td><td>מגיל 7</td><td>כשעה וחצי</td></tr>
-<tr><td>מבוגרים</td><td>18+</td><td>כשעה וחצי, עם קבוצת כיתה ב׳ ומעלה</td></tr>
+<tr><td>גן וכיתה א׳</td><td><bdi dir="ltr">4–7</bdi></td><td>כשעה</td></tr>
+<tr><td>כיתה ב׳ ומעלה</td><td><bdi dir="ltr">7–18</bdi></td><td>כשעה וחצי</td></tr>
+<tr><td>מבוגרים</td><td>18+</td><td>כשעה וחצי</td></tr>
 </tbody>
 </table>
 </div>
@@ -569,7 +549,7 @@ def index_main():
 <li><b>כנות</b><span>אומרים ועושים את האמת.</span></li>
 <li><b>כבוד</b><span>שומרים על יושרה ועל הוגנות.</span></li>
 <li><b>ענווה</b><span>מתקדמים בלי להתנשא.</span></li>
-<li><b>הערכה</b><span>מכבדים את המאמן, את החברים ואת המזרן.</span></li>
+<li><b>הערכה</b><span>מעריכים את המאמן, את החברים ואת המאמץ של כל אחד.</span></li>
 <li><b>שליטה עצמית</b><span>פועלים בשקט ובדיוק, גם בלחץ.</span></li>
 <li><b>ידידות</b><span>בן הזוג לאימון הוא שותף, לא יריב.</span></li>
 </ul>
@@ -592,11 +572,11 @@ def index_main():
 <details><summary>האם ג'ודו מתאים גם לבנות?</summary><div class="ans"><p>כן. אנחנו מלמדים ג'ודו לבנים ולבנות כאחד.</p></div></details>
 <details><summary>זה לתחביב או למי שרוצה להתחרות?</summary><div class="ans"><p>האקדמיה שלנו מתאימה לילדים מגיל 4, כתחביב או כמקצוע לעתיד. אצלנו יש גם ליגות, תחרויות ומחנות אימונים.</p></div></details>
 <details><summary>האם ג'ודו בטוח לילדים?</summary><div class="ans"><p>בג'ודו לומדים ליפול בבטחה, והאימון מונחה על ידי מאמן. כמו בכל ענף ספורט, חשוב להגיע בבריאות טובה ולהקשיב להוראות. אם יש מגבלה רפואית, כדאי לעדכן את המאמן לפני תחילת האימונים.</p></div></details>
-<details><summary>מה לובשים ומה מביאים?</summary><div class="ans"><p>בג'ודו מקובל להגיע בבגדי ספורט נוחים, עם ציפורניים קצרות ובלי תכשיטים. את שאלת הציוד, כולל בגד ג'ודו, כדאי לברר מול המאמן.</p></div></details>
+<details><summary>מה לובשים ומה מביאים?</summary><div class="ans"><p>לאימון מקובל להגיע בבגדי ספורט נוחים, עם ציפורניים קצרות וללא תכשיטים. כדאי לברר מול המאמן מה הציוד הנדרש, כולל בגד ג'ודו.</p></div></details>
 <details><summary>האם יש תחרויות?</summary><div class="ans"><p>כן. אצלנו יש ליגות, תחרויות ומחנות אימונים.</p></div></details>
-<details><summary>האם מבוגרים יכולים להצטרף?</summary><div class="ans"><p>כן. מבוגרים מתאמנים אצלנו בקבוצת כיתה ב׳ ומעלה. לפרטים על הקבוצה המתאימה, התקשרו.</p></div></details>
-<details><summary>איך נרשמים וכמה זה עולה?</summary><div class="ans"><p>ההרשמה מתבצעת בטלפון, בוואטסאפ או דרך <a href="contact.html">עמוד יצירת הקשר</a>. פרטי המסלולים והעלויות מתעדכנים לפי הגיל והקבוצה, ואנחנו נמסור אותם בשיחה.</p></div></details>
-<details><summary>איך מגיעים?</summary><div class="ans"><p>אנחנו נמצאים ב{STREET}, אילת. אפשר לנווט ישירות עם Waze או Google Maps מהכפתורים בתחתית האתר.</p></div></details>
+<details><summary>האם מבוגרים יכולים להצטרף?</summary><div class="ans"><p>כן. מבוגרים מתאמנים אצלנו בקבוצה של מבוגרים. לפרטים על הקבוצה, התקשרו.</p></div></details>
+<details><summary>איך נרשמים וכמה זה עולה?</summary><div class="ans"><p>ההרשמה מתבצעת בטלפון, בוואטסאפ או דרך <a href="#join">הטופס שבסוף העמוד</a>. פרטי המסלולים והעלויות מתעדכנים לפי הגיל והקבוצה, ואנחנו נמסור אותם בשיחה.</p></div></details>
+<details><summary>איך מגיעים?</summary><div class="ans"><p>אנחנו נמצאים ב{STREET}, אילת. אפשר לנווט ישירות עם {ext(WAZE, '<span lang="en" dir="ltr">Waze</span>')} או {ext(GMAPS, '<span lang="en" dir="ltr">Google Maps</span>')}, וגם מהכפתורים בתחתית האתר.</p></div></details>
 </div>
 </div>
 </section>
@@ -612,10 +592,9 @@ def index_main():
 <li>{icon("check", "i")}בנים ובנות, מגיל 4 ועד מבוגרים</li>
 <li>{icon("check", "i")}ליגות, תחרויות ומחנות אימונים</li>
 </ul>
-<p class="join-more">או חייגו ישירות: {tel("tel")}</p>
-<p class="join-more join-more--2">או <a href="contact.html">עברו לעמוד יצירת הקשר</a> למילוי טופס מלא.</p>
+{contact_info()}
 </div>
-{home_form()}
+{join_form()}
 </div>
 </section>
 
@@ -655,16 +634,6 @@ page(
     jsonld=index_ld,
 )
 
-page(
-    "contact.html",
-    "יצירת קשר | ג'ודוקאן אילת",
-    "יצירת קשר עם ג'ודוקאן אילת: טופס שפותח הודעה מוכנה בוואטסאפ או במייל, טלפון, כתובת ושעות פעילות.",
-    contact_main(),
-    current="contact.html",
-    skip2=("#contact-form", "דלגו לטופס"),
-)
-
-
 # ---------------------------------------------------------------- legal pages
 def legal(title_h1, meta_line, body):
     return f"""<main id="main" tabindex="-1">
@@ -692,8 +661,8 @@ ACCESS_BODY = f"""
 <li><strong>תצוגה:</strong> אפשר להגדיל את הטקסט עד 200 אחוז ללא אובדן תוכן. האתר מתאים את עצמו למסכי נייד, טאבלט ומחשב.</li>
 <li><strong>תפריט נגישות באתר:</strong> הגדלה והקטנה של הטקסט, ניגודיות גבוהה, גווני אפור, הדגשת קישורים, גופן קריא, ריווח טקסט ועצירת אנימציות. ההעדפות נשמרות בדפדפן שלכם בלבד.</li>
 <li><strong>טופס:</strong> לכל שדה יש תווית גלויה, ושדות חובה מסומנים בטקסט. שדה שלא מולא, או מולא חלקית, מסומן בכוכבית אדומה ובהודעה בטקסט מתחתיו שמסבירה מה חסר, והמיקוד עובר אל השדה הראשון שדורש תיקון. המידע אינו מועבר בצבע בלבד.</li>
-<li><strong>גלילה לצד:</strong> בנייד אפשר לדפדף בין כרטיסים בהחלקה, בכפתורי "הקודם" ו"הבא" או במקשי החצים. מי שמעדיף תצוגה רציפה, בלי גלילה לצד, יכול להפעיל "בלי גלילה לצד" בתפריט הנגישות.</li>
-<li><strong>אורך העמוד:</strong> בתחילת כל עמוד יש קישור דילוג לתוכן הראשי (ובעמוד יצירת הקשר גם לטופס), תפריט ניווט לכל הקטעים, וכפתור חזרה לראש העמוד.</li>
+<li><strong>גלילה לצד:</strong> בנייד אפשר לדפדף בין כרטיסים בהחלקה באצבע או בגרירה בעכבר, ובמקלדת במקשי החצים אחרי שמגיעים אל הפס עם Tab. מי שמעדיף תצוגה רציפה, בלי גלילה לצד, יכול להפעיל "בלי גלילה לצד" בתפריט הנגישות.</li>
+<li><strong>אורך העמוד:</strong> בתחילת כל עמוד יש קישור דילוג לתוכן הראשי, תפריט ניווט לכל הקטעים, וכפתור חזרה לראש העמוד.</li>
 <li><strong>בלי JavaScript:</strong> התפריט, הקישורים והתוכן זמינים גם כשהסקריפטים חסומים. במקום הטופס המלא יש אז כרטיס פשוט: תיבה אחת עם הודעה מוכנה שנשלחת בוואטסאפ, וקישור חיוג.</li>
 <li><strong>תנועה:</strong> אין תוכן מהבהב. האנימציות קצרות, והאתר מכבד את הגדרת "הפחתת תנועה" של מערכת ההפעלה.</li>
 </ul>
@@ -742,7 +711,7 @@ PRIVACY_BODY = f"""
 <p>אם תשתמשו בתפריט הנגישות, ההעדפות שלכם (למשל גודל טקסט) יישמרו באחסון המקומי של הדפדפן במכשיר שלכם בלבד. הן אינן נשלחות אלינו ואינן מועברות לאף גורם.</p>
 
 <h2>טופס יצירת הקשר</h2>
-<p>הטפסים באתר, בעמוד יצירת הקשר ובפס האדום שבסוף עמוד הבית, אינם שולחים מידע לשרת. הם מרכיבים הודעה ופותחים וואטסאפ{mail_priv}, במכשיר שלכם. לפני השליחה יש לסמן שקראתם והסכמתם למדיניות הזו. ההודעה נשלחת רק אם תלחצו שם על "שליחה". בדפדפן שלא מפעיל סקריפטים מוצג במקומם כרטיס פשוט עם תיבת הודעה אחת, והדפדפן עצמו פותח וואטסאפ עם הטקסט שבתיבה כשלוחצים על "שליחה בוואטסאפ". אם תבחרו להעתיק את ההודעה, ההעתקה נעשית במכשיר שלכם בלבד. השימוש בוואטסאפ ובשירות הדואר שלכם כפוף לתנאים ולמדיניות הפרטיות של מפעיליהם.</p>
+<p>הטופס באתר, בפס האדום שבסוף עמוד הבית, אינו שולח מידע לשרת. הוא מרכיב הודעה ופותח וואטסאפ{mail_priv}, במכשיר שלכם. לפני השליחה יש לסמן שקראתם והסכמתם למדיניות הזו. ההודעה נשלחת רק אם תלחצו שם על "שליחה". בדפדפן שלא מפעיל סקריפטים מוצג במקומם כרטיס פשוט עם תיבת הודעה אחת, והדפדפן עצמו פותח וואטסאפ עם הטקסט שבתיבה כשלוחצים על "שליחה בוואטסאפ". אם תבחרו להעתיק את ההודעה, ההעתקה נעשית במכשיר שלכם בלבד. השימוש בוואטסאפ ובשירות הדואר שלכם כפוף לתנאים ולמדיניות הפרטיות של מפעיליהם.</p>
 
 <h2>פנייה אלינו בטלפון או בוואטסאפ</h2>
 <p>אם תפנו אלינו בטלפון או בוואטסאפ, הפרטים שתמסרו (למשל שם, גיל ומספר טלפון) ישמשו לצורך מענה לפנייה ולהרשמה בלבד. פרטים של קטינים נמסרים על ידי הוריהם או האפוטרופוסים שלהם. לא נשלח אליכם הודעות פרסומיות ללא הסכמה מפורשת שלכם.</p>
@@ -809,4 +778,8 @@ page(
     og=False,
 )
 
-print("built:", sorted(f for f in os.listdir(DOCS) if f.endswith(".html")))
+# a page that is no longer generated must not linger in the output folder
+for stale in sorted(f for f in os.listdir(DOCS) if f.endswith(".html") and f not in BUILT):
+    os.remove(os.path.join(DOCS, stale))
+    print("removed a page that is no longer generated:", stale)
+print("built:", sorted(BUILT))

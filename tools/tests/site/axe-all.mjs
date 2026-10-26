@@ -1,6 +1,6 @@
 import { AXE, launch, siteUrl } from '../lib.mjs';
 const BASE = await siteUrl();
-const pages = ['index.html', 'contact.html', 'accessibility.html', 'privacy.html', 'terms.html'];
+const pages = ['index.html', 'accessibility.html', 'privacy.html', 'terms.html'];
 const sizes = [['desktop', 1440, 900], ['mobile', 390, 844], ['narrow', 320, 640]];
 const modes = ['', 'a11y-contrast', 'a11y-links', 'a11y-gray', 'a11y-font a11y-spacing', 'a11y-stack'];
 const b = await launch();
@@ -48,13 +48,14 @@ async function states(sizeName, w, h) {
   const ctx = await b.newContext({ viewport: { width: w, height: h }, reducedMotion: 'reduce', bypassCSP: true, ...(mobile ? { isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : {}) });
   await ctx.route('https://wa.me/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: '<title>wa</title>' }));
   const p = await ctx.newPage();
-  // contact: invalid then result
-  await p.goto(BASE + 'contact.html', { waitUntil: 'networkidle' });
-  await p.click('#contact-form button[data-channel=wa]'); await p.waitForTimeout(200);
-  await audit(p, `contact ${sizeName} invalid-state`);
-  await p.fill('#cf-name', 'דוד כהן'); await p.fill('#cf-phone', '0501234567'); await p.fill('#cf-age', '8'); await p.check('#cf-consent');
-  await p.click('#contact-form button[data-channel=wa]'); await p.waitForTimeout(300);
-  await audit(p, `contact ${sizeName} result-state`);
+  // the form in the red band: invalid then result
+  await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
+  await p.locator('#join-form').scrollIntoViewIfNeeded();
+  await p.click('#join-form button[data-channel=wa]'); await p.waitForTimeout(200);
+  await audit(p, `join form ${sizeName} invalid-state`);
+  await p.fill('#jf-name', 'דוד כהן'); await p.fill('#jf-phone', '0501234567'); await p.fill('#jf-age', '8'); await p.check('#jf-consent');
+  await p.click('#join-form button[data-channel=wa]'); await p.waitForTimeout(300);
+  await audit(p, `join form ${sizeName} result-state`);
   // a11y panel open
   await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
   await p.click('.a11y-toggle'); await p.waitForTimeout(200);

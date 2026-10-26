@@ -4,7 +4,7 @@ const BASE = await siteUrl();
 // usage: mobile-all.mjs [on|off] [width]   (scripts on or off, viewport width; default: on 390)
 const JS = (process.argv[2] || 'on') === 'on';
 const WIDTH = Number(process.argv[3] || 390);
-const pages = ['index.html', 'contact.html', 'accessibility.html', 'privacy.html', 'terms.html'];
+const pages = ['index.html', 'accessibility.html', 'privacy.html', 'terms.html'];
 const b = await launch();
 let fails = 0, checks = 0;
 const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL:', m); } };
@@ -81,7 +81,7 @@ for (const h of anchors) {
 }
 
 // skip links: reachable with the keyboard and they move focus to their target
-for (const pg of ['index.html', 'contact.html']) {
+for (const pg of ['index.html', 'privacy.html']) {
   await p.goto(BASE + pg, { waitUntil: 'load' });
   const skips = await p.evaluate(() => [...document.querySelectorAll('a.skip')].map(a => a.getAttribute('href')));
   for (const h of skips) {
@@ -97,8 +97,8 @@ for (const pg of ['index.html', 'contact.html']) {
   }
 }
 
-// external / app links: href is right and the tap opens it
-await p.goto(BASE + 'contact.html', { waitUntil: 'load' });
+// external / app links in the contact details of the red band: href is right and the tap opens it
+await p.goto(BASE + 'index.html', { waitUntil: 'load' });
 const ext = await p.evaluate(() => [...document.querySelectorAll('a[target=_blank]')].map(a => ({ href: a.href, rel: a.rel })));
 for (const e of ext) ok(/noopener/.test(e.rel) && /noreferrer/.test(e.rel), `external link without noopener noreferrer: ${e.href}`);
 const links = await p.evaluate(() => [...document.querySelectorAll('a[href^="tel:"], a[href^="mailto:"]')].map(a => a.getAttribute('href')));

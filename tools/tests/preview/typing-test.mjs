@@ -22,33 +22,33 @@ async function typeInto(page, frame, sel, text, label) {
 
 async function enterCheck(page, frame, label) {
   // a one-word name followed by the keyboard's Next key must not light up the whole form or trap the focus
-  await frame.locator('#cf-name').scrollIntoViewIfNeeded();
-  await frame.locator('#cf-name').tap();
+  await frame.locator('#jf-name').scrollIntoViewIfNeeded();
+  await frame.locator('#jf-name').tap();
   await page.keyboard.type('דוד', { delay: 15 });
   await page.keyboard.press('Enter');
   await page.waitForTimeout(150);
   const st = await frame.evaluate(() => ({ active: document.activeElement && document.activeElement.id, invalid: document.querySelectorAll('.field.invalid').length }));
-  ok(st.active === 'cf-phone', label + ': Next moves from the name to the phone field (active=' + st.active + ')');
+  ok(st.active === 'jf-phone', label + ': Next moves from the name to the phone field (active=' + st.active + ')');
   ok(st.invalid === 0, label + ': Next does not mark any field as invalid (' + st.invalid + ')');
-  await frame.locator('#cf-name').fill('');
+  await frame.locator('#jf-name').fill('');
 }
 
 async function runForm(page, frame, label) {
   await enterCheck(page, frame, label);
-  await typeInto(page, frame, '#cf-name', 'דוד כהן', label + ' name');
-  await typeInto(page, frame, '#cf-phone', '0501234567', label + ' phone');
-  await typeInto(page, frame, '#cf-age', '8', label + ' age');
-  await frame.locator('#cf-message').scrollIntoViewIfNeeded();
-  await frame.locator('#cf-message').tap();
+  await typeInto(page, frame, '#jf-name', 'דוד כהן', label + ' name');
+  await typeInto(page, frame, '#jf-phone', '0501234567', label + ' phone');
+  await typeInto(page, frame, '#jf-age', '8', label + ' age');
+  await frame.locator('#jf-message').scrollIntoViewIfNeeded();
+  await frame.locator('#jf-message').tap();
   await page.keyboard.type('שלום, רוצה לשמוע על החוגים', { delay: 10 });
-  ok((await frame.locator('#cf-message').inputValue()).startsWith('שלום'), label + ' message textarea accepts text');
-  await frame.locator('#cf-consent').scrollIntoViewIfNeeded();
-  await frame.locator('#cf-consent').tap();
-  ok(await frame.locator('#cf-consent').isChecked(), label + ' consent box checks by tapping the box');
-  await frame.locator('#contact-form button[data-channel=wa]').scrollIntoViewIfNeeded();
-  await frame.locator('#contact-form button[data-channel=wa]').tap();
+  ok((await frame.locator('#jf-message').inputValue()).startsWith('שלום'), label + ' message textarea accepts text');
+  await frame.locator('#jf-consent').scrollIntoViewIfNeeded();
+  await frame.locator('#jf-consent').tap();
+  ok(await frame.locator('#jf-consent').isChecked(), label + ' consent box checks by tapping the box');
+  await frame.locator('#join-form button[data-channel=wa]').scrollIntoViewIfNeeded();
+  await frame.locator('#join-form button[data-channel=wa]').tap();
   await page.waitForTimeout(400);
-  const shown = await frame.evaluate(() => { const r = document.querySelector('#contact-form .result'); return r && !r.hidden; });
+  const shown = await frame.evaluate(() => { const r = document.querySelector('#join-form .result'); return r && !r.hidden; });
   ok(shown, label + ' send button shows the ready message');
 }
 
@@ -59,7 +59,7 @@ async function runForm(page, frame, label) {
   await ctx.route('https://wa.me/**', r => r.fulfill({ status: 200, contentType: 'text/html', body: 'x' }));
   const p = await ctx.newPage();
   const errs = []; p.on('pageerror', e => errs.push(String(e)));
-  await p.goto(SITE + 'contact.html', { waitUntil: 'networkidle' });
+  await p.goto(SITE + 'index.html', { waitUntil: 'networkidle' });
   await runForm(p, p, 'site');
   ok(errs.length === 0, 'no script errors ' + errs.join(' | '));
   await ctx.close();
@@ -79,9 +79,9 @@ for (const sandbox of ['allow-scripts', 'allow-scripts allow-same-origin', 'allo
   const f = p.frames().find(x => x !== p.mainFrame());
   await f.locator('.menu-btn').tap();
   await p.waitForTimeout(200);
-  await f.locator('.side-nav a[href="#view-contact"]').tap();
-  await p.waitForTimeout(500);
-  ok(await f.evaluate(() => getComputedStyle(document.getElementById('view-contact')).display !== 'none'), 'contact view opens from the menu');
+  await f.locator('.side-nav a[href="#join"]').tap();
+  await p.waitForTimeout(900);
+  ok(await f.evaluate(() => { const r = document.getElementById('join').getBoundingClientRect(); const h = document.querySelector('.side').getBoundingClientRect(); return r.top >= h.bottom - 4 && r.top < innerHeight * 0.7; }), 'the red band opens from the menu, below the header');
   await runForm(p, f, 'preview');
   ok(errs.length === 0, 'no script errors ' + errs.join(' | '));
   await ctx.close();

@@ -21,6 +21,7 @@ export const AXE = path.join(path.dirname(require.resolve('axe-core')), 'axe.min
 const venvPython = ['bin/python', 'Scripts/python.exe'].map(p => path.join(HERE, '.venv', p)).find(p => fs.existsSync(p));
 export const PYTHON = process.env.PYTHON || venvPython || 'python3';
 export const TEST_EMAIL = 'info@example.org';
+export const NAV_ITEMS = 9;   // items of the main menu (build_site.py, NAV)
 
 // ---- browser -------------------------------------------------------------------------------------------------------
 // CHROMIUM_PATH wins; then the cloud sandbox's preinstalled build; otherwise Playwright's own download

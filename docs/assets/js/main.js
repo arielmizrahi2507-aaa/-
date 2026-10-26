@@ -368,7 +368,7 @@
   [].slice.call(doc.querySelectorAll('form[data-wa]')).forEach(initForm);
 
   /* ---------- גלילה לצד בנייד ----------
-     קבוצות כרטיסים (data-hs) הופכות לפס שמחליקים בו הצידה: החלקה, כפתורי הקודם והבא, מקשי חצים וגרירה בעכבר.
+     קבוצות כרטיסים (data-hs) הופכות לפס שמחליקים בו הצידה: החלקה באצבע, גרירה בעכבר, ובמקלדת מקשי החצים. בלי כפתורים ובלי נקודות.
      בלי JavaScript, או כשמפעילים "בלי גלילה לצד" בתפריט הנגישות, הכרטיסים נשארים ברשימה רציפה. */
   var mq = window.matchMedia ? window.matchMedia('(max-width: 900px)') : null;
   var carousels = [];
@@ -395,7 +395,6 @@
     var raf = 0;
     var settle = 0;
     var active = 0;
-    var shown = false;
 
     var wrap = el('div', { 'class': 'hs' });
     track.parentNode.insertBefore(wrap, track);
@@ -403,19 +402,6 @@
     if (!track.id) track.id = 'hs-' + n;
 
     var list = [].slice.call(track.classList.contains('gloss') ? track.querySelectorAll('dl > div') : track.children);
-    var ctl = el('div', { 'class': 'hs-ctl', hidden: '' });
-    /* עד שישה כרטיסים: נקודות. יותר מכך: מונה, כדי שהשורה לא תתמלא */
-    var useCount = list.length > 6;
-    var dots = el('div', { 'class': useCount ? 'hs-count' : 'hs-dots', 'aria-hidden': 'true' });
-    if (!useCount) list.forEach(function () { dots.appendChild(el('i')); });
-    var btns = el('div', { 'class': 'hs-btns' });
-    var prev = el('button', { type: 'button', 'class': 'hs-btn hs-prev', 'aria-label': 'הקודם: ' + label, 'aria-controls': track.id }, svgIcon('arrow'));
-    var next = el('button', { type: 'button', 'class': 'hs-btn hs-next', 'aria-label': 'הבא: ' + label, 'aria-controls': track.id }, svgIcon('arrow'));
-    btns.appendChild(prev);
-    btns.appendChild(next);
-    ctl.appendChild(dots);
-    ctl.appendChild(btns);
-    wrap.appendChild(ctl);
 
     function rtl() { return window.getComputedStyle(track).direction === 'rtl'; }
 
@@ -446,7 +432,6 @@
       var scrollable = carouselOn() && max > 4;
       if (scrollable !== wasScrollable) {
         wasScrollable = scrollable;
-        ctl.hidden = !scrollable;
         if (scrollable) {
           track.setAttribute('tabindex', '0');
           if (!track.hasAttribute('role')) { track.setAttribute('role', 'group'); addedRole = true; }
@@ -471,15 +456,7 @@
       });
       if (pos <= 2) best = 0;
       if (pos >= max - 2) best = list.length - 1;
-      var prevOff = pos <= 2 ? 'true' : 'false';
-      var nextOff = pos >= max - 2 ? 'true' : 'false';
-      if (prev.getAttribute('aria-disabled') !== prevOff) prev.setAttribute('aria-disabled', prevOff);
-      if (next.getAttribute('aria-disabled') !== nextOff) next.setAttribute('aria-disabled', nextOff);
-      if (best === active && shown) return;
       active = best;
-      shown = true;
-      if (useCount) dots.textContent = (best + 1) + ' מתוך ' + list.length;
-      else [].slice.call(dots.children).forEach(function (d, i) { d.classList.toggle('on', i === best); });
     }
 
     function schedule() { if (!raf) raf = window.requestAnimationFrame(update); }
@@ -492,9 +469,6 @@
       window.clearTimeout(settle);
       settle = window.setTimeout(function () { say(label + ': ' + (active + 1) + ' מתוך ' + list.length); }, 600);
     }
-
-    prev.addEventListener('click', function () { if (prev.getAttribute('aria-disabled') !== 'true') go(-1); });
-    next.addEventListener('click', function () { if (next.getAttribute('aria-disabled') !== 'true') go(1); });
 
     track.addEventListener('keydown', function (e) {
       if (e.target !== track || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -510,7 +484,7 @@
 
     /* גרירה בעכבר. במגע ההחלקה מובנית בדפדפן */
     track.addEventListener('pointerdown', function (e) {
-      if (e.pointerType !== 'mouse' || e.button !== 0 || ctl.hidden) return;
+      if (e.pointerType !== 'mouse' || e.button !== 0 || !wasScrollable) return;
       drag = { x: e.clientX, left: track.scrollLeft, moved: false };
     });
     track.addEventListener('pointermove', function (e) {

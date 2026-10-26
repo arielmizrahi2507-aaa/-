@@ -6,7 +6,7 @@ const b = await launch();
 let fails = 0, checks = 0;
 const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL:', m); } };
 const sizes = [['desktop', { viewport: { width: 1440, height: 900 } }], ['phone', { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]];
-for (const [sn, opts] of sizes) for (const [pg, prefix] of [['index.html', 'jf'], ['contact.html', 'cf']]) {
+for (const [sn, opts] of sizes) for (const [pg, prefix] of [['index.html', 'jf']]) {
   console.log(`\n== no scripts, ${sn}, ${pg}`);
   const ctx = await b.newContext({ ...opts, reducedMotion: 'reduce' });
   await ctx.route('**/assets/js/main.js', r => r.abort());
@@ -20,7 +20,7 @@ for (const [sn, opts] of sizes) for (const [pg, prefix] of [['index.html', 'jf']
   await p.evaluate(() => document.documentElement.classList.remove('js'));
   const sel = `#${prefix}-nojs`;
   const vis = await p.evaluate(([sel, prefix]) => {
-    const card = document.querySelector(sel); const full = document.getElementById(prefix === 'jf' ? 'join-form' : 'contact-form');
+    const card = document.querySelector(sel); const full = document.getElementById('join-form');
     return { card: getComputedStyle(card).display !== 'none', full: getComputedStyle(full).display !== 'none', area: document.getElementById(prefix + '-nojs-text').value };
   }, [sel, prefix]);
   ok(vis.card && !vis.full, 'the plain card is shown and the full form is hidden');
@@ -49,14 +49,14 @@ for (const [sn, opts] of sizes) for (const [pg, prefix] of [['index.html', 'jf']
 }
 // the other side: with scripts running the visitor sees the full form only, never the plain card as well
 console.log('\n== scripts running');
-for (const [pg, prefix] of [['index.html', 'jf'], ['contact.html', 'cf']]) {
+for (const [pg, prefix] of [['index.html', 'jf']]) {
   const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
   const p = await ctx.newPage();
   await p.goto(BASE + pg, { waitUntil: 'networkidle' });
   const vis = await p.evaluate(prefix => ({
     js: document.documentElement.classList.contains('js'),
     card: getComputedStyle(document.getElementById(prefix + '-nojs')).display !== 'none',
-    full: getComputedStyle(document.getElementById(prefix === 'jf' ? 'join-form' : 'contact-form')).display !== 'none',
+    full: getComputedStyle(document.getElementById('join-form')).display !== 'none',
   }), prefix);
   ok(vis.js && vis.full && !vis.card, `${pg}: with scripts the full form is shown and the plain card is hidden (${JSON.stringify(vis)})`);
   await ctx.close();

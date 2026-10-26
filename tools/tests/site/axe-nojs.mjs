@@ -1,7 +1,7 @@
 // axe on the state a visitor gets when scripts do not run: main.js is blocked and the "js" class is removed
-import { AXE, launch, siteUrl } from '../lib.mjs';
+import { AXE, NAV_ITEMS, launch, siteUrl } from '../lib.mjs';
 const BASE = await siteUrl();
-const pages = ['index.html', 'contact.html', 'accessibility.html', 'privacy.html', 'terms.html'];
+const pages = ['index.html', 'accessibility.html', 'privacy.html', 'terms.html'];
 const sizes = [['desktop', 1440, 900], ['mobile', 390, 844], ['narrow', 320, 640]];
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 const b = await launch();
@@ -19,7 +19,7 @@ for (const [sn, w, h] of sizes) for (const pg of pages) {
   const menu = await p.evaluate(() => { const a = [...document.querySelectorAll('.side-nav a')]; return { vis: a.filter(x => x.getBoundingClientRect().height > 0).length, pos: getComputedStyle(document.querySelector('.side')).position, overflowX: document.documentElement.scrollWidth > innerWidth + 1 }; });
   const msg = `${pg} ${sn}: violations=${res.violations.length} menu-items-visible=${menu.vis} header=${menu.pos} h-scroll=${menu.overflowX}`;
   console.log(msg);
-  if (menu.vis !== 8 || menu.overflowX || (sn !== 'desktop' && menu.pos !== 'static')) { bad++; console.log('  FAIL: menu/scroll state'); }
+  if (menu.vis !== NAV_ITEMS || menu.overflowX || (sn !== 'desktop' && menu.pos !== 'static')) { bad++; console.log('  FAIL: menu/scroll state'); }
   for (const v of res.violations) { bad++; console.log(`  [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length})`); for (const n of v.nodes.slice(0, 3)) console.log('     ->', n.target.join(' ')); }
   await ctx.close();
 }

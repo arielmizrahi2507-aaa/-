@@ -37,6 +37,7 @@ PAIRS = [
     ('ink-2', 'paper', 4.5, 'secondary text on light panels'),
     ('ink-3', 'white', 4.5, 'tertiary text'),
     ('ink-3', 'paper', 4.5, 'tertiary text on light panels'),
+    ('ink', 'accent', 4.5, 'small dark text on the brand red (the labels of the contact details in the red band)'),
     ('white', 'accent', 3.0, 'white on the brand red is for large or bold text only (the red band, buttons, the menu button)'),
     ('accent-soft', 'night', 4.5, 'red text on the dark sidebar and bands'),
     ('accent-soft', 'night-2', 4.5, 'red text on the dark panels'),

@@ -7,7 +7,7 @@ Code, comments, commit messages and this file are English. The site itself is He
 
 | Path | What it is |
 |---|---|
-| `docs/` | The published site (GitHub Pages: branch `main`, folder `/docs`). **Generated: never hand-edit `docs/*.html`.** |
+| `docs/` | The published site (GitHub Pages: branch `main`, folder `/docs`). **Generated: never hand-edit `docs/*.html`** (the generator also deletes pages it no longer produces). |
 | `tools/build_site.py` | The single source of every page: sidebar, footer, icon sprite, forms, all text, JSON-LD, CSP. `python3 tools/build_site.py` rewrites `docs/*.html`. Env: `JK_EMAIL` (club e-mail, enables the e-mail option), `JK_OUT` (output folder, for test builds). |
 | `docs/assets/css/style.css`, `docs/assets/js/main.js` | Hand-written style and script (edited in place). Fonts (Heebo, Shippori Mincho subset) and the logo are self-hosted; licences in `docs/assets/LICENSES.txt`. |
 | `tools/make_logo_assets.py`, `tools/logo/` | PNG icons and share image from `docs/assets/img/logo.svg` (a vector redrawn from the club's shirt). |
@@ -37,7 +37,7 @@ python3 tools/make_preview.py                  # build/preview/judokan-eilat-sit
 - **Legal to publish**: only assets we own or have a licence for (OFL fonts, Feather icons under MIT, the club's own logo). No stock or scraped images, no athlete names without consent (Privacy Protection Law s. 2(6)), no cookies, tracking, analytics or third-party requests.
 - **Privacy**: details leave the page only when the visitor presses a send button, after ticking the consent box; the privacy link in the consent text opens in the same tab. The site has no server and stores nothing.
 - **Accessibility**: Israeli Standard 5568 (WCAG 2.1 AA), checked against WCAG 2.2 AA with axe: keyboard, visible focus, contrast (small red text and links use `--accent-ink` `#C4221B`; the brand red `--accent` `#EE362E` is for large surfaces and large text), reduced motion, 200% text, 320 px reflow, 24 px targets. `accessibility.html` must describe the real features and their limits (no screen-reader test was done).
-- **Look**: red `#EE362E` and white, modern-classic. The dark sidebar is the numbered list with Japanese characters (the owner's design) on desktop **and** phone. The home page ends with the red band "מוכנים להתחיל?" holding a short details form; `contact.html` has the full form.
+- **Look**: red `#EE362E` and white, modern-classic. The dark sidebar is the numbered list with Japanese characters (the owner's design) on desktop **and** phone. There is **no separate contact page**: the home page ends with the red band "מוכנים להתחיל?" (`#join`), which holds the contact details (call, copy, WhatsApp, Waze, Google Maps, days and hours) and the one full form. Every "צור קשר" link on the site points at `#join`. The side-scrolling strips have no arrows, dots or counters: finger, mouse drag and (for the keyboard) arrow keys only.
 
 ## Invariants the tests enforce
 
@@ -50,7 +50,7 @@ python3 tools/make_preview.py                  # build/preview/judokan-eilat-sit
 
 Every suite is its own script, prints a line such as `N checks, M failures` and exits non-zero on failure. `run-all.mjs` runs them, writes logs to `build/test-logs/`, prints one line per suite and exits non-zero if any failed.
 - `static/`: `docs/` equals the generator's output, html-validate, links and anchors, security and secret scan, Japanese glyphs present in the font, contrast of the colour tokens.
-- `site/`: Playwright and axe on a served `docs/`: accessibility, keyboard, reflow, mobile, menus, CSP, forms (with and without a club e-mail), carousels, no-script.
+- `site/`: Playwright and axe on a served `docs/`: accessibility, keyboard, reflow, mobile, menus, CSP, forms (with and without a club e-mail), carousels, captions (belt ladder, number ranges), content parity between wide and narrow screens, no-script.
 - `preview/`: the single-file preview, also embedded in sandboxed iframes and `srcdoc`, with and without scripts.
 - `lib.mjs` holds the shared parts (`launch()`, `siteUrl()`, `previewHtml()`, `AXE`). A suite also runs alone: `node tools/tests/site/menu-test.mjs`.
 - Fixing a bug: add or extend a test that fails without the fix (revert the fix once to watch it fail), then fix. New suite: add the script and list it in `SUITES` in `run-all.mjs`.
@@ -83,3 +83,5 @@ The condition is judged from the transcript after every turn, so ask for somethi
 - `pkill -f <pattern>` can match and kill your own shell. Use `pgrep -f "[p]attern"` first.
 - The phone menu covered the form after navigation: any page change must close it (main.js and the preview router).
 - A fragment link inside a `srcdoc` iframe loads the parent's page unless `<base href="about:srcdoc">` is set.
+- A numeric range with an en dash inside right-to-left text shows reversed ("7–4"). Wrap it as `<bdi dir="ltr">4–7</bdi>` (in a `<select>` option, which cannot hold markup, write it with words: "4 עד 7"). `captions-test` checks this.
+- Captions that sit side by side (belt ladder) must wrap or stack instead of shrinking: a caption that does not fit runs into its neighbour. `captions-test` sweeps widths 300 to 1500 px.

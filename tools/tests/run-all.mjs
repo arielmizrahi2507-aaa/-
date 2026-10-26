@@ -43,6 +43,8 @@ const SUITES = [
   { name: 'menu', group: 'site', file: 'site/menu-test.mjs', quick: true },
   { name: 'forms', group: 'site', file: 'site/forms-test.mjs', quick: true },
   { name: 'forms-no-script', group: 'site', file: 'site/nojs-form-test.mjs', quick: true },
+  { name: 'captions', group: 'site', file: 'site/captions-test.mjs', quick: true },
+  { name: 'content-parity', group: 'site', file: 'site/content-parity-test.mjs', quick: true },
   { name: 'carousel', group: 'site', file: 'site/carousel-test.mjs' },
   { name: 'keyboard', group: 'site', file: 'site/kbd-all.mjs' },
   { name: 'reflow', group: 'site', file: 'site/reflow-test.mjs' },

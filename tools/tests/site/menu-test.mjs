@@ -11,7 +11,7 @@ const configs = [
   ['landscape + text 140%', { width: 667, height: 375 }, 1.4],
 ];
 for (const [name, vp, fs] of configs) {
-  for (const pg of ['index.html', 'contact.html', 'terms.html']) {
+  for (const pg of ['index.html', 'privacy.html', 'terms.html']) {
     const ctx = await b.newContext({ viewport: vp, isMobile: true, hasTouch: true, deviceScaleFactor: 2, reducedMotion: 'reduce' });
     const p = await ctx.newPage();
     await p.goto(BASE + pg, { waitUntil: 'load' });

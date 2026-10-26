@@ -182,11 +182,12 @@ h3{font-weight:900}
 .step p{font-size:1rem;line-height:1.65;color:var(--ink-2)}
 .side-block h3{margin-bottom:.7rem;font-size:1.6rem}
 .side-block>p{max-width:34rem;color:var(--ink-2)}
-.belts{display:flex;gap:6px;margin:1.5rem 0 .75rem}
+/* the belts wrap into a second row instead of squeezing their captions into one another */
+.belts{display:flex;flex-wrap:wrap;gap:1.25rem 6px;margin:1.5rem 0 .75rem}
 .belt{display:grid;align-content:start;gap:.55rem;min-width:0}
-.belt--w,.belt--b,.belt--r{flex:1.2}
-.belt--k{flex:1.8}
-.belt--c{flex:3.6}
+.belt--w,.belt--b,.belt--r{flex:1.2 1 4.5rem}
+.belt--k{flex:1.8 1 5.5rem}
+.belt--c{flex:3.6 1 8.5rem}
 .belt-bar{display:flex;height:2.5rem;border:2px solid var(--ink)}
 .belt--w .belt-bar{background:#fff}
 .belt--b .belt-bar{background:var(--ink)}
@@ -200,7 +201,7 @@ h3{font-weight:900}
 .belt--c i:nth-child(4){background:#2F66B5}
 .belt--c i:nth-child(5){background:#7B4A2B}
 .belt-label{color:var(--ink);font-size:.9rem;font-weight:700;line-height:1.3}
-.belt-label small{display:block;color:var(--ink-3);font-size:.85rem;font-weight:500}
+.belt-label small{display:block;color:var(--ink-3);font-size:.85rem;font-weight:500;white-space:nowrap}
 .glossary{margin-top:2.25rem;padding-top:1.6rem;border-top:2px solid var(--ink)}
 .glossary h3{margin-bottom:.6rem;font-size:1.6rem}
 .glossary dl>div{display:grid;grid-template-columns:5.8rem minmax(0,1fr);gap:.2rem 1rem;align-items:baseline;padding:.6rem 0;border-bottom:1px solid var(--rule)}
@@ -291,7 +292,7 @@ html:not(.js) .cform[data-wa]{display:none}
 
 /* ---------- מוכנים להתחיל (פס אדום עם טופס) ---------- */
 .join{background:var(--accent);color:#fff}
-.join-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-wrap:wrap;gap:3.5rem;align-items:center}
+.join-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-wrap:wrap;gap:3.5rem;align-items:flex-start}
 .join-copy{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:1.375rem}
 .join-kj{font-family:var(--font-jp);font-size:1.4rem;font-weight:800;letter-spacing:8px}
 .join h2{font-size:3.5rem;line-height:1.05;color:#fff}
@@ -299,7 +300,6 @@ html:not(.js) .cform[data-wa]{display:none}
 .join-list{display:flex;flex-direction:column;gap:.75rem;font-size:1.2rem;font-weight:700}
 .join-list li{display:flex;align-items:center;gap:.75rem}
 .join a{color:#fff}
-.join-more{font-size:1.2rem;font-weight:700}
 .join .cform{flex:1 1 420px;min-width:0;border:0;border-radius:2px;color:var(--ink)}
 .join .cform a:not(.btn){color:var(--accent-ink);text-decoration:underline;text-underline-offset:.2em}
 .join .cform a:not(.btn):hover{color:var(--accent-deep)}
@@ -308,6 +308,14 @@ html:not(.js) .cform[data-wa]{display:none}
 .join .cform a.btn--line:hover{color:#fff}
 .join .cform :focus-visible{outline-color:var(--ink)}
 .join .send-row button{flex-basis:100%}
+/* the contact details in the red band: white lines and white buttons on the red. Small text on the red is dark, large bold text is white */
+.join .contact-info{padding:0;background:transparent;color:#fff}
+.join .contact-info h3{margin-bottom:.2rem;font-size:1.5rem;color:#fff}
+.join .ci-row{padding:.9rem 0;border-top:1px solid rgba(255,255,255,.65)}
+.join .ci-label{color:var(--ink)}
+.join .ci-val{font-size:1.2rem;font-weight:700}
+.join .ci-btn,.join a.ci-btn{border:2px solid #fff;background:#fff;color:var(--ink)}
+.join .ci-btn:hover,.join a.ci-btn:hover{border-color:var(--ink);background:var(--ink);color:#fff}
 
 /* ---------- פוטר ---------- */
 .foot{background:var(--night);color:#fff}
@@ -350,12 +358,6 @@ html:not(.js) .cform[data-wa]{display:none}
 .champ::after{content:"";width:2.5rem;height:3px;background:var(--accent)}
 
 /* ---------- עמוד יצירת קשר ---------- */
-.page-head .band-in{gap:1.2rem;padding-bottom:2.5rem}
-.page-head h1{font-size:4.5rem;line-height:1.05;font-weight:900;letter-spacing:-1px}
-.page-head .lead{max-width:46rem;font-size:1.25rem;line-height:1.7;color:var(--ink-2)}
-.contact-grid{display:flex;flex-direction:row;flex-wrap:wrap;gap:clamp(1.5rem,4vw,3rem);align-items:flex-start}
-.contact-grid>.cform{flex:1.3 1 24rem;min-width:0}
-.contact-grid>.contact-info{flex:.7 1 18rem;min-width:0}
 .cform{display:flex;flex-direction:column;gap:1.25rem;padding:clamp(1.4rem,3vw,2.4rem);border:1px solid var(--rule);background:#fff}
 .cform .form-title{font-size:1.7rem;font-weight:900}
 .send-row{display:flex;flex-wrap:wrap;gap:.75rem}
@@ -424,7 +426,7 @@ html.a11y-gray{filter:grayscale(1)}
 .a11y-contrast .prog-meta,.a11y-contrast .coach-tag{background:#fff!important;color:#000!important}
 .a11y-contrast .field input,.a11y-contrast .field select{background:#000;color:#fff;border-color:#fff}
 .a11y-contrast .table-wrap th{background:#222!important}
-.a11y-contrast .cform,.a11y-contrast .contact-info,.a11y-contrast .champ,.a11y-contrast .result,.a11y-contrast .page-head{background:#000!important;color:#fff!important}
+.a11y-contrast .cform,.a11y-contrast .contact-info,.a11y-contrast .champ,.a11y-contrast .result{background:#000!important;color:#fff!important}
 .a11y-contrast .cform,.a11y-contrast .champ,.a11y-contrast .result{border-color:#fff!important}
 .a11y-contrast .champ-num,.a11y-contrast .req,.a11y-contrast .ci-label{color:#FFEB3B!important}
 .a11y-contrast .send-row button,.a11y-contrast .ci-btn,.a11y-contrast .to-top{background:#000!important;color:#FFEB3B!important;border:2px solid #FFEB3B!important}
@@ -470,7 +472,6 @@ html.a11y-gray{filter:grayscale(1)}
   .js .side.open .side-bottom{display:flex!important;margin-top:1.25rem;padding-bottom:.5rem}
   .train-grid{grid-template-columns:minmax(0,1fr)}
   .principles{grid-template-columns:minmax(0,1fr)}
-  .contact-grid>.cform,.contact-grid>.contact-info{flex:1 1 100%}
 }
 @media (max-width:760px){
   body{padding-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px))}
@@ -485,7 +486,6 @@ html.a11y-gray{filter:grayscale(1)}
   .band-in,.sched-in,.join-in{padding-block:3rem}
   .band-in{gap:2.5rem}
   .card-dark,.prog{padding:1.75rem 1.4rem}
-  .page-head h1{font-size:2.75rem}
   .champ{padding:1.75rem 1.4rem}
   .champ-num{font-size:4.25rem}
   .cform{padding:1.4rem 1.1rem}
@@ -508,23 +508,6 @@ html.a11y-gray{filter:grayscale(1)}
 }
 /* ---------- גלילה לצד (נייד) ---------- */
 .hs{min-width:0;max-width:100%}
-.hs-ctl{display:none}
-.hs-dots{display:flex;align-items:center;gap:.4rem}
-.hs-dots i{display:block;width:.5rem;height:.5rem;border-radius:999px;background:#8F8984;transition:width .2s,background-color .2s}
-.hs-dots i.on{width:1.5rem;background:var(--accent-ink)}
-.hs-count{color:var(--ink-3);font-size:.95rem;font-weight:700;font-variant-numeric:tabular-nums}
-.band-dark .hs-count{color:var(--on-night-3)}
-.hs-btns{display:flex;gap:.5rem}
-.hs-btn{display:grid;place-items:center;width:2.75rem;height:2.75rem;padding:0;border:2px solid var(--ink);border-radius:2px;background:transparent;color:var(--ink);cursor:pointer}
-.hs-btn:hover{background:var(--ink);color:#fff}
-.hs-btn[aria-disabled="true"]{opacity:.35;cursor:default}
-.hs-btn[aria-disabled="true"]:hover{background:transparent;color:var(--ink)}
-.hs-prev .i{transform:scaleX(-1)}
-.band-dark .hs-dots i{background:#6B6560}
-.band-dark .hs-dots i.on{background:var(--accent-soft)}
-.band-dark .hs-btn{border-color:#fff;color:#fff}
-.band-dark .hs-btn:hover{background:#fff;color:var(--ink)}
-.band-dark .hs-btn[aria-disabled="true"]:hover{background:transparent;color:#fff}
 [data-hs]{--hs-w:min(82%,20rem)}
 .cards4[data-hs]{--hs-w:min(80%,19rem)}
 .programs[data-hs]{--hs-w:min(82%,19.5rem)}
@@ -540,7 +523,6 @@ html.a11y-gray{filter:grayscale(1)}
   html.js:not(.a11y-stack) [data-hs]:focus-visible{outline:3px solid var(--ink);outline-offset:-4px}
   html.js:not(.a11y-stack) [data-hs] > *{flex:0 0 var(--hs-w);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
   html.js:not(.a11y-stack) [data-hs].hs-drag{scroll-snap-type:none;cursor:grabbing;user-select:none}
-  html.js:not(.a11y-stack) .hs-ctl:not([hidden]){display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem 1rem;margin-top:1rem}
   /* כרטיסים עצמאיים במקום תאים צמודים */
   html.js:not(.a11y-stack) .cards4 > .card-dark,html.js:not(.a11y-stack) .principles > .principle,html.js:not(.a11y-stack) .values > li{border:1px solid var(--night-2)}
   html.js:not(.a11y-stack) .timeline > li{padding:1.4rem;border:1px solid var(--night-2)}
@@ -553,10 +535,6 @@ html.a11y-gray{filter:grayscale(1)}
 @media (max-width:900px) and (pointer:fine){
   html.js:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
 }
-.a11y-contrast .hs-btn{background:#000;color:#FFEB3B;border-color:#FFEB3B}
-.a11y-contrast .hs-count{color:#fff!important}
-.a11y-contrast .hs-dots i{background:#fff}
-.a11y-contrast .hs-dots i.on{background:#FFEB3B}
 .a11y-contrast [data-hs] > *,.a11y-contrast .gloss dl > div{background:#000!important;color:#fff!important;border-color:#fff!important}
 @media (prefers-reduced-motion:reduce){
   html{scroll-behavior:auto}
@@ -573,7 +551,6 @@ html.a11y-gray{filter:grayscale(1)}
   .band-in,.sched-in,.join-in{padding-block:1.2rem}
   .band-dark,.join,.foot{background:#fff!important;color:#000!important}
   .join h2,.join-lead,.join-list,.join a{color:#000!important}
-  .hs-ctl{display:none!important}
   html.js [data-hs]{display:block!important;overflow:visible!important;margin:0!important;padding:0!important}
   a{color:#000}
 }

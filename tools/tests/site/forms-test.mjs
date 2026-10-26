@@ -86,7 +86,7 @@ async function run(label, ctxOpts, page, formId, prefix, fieldsReq, fieldsOpt) {
   }
 
   // 2b) everything valid except the privacy consent box -> the box is marked, nothing is sent
-  if (prefix === 'cf') {
+  {
     await p.fill(`#${prefix}-name`, 'דוד כהן');
     await p.fill(`#${prefix}-phone`, '050-1234567');
     await p.fill(`#${prefix}-age`, '8');
@@ -95,15 +95,15 @@ async function run(label, ctxOpts, page, formId, prefix, fieldsReq, fieldsOpt) {
     await tap(submitSel);
     await p.waitForTimeout(250);
     ctx.off('page', onPage);
-    const cs = await p.evaluate(() => { const f = document.getElementById('cf-consent').closest('.field'); const star = f.querySelector('.req'); const err = f.querySelector('.err'); return { invalid: f.classList.contains('invalid'), aria: document.getElementById('cf-consent').getAttribute('aria-invalid'), star: !star.hidden, err: err.textContent.trim(), focused: document.activeElement.id, resultHidden: document.getElementById('cf-result').hidden }; });
+    const cs = await p.evaluate(() => { const f = document.getElementById('jf-consent').closest('.field'); const star = f.querySelector('.req'); const err = f.querySelector('.err'); return { invalid: f.classList.contains('invalid'), aria: document.getElementById('jf-consent').getAttribute('aria-invalid'), star: !star.hidden, err: err.textContent.trim(), focused: document.activeElement.id, resultHidden: document.getElementById('jf-result').hidden }; });
     ok(cs.invalid && cs.aria === 'true' && cs.star && cs.err.includes('מדיניות הפרטיות'), `unchecked consent is marked with an asterisk and a message (${JSON.stringify(cs)})`);
-    ok(cs.focused === 'cf-consent', 'focus goes to the consent box');
+    ok(cs.focused === 'jf-consent', 'focus goes to the consent box');
     ok(cs.resultHidden && popups.length === 0, 'nothing is opened or prepared without consent');
-    const link = await p.evaluate(() => { const a = document.querySelector('#cf-consent').closest('.check-row').querySelector('a'); return { href: a.getAttribute('href'), target: a.getAttribute('target'), rel: a.getAttribute('rel') }; });
+    const link = await p.evaluate(() => { const a = document.querySelector('#jf-consent').closest('.check-row').querySelector('a'); return { href: a.getAttribute('href'), target: a.getAttribute('target'), rel: a.getAttribute('rel') }; });
     ok(link.href === 'privacy.html' && link.target === null, `the privacy link opens in the same tab (${JSON.stringify(link)})`);
     await p.check(`#${prefix}-consent`);
     await p.waitForTimeout(100);
-    const cleared = await p.evaluate(() => !document.getElementById('cf-consent').closest('.field').classList.contains('invalid'));
+    const cleared = await p.evaluate(() => !document.getElementById('jf-consent').closest('.field').classList.contains('invalid'));
     ok(cleared, 'ticking the box clears the error at once');
     await p.fill(`#${prefix}-name`, '');
   }
@@ -185,11 +185,9 @@ for (const variant of VARIANTS) {
   console.log(`\n##### build ${variant === 'mail' ? 'with' : 'without'} a club e-mail address`);
   EMAIL_ON = variant === 'mail';
   BASE = await siteUrl({ email: EMAIL_ON ? TEST_EMAIL : '' });
-  await run('desktop', desktop, 'contact.html', 'contact-form', 'cf', ['name', 'phone', 'age'], ['email', 'message']);
-  await run('mobile', mobile, 'contact.html', 'contact-form', 'cf', ['name', 'phone', 'age'], ['email', 'message']);
-  // the short form in the red band of the home page
-  await run('desktop', desktop, 'index.html', 'join-form', 'jf', ['name', 'phone', 'age'], []);
-  await run('mobile', mobile, 'index.html', 'join-form', 'jf', ['name', 'phone', 'age'], []);
+  // the one form of the site, in the red band of the home page: name, phone and age are required; e-mail and message are optional
+  await run('desktop', desktop, 'index.html', 'join-form', 'jf', ['name', 'phone', 'age'], ['email', 'message']);
+  await run('mobile', mobile, 'index.html', 'join-form', 'jf', ['name', 'phone', 'age'], ['email', 'message']);
 }
 console.log(`\n${checks} checks, ${fails} failures`);
 await b.close();

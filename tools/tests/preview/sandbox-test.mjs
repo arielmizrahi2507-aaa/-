@@ -33,35 +33,42 @@ for (const [name, opts, sandbox] of [
   ok(sched.top >= (touch ? sched.hb - 2 : -2) && sched.top < sched.vh * 0.6, `#schedule scrolled into view (top=${sched.top}, header=${sched.hb})`);
   if (touch) ok(await f.evaluate(() => !document.querySelector('.side.open')), 'menu closes after choosing');
 
-  // carousels inside the sandboxed viewer (phone): the next button scrolls the programs strip
+  // carousels inside the sandboxed viewer (phone): a keyboard arrow scrolls the programs strip (touch swipes are covered by the carousel test)
   if (touch) {
-    await f.locator('#programs .hs-ctl').scrollIntoViewIfNeeded();
-    await tap('#programs .hs-next');
+    await f.locator('#programs [data-hs]').scrollIntoViewIfNeeded();
+    await f.locator('#programs [data-hs]').focus();
+    await p.keyboard.press('ArrowLeft');
     await p.waitForTimeout(500);
     const moved = await f.evaluate(() => Math.abs(Math.round(document.querySelector('#programs [data-hs]').scrollLeft)));
-    ok(moved > 40, `carousel button works inside the sandbox (${moved}px)`);
+    ok(moved > 40, `the programs strip scrolls inside the sandbox (${moved}px)`);
   }
 
-  // contact view via footer link
-  await f.locator('.foot-links a[href="#view-contact"]').scrollIntoViewIfNeeded();
-  await tap('.foot-links a[href="#view-contact"]');
+  // a legal page via the footer link, and back to the home page
+  await f.locator('.foot-links a[href="#view-privacy"]').scrollIntoViewIfNeeded();
+  await tap('.foot-links a[href="#view-privacy"]');
   await p.waitForTimeout(500);
-  ok(await f.evaluate(() => getComputedStyle(document.getElementById('view-contact')).display !== 'none' && getComputedStyle(document.getElementById('main')).display === 'none'), 'contact page opens inside the bundle');
+  ok(await f.evaluate(() => getComputedStyle(document.getElementById('view-privacy')).display !== 'none' && getComputedStyle(document.getElementById('main')).display === 'none'), 'the privacy page opens inside the bundle');
+  if (touch) { await tap('.menu-btn'); await p.waitForTimeout(200); }
+  await tap('.side-nav a[href="#join"]');
+  await p.waitForTimeout(900);
+  ok(await f.evaluate(() => getComputedStyle(document.getElementById('main')).display !== 'none' && getComputedStyle(document.getElementById('view-privacy')).display === 'none'), 'the menu item "צור קשר" brings the home page back');
+  if (touch) ok(await f.evaluate(() => !document.querySelector('.side.open')), 'the menu closes after choosing "צור קשר"');
 
-  // form: empty -> asterisks, valid -> result panel
-  await tap('#contact-form button[data-channel=wa]');
+  // the form in the red band: empty -> asterisks, valid -> result panel
+  await f.locator('#join-form').scrollIntoViewIfNeeded();
+  await tap('#join-form button[data-channel=wa]');
   await p.waitForTimeout(200);
-  const stars = await f.evaluate(() => [...document.querySelectorAll('#contact-form .field.invalid .req')].filter(s => !s.hidden).length);
+  const stars = await f.evaluate(() => [...document.querySelectorAll('#join-form .field.invalid .req')].filter(s => !s.hidden).length);
   ok(stars === 4, `four red asterisks after an empty submit (${stars})`);
-  await f.fill('#cf-name', 'דוד כהן'); await f.fill('#cf-phone', '050-1234567'); await f.fill('#cf-age', '8'); await f.check('#cf-consent');
-  await tap('#contact-form button[data-channel=wa]');
+  await f.fill('#jf-name', 'דוד כהן'); await f.fill('#jf-phone', '050-1234567'); await f.fill('#jf-age', '8'); await f.check('#jf-consent');
+  await tap('#join-form button[data-channel=wa]');
   await p.waitForTimeout(400);
-  ok(await f.evaluate(() => !document.getElementById('cf-result').hidden && document.getElementById('cf-text').value.includes('דוד כהן')), 'result panel with the ready message is shown even when popups are blocked');
-  await tap('#cf-result [data-copy-from]');
+  ok(await f.evaluate(() => !document.getElementById('jf-result').hidden && document.getElementById('jf-text').value.includes('דוד כהן')), 'result panel with the ready message is shown even when popups are blocked');
+  await tap('#jf-result [data-copy-from]');
   await p.waitForTimeout(400);
-  const label = (await f.textContent('#cf-result [data-copy-from]')).trim();
+  const label = (await f.textContent('#jf-result [data-copy-from]')).trim();
   ok(label === 'הועתק' || label === 'לא הועתק', `copy gives clear feedback (${label})`);
-  ok(await f.evaluate(() => document.querySelector('#cf-result a.js-open-wa').getAttribute('href').startsWith('https://wa.me/972505788781?text=')), 'WhatsApp link is present and correct');
+  ok(await f.evaluate(() => document.querySelector('#jf-result a.js-open-wa').getAttribute('href').startsWith('https://wa.me/972505788781?text=')), 'WhatsApp link is present and correct');
   ok(errs.length === 0, 'no script errors: ' + errs.join(' | ').slice(0, 300));
   await ctx.close();
 }

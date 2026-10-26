@@ -1,7 +1,7 @@
 import { launch, siteUrl } from '../lib.mjs';
 const BASE = await siteUrl();
 const origin = new URL(BASE).origin;
-const pages = ['index.html', 'contact.html', 'accessibility.html', 'privacy.html', 'terms.html'];
+const pages = ['index.html', 'accessibility.html', 'privacy.html', 'terms.html'];
 const b = await launch();
 let fails = 0, checks = 0;
 const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL:', m); } };
