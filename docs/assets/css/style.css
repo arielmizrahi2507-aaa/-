@@ -1,0 +1,579 @@
+/* ג'ודוקאן אילת | style.css
+   מבוסס על העיצוב שסופק: סרגל צד כהה, אדום #EE362E, לבן ושחור חם, Heebo + Shippori Mincho (קאנג'י).
+   תוספות נגישות מעבר לעיצוב המקורי: מיקוד מקלדת, ניגודיות AA, גבולות שדות, טקסט גדול על רקע אדום. */
+
+@font-face{font-family:"Heebo";font-style:normal;font-weight:100 900;font-display:swap;src:url("../fonts/heebo-hebrew.woff2") format("woff2");unicode-range:U+0590-05FF,U+200C-2010,U+20AA,U+25CC,U+FB1D-FB4F}
+@font-face{font-family:"Heebo";font-style:normal;font-weight:100 900;font-display:swap;src:url("../fonts/heebo-latin.woff2") format("woff2");unicode-range:U+0000-058F,U+0600-FFFF}
+@font-face{font-family:"Shippori Mincho";font-style:normal;font-weight:500 800;font-display:swap;src:url("../fonts/shippori-mincho-800-subset.woff2") format("woff2");unicode-range:U+3000-9FFF}
+
+:root{
+  --accent:#EE362E;        /* אדום המותג: משטחים גדולים, טקסט גדול, גרפיקה */
+  --accent-ink:#C4221B;    /* אדום לטקסט קטן וקישורים על רקע בהיר (5.9:1 על לבן) */
+  --accent-deep:#8F1712;   /* ריחוף */
+  --accent-soft:#FF6A5E;   /* אדום לטקסט על רקע כהה (6.6:1) */
+  --ink:#141414;
+  --ink-2:#3D3A37;
+  --ink-3:#5E5A56;
+  --paper:#F7F4F1;
+  --rule:#E4DED8;
+  --rule-2:#ECE7E2;
+  --field:#6F6A66;         /* גבול שדה טופס, 5.3:1 */
+  --night:#141414;
+  --night-2:#2E2C2A;
+  --night-3:#2A2826;
+  --night-4:#3A3735;
+  --on-night:#E6E1DC;
+  --on-night-2:#CFCAC5;
+  --on-night-3:#A9A39D;
+  --font:"Heebo",system-ui,"Segoe UI",Arial,sans-serif;
+  --font-jp:"Shippori Mincho","Hiragino Mincho ProN","Yu Mincho","Noto Serif CJK JP",serif;
+  color-scheme:light;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:calc(100% * var(--fs,1));scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:1rem}
+body{margin:0;background:#fff;color:var(--ink);font:400 1rem/1.7 var(--font);-webkit-font-smoothing:antialiased}
+img,svg{max-width:100%}
+h1,h2,h3,h4,p,ul,ol,dl,dd,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+a{color:var(--accent-ink)}
+a:hover{color:var(--accent-deep)}
+button{font:inherit}
+[lang="ja"]{font-family:var(--font-jp);font-weight:800}
+:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+.side :focus-visible,.band-dark :focus-visible,.join :focus-visible,.foot :focus-visible,.contact-info :focus-visible{outline-color:#fff}
+.sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.tel{unicode-bidi:isolate;white-space:nowrap}
+.i{width:1.25em;height:1.25em;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+.skip{position:absolute;inset-inline-start:1rem;top:-6rem;z-index:300;padding:.8rem 1.3rem;background:var(--ink);color:#fff;font-weight:700;text-decoration:none}
+.skip:focus{top:1rem;color:#fff}
+
+/* ---------- סרגל צד ---------- */
+.layout{display:flex;align-items:flex-start;min-height:100vh}
+.side{position:sticky;top:0;height:100vh;height:100dvh;width:17.5rem;flex:0 0 17.5rem;display:flex;flex-direction:column;gap:1.75rem;padding:2rem 1.75rem;background:var(--night);color:#fff;border-left:4px solid var(--accent);z-index:40;overflow-y:auto}
+.side-top{display:flex;align-items:center;justify-content:space-between;gap:.75rem}
+.brand{display:flex;align-items:center;gap:.75rem;color:#fff;text-decoration:none}
+.brand:hover{color:#fff}
+.brand-mark{display:block;flex:none;width:3.25rem;height:3.25rem;border-radius:50%;object-fit:cover}
+.brand-text{display:flex;flex-direction:column;gap:2px}
+.brand-text b{font-size:1.25rem;font-weight:900;line-height:1.2}
+.brand-text small{font-size:.68rem;letter-spacing:1.6px;color:var(--on-night-3);white-space:nowrap}
+.menu-btn{display:none;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;background:transparent;border:1px solid var(--night-4);border-radius:2px;color:#fff;cursor:pointer}
+.side-nav{display:flex;flex-direction:column}
+.side-nav a{display:flex;align-items:center;gap:.875rem;padding:.7rem .25rem;border-bottom:1px solid var(--night-3);color:var(--on-night);font-size:1.0625rem;font-weight:500;text-decoration:none;transition:color .2s,padding .2s}
+.side-nav a:hover,.side-nav a[aria-current]{color:#fff;padding-right:.75rem}
+.side-nav a[aria-current]{box-shadow:inset -3px 0 0 var(--accent)}
+.side-nav .num{width:1.4rem;color:var(--accent-soft);font-size:.75rem;font-weight:700;letter-spacing:1px}
+.side-nav .lbl{flex:1}
+.side-nav .kj{color:#8A847E;font-family:var(--font-jp);font-size:1.125rem;transition:color .2s}
+.side-nav a:hover .kj,.side-nav a[aria-current] .kj{color:var(--accent-soft)}
+.side-bottom{margin-top:auto;display:flex;flex-direction:column;gap:1.1rem}
+.side-cta{padding:.85rem;background:var(--accent);border-radius:2px;color:#fff;font-size:1.2rem;font-weight:700;text-align:center;text-decoration:none}
+.side-cta:hover{color:#fff}
+.side-contact{color:var(--on-night-3);font-size:.9rem;line-height:1.7}
+.side-contact a{color:var(--on-night);text-decoration:none}
+.side-contact a:hover{color:#fff;text-decoration:underline}
+.side-osu{color:var(--night-2);font-family:var(--font-jp);font-size:2.75rem;font-weight:800;line-height:1}
+.side-osu::before{content:"柔道"}
+@media (max-height:820px) and (min-width:901px){.side-osu{display:none}}
+
+.content{flex:1;min-width:0;overflow-x:clip;background:#fff;color:var(--ink);font-family:var(--font)}
+
+/* ---------- בלוקים משותפים ---------- */
+.band{position:relative}
+.band-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-direction:column;gap:3.5rem}
+.band-dark{background:var(--night);color:#fff}
+.band-paper{background:var(--paper)}
+.eyebrow{color:var(--accent-ink);font-size:.9375rem;font-weight:700;letter-spacing:3px}
+.band-dark .eyebrow{color:var(--accent-soft)}
+.kicker{display:flex;align-items:center;gap:.875rem;color:var(--accent-ink);font-size:.9375rem;font-weight:700;letter-spacing:3px}
+.kicker::before{content:"";width:2.5rem;height:2px;background:var(--accent);flex:none}
+h2{font-size:3.25rem;line-height:1.1;font-weight:900}
+h3{font-weight:900}
+.band-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:1.5rem}
+.band-head .h{display:flex;flex-direction:column;gap:.875rem;max-width:620px}
+.band-head>p{max-width:460px;font-size:1.125rem;line-height:1.75;color:var(--ink-2)}
+.band-dark .band-head>p{color:var(--on-night-2)}
+.band-dark h2,.band-dark h3{color:#fff}
+.center-head{display:flex;flex-direction:column;gap:.875rem;align-items:center;text-align:center}
+.center-head p{max-width:600px;font-size:1.125rem;line-height:1.7;color:var(--ink-3)}
+.note{color:var(--ink-3);font-size:.95rem;line-height:1.6}
+.band-dark .note{color:var(--on-night-3)}
+
+/* כפתורים: טקסט מודגש 19px+ נחשב "טקסט גדול", ולכן לבן על אדום עומד ב-AA */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.625rem;min-height:3.4rem;padding:1.1rem 2.25rem;border:2px solid var(--accent);border-radius:2px;background:var(--accent);color:#fff;font:700 1.2rem/1.2 var(--font);text-decoration:none;cursor:pointer;transition:filter .2s,background-color .2s,color .2s}
+.btn:hover{color:#fff;filter:brightness(.92)}
+.btn--line{padding:1rem 2rem;background:transparent;border-color:var(--ink);color:var(--ink)}
+.btn--line:hover{background:var(--ink);color:#fff;filter:none}
+.btn--dark{background:var(--ink);border-color:var(--ink)}
+.btn-row{display:flex;flex-wrap:wrap;gap:.875rem}
+.arrow{width:1.25rem;height:1.25rem;stroke-width:2.2}
+.flip{transform:scaleX(-1)}
+[tabindex="-1"]:focus{outline:none}
+
+/* ---------- ראשי ---------- */
+.hero{background:#fff}
+.hero-in{max-width:1240px;margin:0 auto;padding:5.5rem clamp(20px,4vw,48px) 6.5rem;display:flex;flex-wrap:wrap;align-items:center;gap:4rem}
+.hero-copy{flex:999 1 520px;min-width:0;display:flex;flex-direction:column;gap:1.75rem}
+.hero h1{font-size:5.25rem;line-height:1.02;font-weight:900;letter-spacing:-1px}
+.hero h1 span{color:var(--accent)}
+.hero-lead{max-width:560px;font-size:1.3125rem;line-height:1.7;color:var(--ink-2)}
+.hero .btn-row{padding-top:.5rem}
+.stats{display:flex;flex-wrap:wrap;gap:2.5rem;margin-top:.75rem;padding-top:1.75rem;border-top:1px solid var(--rule-2)}
+.stat{display:flex;flex-direction:column;gap:4px}
+.stat b{font-size:2.125rem;line-height:1.2;font-weight:900}
+.stat span{font-size:.9375rem;color:var(--ink-3)}
+.hero-art{flex:1 1 380px;min-width:0;position:relative;display:flex;justify-content:center;align-items:flex-start;min-height:560px;padding-top:20px;padding-left:3.5rem}
+.sun{position:relative;width:400px;max-width:90%;aspect-ratio:1/1;border-radius:50%}
+.sun img{display:block;width:100%;height:100%;border-radius:50%;object-fit:cover}
+.hero-vert{position:absolute;top:10px;left:0;writing-mode:vertical-rl;color:var(--ink);font-family:var(--font-jp);font-size:1.375rem;font-weight:800;letter-spacing:10px}
+.hero-quote{position:absolute;bottom:0;right:10px;max-width:240px;padding-right:12px;border-right:2px solid var(--accent);color:var(--ink-2);font-size:.9375rem;line-height:1.6}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:none}}
+.hero-copy>*{animation:rise .8s cubic-bezier(.2,.7,.2,1) both}
+.hero-copy>:nth-child(2){animation-delay:.08s}
+.hero-copy>:nth-child(3){animation-delay:.16s}
+.hero-copy>:nth-child(4){animation-delay:.24s}
+.hero-copy>:nth-child(5){animation-delay:.32s}
+.sun{animation:pop 1s cubic-bezier(.2,.8,.2,1) .1s both}
+
+/* ---------- המועדון (כהה) ---------- */
+.cards4{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:var(--night-2);border:1px solid var(--night-2)}
+.card-dark{display:flex;flex-direction:column;gap:1rem;padding:2.5rem 2rem;background:var(--night)}
+.card-dark .kj{color:var(--accent-soft);font-family:var(--font-jp);font-size:4rem;font-weight:800;line-height:1}
+.card-dark h3{font-size:1.5rem;font-weight:700}
+.card-dark p{font-size:1rem;line-height:1.7;color:var(--on-night-2)}
+.coach{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:clamp(1.5rem,4vw,4rem);align-items:start;padding-top:3rem;border-top:1px solid var(--night-2)}
+.coach-name{display:flex;flex-direction:column;gap:.9rem}
+.coach-tag{align-self:flex-start;padding:.1rem .75rem;background:var(--accent-soft);color:var(--ink);font-size:.9rem;font-weight:700}
+.coach h3{font-size:2.5rem;line-height:1.1;font-weight:900}
+.kohaku{height:1.9rem;border:2px solid #fff;background:repeating-linear-gradient(90deg,var(--accent) 0 2.4rem,#fff 2.4rem 4.8rem)}
+.coach-belt{font-size:.9rem;font-weight:600;color:var(--on-night-3)}
+.coach-bio p{margin-bottom:.9em;color:var(--on-night-2);line-height:1.8}
+.band-dark a{color:#fff}
+.band-dark a:hover{color:var(--on-night-2)}
+
+/* ---------- חוגים ---------- */
+.programs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1.5rem}
+.prog{display:flex;flex-direction:column;gap:1.125rem;padding:2.25rem 1.75rem;border:1px solid var(--rule);background:#fff}
+.prog-top{display:flex;justify-content:space-between;align-items:center}
+.prog-no{color:var(--accent-ink);font-size:.875rem;font-weight:700;letter-spacing:2px}
+.prog-age{color:var(--ink-3);font-size:.875rem}
+.prog h3{font-size:1.75rem;line-height:1.2}
+.prog p{font-size:1rem;line-height:1.7;color:var(--ink-2)}
+.prog-meta{display:inline-block;align-self:flex-start;padding:.1rem .65rem;background:#FDECEB;color:var(--ink);font-size:.9rem;font-weight:700}
+.prog::after{content:"";width:2.5rem;height:3px;margin-top:auto;background:var(--accent)}
+.prog--dark{border-color:var(--night);background:var(--night);color:#fff}
+.prog--dark .prog-no{color:var(--accent-soft)}
+.prog--dark .prog-age{color:var(--on-night-2)}
+.prog--dark h3{color:#fff}
+.prog--dark p{color:var(--on-night-2)}
+.prog--dark .prog-meta{background:var(--night-2);color:#fff}
+
+/* ---------- אימון ---------- */
+.train-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(2rem,5vw,5rem);align-items:start}
+.steps{counter-reset:step}
+.step{display:grid;grid-template-columns:3rem minmax(0,1fr);gap:.15rem 1rem;padding:1.1rem 0;border-top:1px solid var(--rule);counter-increment:step}
+.step:last-child{border-bottom:1px solid var(--rule)}
+.step::before{content:counter(step);grid-row:1 / 3;color:var(--accent-ink);font-size:2.1rem;font-weight:900;line-height:1}
+.step h3{font-size:1.3rem;line-height:1.35}
+.step h3 [lang="ja"]{margin-inline-start:.55rem;color:var(--ink-3);font-size:1.05rem}
+.step p{font-size:1rem;line-height:1.65;color:var(--ink-2)}
+.side-block h3{margin-bottom:.7rem;font-size:1.6rem}
+.side-block>p{max-width:34rem;color:var(--ink-2)}
+/* the belts wrap into a second row instead of squeezing their captions into one another */
+.belts{display:flex;flex-wrap:wrap;gap:1.25rem 6px;margin:1.5rem 0 .75rem}
+.belt{display:grid;align-content:start;gap:.55rem;min-width:0}
+.belt--w,.belt--b,.belt--r{flex:1.2 1 4.5rem}
+.belt--k{flex:1.8 1 5.5rem}
+.belt--c{flex:3.6 1 8.5rem}
+.belt-bar{display:flex;height:2.5rem;border:2px solid var(--ink)}
+.belt--w .belt-bar{background:#fff}
+.belt--b .belt-bar{background:var(--ink)}
+.belt--r .belt-bar{background:var(--accent)}
+.belt--k .belt-bar{background:repeating-linear-gradient(90deg,var(--accent) 0 9px,#fff 9px 18px)}
+.belt--c .belt-bar{gap:6px;border:0}
+.belt--c i{flex:1;border:2px solid var(--ink)}
+.belt--c i:nth-child(1){background:#F5C842}
+.belt--c i:nth-child(2){background:#F0902A}
+.belt--c i:nth-child(3){background:#3E9B50}
+.belt--c i:nth-child(4){background:#2F66B5}
+.belt--c i:nth-child(5){background:#7B4A2B}
+.belt-label{color:var(--ink);font-size:.9rem;font-weight:700;line-height:1.3}
+.belt-label small{display:block;color:var(--ink-3);font-size:.85rem;font-weight:500;white-space:nowrap}
+.glossary{margin-top:2.25rem;padding-top:1.6rem;border-top:2px solid var(--ink)}
+.glossary h3{margin-bottom:.6rem;font-size:1.6rem}
+.glossary dl>div{display:grid;grid-template-columns:5.8rem minmax(0,1fr);gap:.2rem 1rem;align-items:baseline;padding:.6rem 0;border-bottom:1px solid var(--rule)}
+.glossary dt{color:var(--accent-ink);font-size:1.5rem;line-height:1.2}
+.glossary dd{font-size:1rem;line-height:1.55;color:var(--ink-2)}
+.glossary dd b{color:var(--ink)}
+
+/* ---------- מערכת שעות ---------- */
+.sched-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-wrap:wrap;gap:3.5rem}
+.sched-copy{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:1.125rem}
+.sched-copy h2{font-size:3rem}
+.sched-copy p{font-size:1.125rem;line-height:1.7;color:var(--ink-2)}
+.sched-kanji{margin-top:.75rem;color:#EAE3DC;font-family:var(--font-jp);font-size:7.5rem;font-weight:800;line-height:1}
+.sched-kanji::before{content:"稽古"}
+.sched-main{flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:1.5rem}
+.days{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--rule);background:#fff}
+.day{padding:1.4rem 1.5rem}
+.day:not(:first-child){border-inline-start:1px solid var(--rule)}
+.day b{display:block;font-size:1.35rem;font-weight:900}
+.day span{display:block;margin-top:.15rem;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.table-wrap{overflow-x:auto;border:1px solid var(--rule);background:#fff}
+.table-wrap:focus-visible{outline-offset:-3px}
+.table-wrap table{width:100%;min-width:520px;border-collapse:collapse;font-size:1.0625rem}
+.table-wrap caption{padding:1rem 1.5rem;text-align:right;font-weight:700;border-bottom:1px solid var(--rule-2)}
+.table-wrap th{padding:1.1rem 1.5rem;background:var(--ink);color:#fff;font-weight:700;text-align:right}
+.table-wrap td{padding:1.15rem 1.5rem;border-bottom:1px solid var(--rule-2);color:var(--ink-2)}
+.table-wrap tr:last-child td{border-bottom:0}
+.table-wrap td:first-child{color:var(--ink);font-weight:700}
+.sched-note{font-size:.97rem;color:var(--ink-3)}
+
+/* ---------- הדרך (כהה) ---------- */
+.principles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--night-2);border:1px solid var(--night-2)}
+.principle{display:flex;flex-direction:column;gap:.9rem;padding:2.5rem 2rem;background:var(--night)}
+.principle .kj{color:var(--accent-soft);font-family:var(--font-jp);font-size:4.4rem;font-weight:800;line-height:1.1}
+.principle h3{font-size:1.6rem;font-weight:700}
+.principle p{max-width:30rem;color:var(--on-night-2);line-height:1.7}
+.values-title{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:.5rem 2rem}
+.values-title h3{font-size:1.7rem}
+.values-title p{font-size:.95rem;color:var(--on-night-3)}
+.values{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--night-2);border:1px solid var(--night-2)}
+.values li{padding:1.4rem 1.4rem 1.5rem;background:var(--night)}
+.values b{display:block;margin-bottom:.2rem;font-size:1.4rem;font-weight:900;color:#fff}
+.values span{font-size:.97rem;line-height:1.55;color:var(--on-night-2)}
+.timeline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(1rem,3vw,2.5rem)}
+.timeline li{padding-top:1.1rem;border-top:2px solid var(--night-2)}
+.timeline b{display:block;margin-bottom:.4rem;color:var(--accent-soft);font-size:3.2rem;font-weight:900;line-height:1}
+.timeline span{display:block;max-width:22rem;color:var(--on-night-2);line-height:1.65}
+
+/* ---------- שאלות ---------- */
+.faq{max-width:820px;margin:0 auto;width:100%;border-bottom:1px solid var(--rule)}
+.faq details{border-top:1px solid var(--rule)}
+.faq summary{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.25rem .25rem;font-size:1.25rem;font-weight:700;line-height:1.4;cursor:pointer;list-style:none}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:"+";flex:none;color:var(--accent-ink);font-size:2rem;font-weight:400;line-height:1}
+.faq details[open] summary::after{content:"\2212"}
+.faq summary:hover{color:var(--accent-ink)}
+.faq .ans{max-width:42rem;padding:0 .25rem 1.4rem;color:var(--ink-2);line-height:1.75}
+.faq .ans p+p{margin-top:.7em}
+
+/* ---------- הרשמה ---------- */
+.form-title{font-size:1.625rem;font-weight:900}
+.field{display:flex;flex-direction:column;gap:.5rem}
+.field label{font-size:.9375rem;font-weight:700}
+.field input,.field select,.field textarea{min-height:3rem;padding:.85rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1.0625rem}
+.field input:focus,.field select:focus,.field textarea:focus{outline:3px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
+.field input[aria-invalid="true"]{border-color:var(--accent-ink)}
+.field textarea{min-height:5.5rem;resize:vertical;line-height:1.6}
+.err{display:none;align-items:flex-start;gap:.45rem;color:var(--accent-ink);font-size:.95rem;font-weight:700;line-height:1.5}
+.err.on{display:flex}
+.err.on::before{content:"!";flex:none;display:grid;place-items:center;width:1.25rem;height:1.25rem;margin-top:.12rem;border-radius:50%;background:var(--accent-ink);color:#fff;font-size:.85rem;line-height:1}
+.opt{margin-inline-start:.4rem;color:var(--ink-3);font-size:.85rem;font-weight:500}
+.req{margin-inline-start:.25rem;color:var(--accent-ink);font-size:1.4em;font-weight:900;line-height:1}
+.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--accent-ink);background:#FFF6F5}
+.check-row{display:flex;align-items:flex-start;gap:.75rem;padding:.35rem}
+.field .check-row input{flex:none;width:1.5rem;height:1.5rem;min-height:0;margin:.1rem 0 0;padding:0;accent-color:var(--accent-ink);cursor:pointer}
+.check-row label{font-size:1rem;font-weight:500;line-height:1.5;cursor:pointer}
+.check-row label a{font-weight:700}
+.field--check.invalid .check-row{outline:2px solid var(--accent-ink);outline-offset:2px;background:#FFF6F5}
+.a11y-contrast .field--check.invalid .check-row{outline-color:#FFEB3B;background:#000}
+.form-fields{display:flex;flex-direction:column;gap:1.25rem}
+/* עם JavaScript הטופס המלא (עם כל הבדיקות), בלי JavaScript כרטיס פשוט: תיבה אחת ששולחת לוואטסאפ */
+html:not(.js) .cform[data-wa]{display:none}
+.js .nojs-card{display:none}
+.nojs-help{font-weight:700}
+.ltr-input{direction:ltr;text-align:right}
+.form-note{font-size:.875rem;color:var(--ink-3);text-align:center}
+.result .btn-row .btn{flex:1 1 12rem;padding-inline:1rem}
+
+/* ---------- מוכנים להתחיל (פס אדום עם טופס) ---------- */
+.join{background:var(--accent);color:#fff}
+.join-in{max-width:1240px;margin:0 auto;padding:6rem 1.5rem;display:flex;flex-wrap:wrap;gap:3.5rem;align-items:flex-start}
+.join-copy{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:1.375rem}
+.join-side{flex:1 1 420px;min-width:0;display:flex;flex-direction:column;gap:2.5rem}
+.join-kj{font-family:var(--font-jp);font-size:1.4rem;font-weight:800;letter-spacing:8px}
+.join h2{font-size:3.5rem;line-height:1.05;color:#fff}
+.join-lead{max-width:440px;font-size:1.25rem;line-height:1.7;font-weight:700}
+.join-list{display:flex;flex-direction:column;gap:.75rem;font-size:1.2rem;font-weight:700}
+.join-list li{display:flex;align-items:center;gap:.75rem}
+.join a{color:#fff}
+.join .cform{flex:1 1 420px;min-width:0;border:0;border-radius:2px;color:var(--ink)}
+.join .join-side .cform{flex:none}
+.join .cform a:not(.btn){color:var(--accent-ink);text-decoration:underline;text-underline-offset:.2em}
+.join .cform a:not(.btn):hover{color:var(--accent-deep)}
+.join .cform a.btn{color:#fff}
+.join .cform a.btn--line{color:var(--ink)}
+.join .cform a.btn--line:hover{color:#fff}
+.join .cform :focus-visible{outline-color:var(--ink)}
+.join .send-row button{flex-basis:100%}
+/* the contact details in the red band: white lines and white buttons on the red. Small text on the red is dark, large bold text is white */
+.join .contact-info{padding:0;background:transparent;color:#fff}
+.join .contact-info h3{margin-bottom:.2rem;font-size:1.5rem;color:#fff}
+.join .ci-row{padding:.9rem 0;border-top:1px solid rgba(255,255,255,.65)}
+.join .ci-label{color:var(--ink)}
+.join .ci-val{font-size:1.2rem;font-weight:700}
+.join .ci-btn,.join a.ci-btn{border:2px solid #fff;background:#fff;color:var(--ink)}
+.join .ci-btn:hover,.join a.ci-btn:hover{border-color:var(--ink);background:var(--ink);color:#fff}
+
+/* ---------- פוטר ---------- */
+.foot{background:var(--night);color:#fff}
+.foot-in{max-width:1240px;margin:0 auto;padding:4.5rem 1.5rem 2rem;display:flex;flex-direction:column;gap:3rem}
+.foot-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:2.5rem}
+.foot-col{display:flex;flex-direction:column;gap:.875rem}
+.foot-brand{display:flex;align-items:center;gap:.75rem}
+.foot-brand .brand-mark{width:2.75rem;height:2.75rem}
+.foot-brand b{font-size:1.375rem;font-weight:900}
+.foot-col p{font-size:.9375rem;line-height:1.7;color:var(--on-night-2)}
+.foot-label{color:var(--accent-soft);font-size:.875rem;font-weight:700;letter-spacing:2px}
+.foot-val{color:var(--on-night);font-size:1.0625rem;font-style:normal;line-height:1.6}
+.foot a{color:var(--on-night);text-decoration:none}
+.foot a:hover{color:#fff;text-decoration:underline}
+.foot-icons{display:flex;flex-wrap:wrap;gap:.75rem}
+.foot-icons a{display:flex;align-items:center;justify-content:center;width:2.9rem;height:2.9rem;border:1px solid var(--night-4);color:#fff}
+.foot-icons a:hover{background:var(--accent);border-color:var(--accent);text-decoration:none}
+.foot-links{display:flex;flex-wrap:wrap;gap:.4rem 1.6rem;padding-top:1.5rem;border-top:1px solid var(--night-2);font-size:.95rem}
+.foot-bar{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.75rem;padding-top:1.5rem;border-top:1px solid var(--night-2);color:var(--on-night-3);font-size:.875rem}
+.foot-bar [lang="ja"]{letter-spacing:4px}
+.foot-bar p{margin:0}
+.foot-bar{padding-bottom:4.75rem}
+
+/* ---------- בלי JavaScript, ספרייט, חזרה למעלה ---------- */
+.sprite{position:absolute;width:0;height:0;overflow:hidden}
+.to-top{position:fixed;right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));z-index:70;display:grid;place-items:center;width:3rem;height:3rem;border:2px solid #fff;border-radius:50%;background:var(--ink);color:#fff;box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}
+.to-top:hover{background:var(--accent-ink);color:#fff}
+.to-top:focus-visible{outline:3px solid var(--ink);outline-offset:3px;box-shadow:0 0 0 3px #fff}
+.to-top[hidden]{display:none}
+.side-contact a,.foot-val a,.nojs-card .form-note a{display:inline-block;min-height:1.5rem}
+.sched-note a,.result p a,.check-row label a{padding-block:.2rem}
+
+/* ---------- אלופים ---------- */
+.champs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:1.5rem}
+.champ{display:flex;flex-direction:column;gap:.9rem;padding:2.25rem 1.9rem;border:1px solid var(--rule);background:#fff}
+.champ-num{color:var(--accent);font-size:5.5rem;font-weight:900;line-height:.95;letter-spacing:-1px}
+.champ-num--jp{font-family:var(--font-jp);font-weight:800}
+.champ h3{font-size:1.5rem;line-height:1.25}
+.champ p{margin:0;font-size:1.0625rem;line-height:1.7;color:var(--ink-2)}
+.champ::after{content:"";width:2.5rem;height:3px;background:var(--accent)}
+
+/* ---------- עמוד יצירת קשר ---------- */
+.cform{display:flex;flex-direction:column;gap:1.25rem;padding:clamp(1.4rem,3vw,2.4rem);border:1px solid var(--rule);background:#fff}
+.cform .form-title{font-size:1.7rem;font-weight:900}
+.send-row{display:flex;flex-wrap:wrap;gap:.75rem}
+.send-row button{flex:1 1 min(14rem,100%);min-width:0;max-width:100%;display:inline-flex;align-items:center;justify-content:center;gap:.6rem;min-height:3.4rem;padding:.9rem 1.4rem;border:2px solid transparent;border-radius:2px;color:#fff;font:700 1.2rem/1.2 var(--font);cursor:pointer}
+.send-row button:hover{filter:brightness(.92)}
+.send-wa{background:var(--accent);border-color:var(--accent)}
+.send-mail{background:var(--ink);border-color:var(--ink)}
+.result{padding:1.2rem 1.25rem;border:2px solid var(--ink);background:var(--paper)}
+.result[hidden]{display:none}
+.result h3{margin-bottom:.4rem;font-size:1.3rem}
+.result p{margin-bottom:.8rem;color:var(--ink-2)}
+.result textarea{display:block;width:100%;min-height:9rem;margin-bottom:.9rem;padding:.8rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1rem;line-height:1.6;resize:vertical}
+.contact-info{padding:clamp(1.4rem,3vw,2.2rem);background:var(--night);color:var(--on-night-2)}
+.contact-info h2{margin-bottom:.4rem;font-size:1.7rem;color:#fff}
+.contact-info a{color:#fff}
+.ci-row{padding:1.1rem 0;border-top:1px solid var(--night-2)}
+.ci-label{color:var(--accent-soft);font-size:.875rem;font-weight:700;letter-spacing:2px}
+.ci-val{margin-top:.25rem;color:#fff;font-size:1.15rem;font-style:normal;line-height:1.6;overflow-wrap:anywhere}
+.ci-btn,.send-row button,.result .btn{white-space:normal;text-align:center}
+.ci-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin-top:.7rem}
+.ci-btn{display:inline-flex;align-items:center;gap:.5rem;max-width:100%;min-height:2.75rem;padding:.4rem 1rem;border:1px solid var(--night-4);background:transparent;color:#fff;font:700 1rem/1.2 var(--font);text-decoration:none;cursor:pointer}
+.ci-btn:hover{border-color:var(--accent);background:var(--accent);color:#fff}
+
+/* ---------- סרגל פעולה במובייל ---------- */
+.mbar{position:fixed;inset-inline:0;bottom:0;z-index:60;display:none;grid-template-columns:1fr 1fr;border-top:2px solid var(--ink);background:#fff;padding-bottom:env(safe-area-inset-bottom,0px)}
+.mbar a{display:flex;align-items:center;justify-content:center;gap:.5rem;min-height:3.5rem;font:700 1.2rem/1.2 var(--font);text-decoration:none}
+.mbar .call{background:var(--accent);color:#fff}
+.mbar .wa{background:#fff;color:var(--ink)}
+
+/* ---------- תפריט נגישות ---------- */
+.a11y-root{position:fixed;left:max(14px,env(safe-area-inset-left,0px));bottom:max(14px,env(safe-area-inset-bottom,0px));z-index:90}
+.a11y-toggle{display:inline-flex;align-items:center;gap:.5rem;min-height:3rem;padding:.4rem 1.05rem;border:2px solid #fff;border-radius:999px;background:var(--ink);color:#fff;font:700 1rem/1 var(--font);cursor:pointer;box-shadow:0 8px 24px -10px rgba(0,0,0,.6)}
+.a11y-toggle:hover{background:var(--accent-ink)}
+@media (max-width:760px){.a11y-toggle{width:3rem;padding:0;justify-content:center}.a11y-toggle .a11y-label{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}}
+.a11y-toggle:focus-visible{outline:3px solid var(--ink);outline-offset:3px;box-shadow:0 0 0 3px #fff}
+.a11y-panel{position:absolute;left:0;bottom:calc(100% + .6rem);width:min(21rem,calc(100vw - 28px));max-height:calc(100vh - 7rem);max-height:calc(100dvh - 7rem);overflow:auto;padding:1rem;border:2px solid var(--ink);background:#fff;color:var(--ink);box-shadow:0 18px 50px -18px rgba(0,0,0,.55)}
+.a11y-panel[hidden]{display:none}
+.a11y-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:.8rem}
+.a11y-head h2{font-size:1.3rem;line-height:1.2}
+.a11y-close{display:grid;place-items:center;width:2.6rem;height:2.6rem;border:2px solid var(--ink);border-radius:2px;background:#fff;color:var(--ink);cursor:pointer}
+.a11y-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.a11y-opt{min-height:3rem;padding:.4rem .6rem;border:2px solid var(--ink);border-radius:2px;background:#fff;color:var(--ink);font:700 .95rem/1.25 var(--font);text-align:center;cursor:pointer}
+.a11y-opt:hover{background:#FDECEB}
+.a11y-opt[aria-pressed="true"]{background:var(--ink);color:#fff}
+.a11y-reset{grid-column:1 / -1;border-color:var(--accent-ink);color:var(--accent-ink)}
+.a11y-foot{margin-top:.9rem;font-size:.92rem}
+.a11y-live{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* מצבי נגישות על <html> */
+html.a11y-gray{filter:grayscale(1)}
+.a11y-links a{background-color:#FFF59D!important;color:#000!important;text-decoration:underline!important;text-decoration-thickness:2px!important;text-underline-offset:3px!important;outline:2px solid #000}
+.a11y-font body,.a11y-font .content,.a11y-font h1,.a11y-font h2,.a11y-font h3,.a11y-font .btn,.a11y-font summary{font-family:Arial,"Heebo",sans-serif!important;letter-spacing:.015em}
+.a11y-spacing body{line-height:1.95!important;word-spacing:.12em;letter-spacing:.02em}
+.a11y-spacing p,.a11y-spacing li{margin-bottom:.9em}
+.a11y-nomotion *,.a11y-nomotion *::before,.a11y-nomotion *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+.a11y-contrast body,.a11y-contrast .content,.a11y-contrast .band,.a11y-contrast .band-paper,.a11y-contrast .band-dark,.a11y-contrast .join,.a11y-contrast .hero,.a11y-contrast .prog,.a11y-contrast .side,.a11y-contrast .foot,.a11y-contrast .mbar,.a11y-contrast .day,.a11y-contrast .days,.a11y-contrast .table-wrap,.a11y-contrast .card-dark,.a11y-contrast .principle,.a11y-contrast .values li{background:#000!important;color:#fff!important}
+.a11y-contrast h1,.a11y-contrast h2,.a11y-contrast h3,.a11y-contrast h4,.a11y-contrast p,.a11y-contrast li,.a11y-contrast dt,.a11y-contrast dd,.a11y-contrast span,.a11y-contrast small,.a11y-contrast b,.a11y-contrast address,.a11y-contrast summary,.a11y-contrast td,.a11y-contrast th,.a11y-contrast caption,.a11y-contrast label{color:#fff!important}
+.a11y-contrast a,.a11y-contrast .eyebrow,.a11y-contrast .kicker,.a11y-contrast .prog-no,.a11y-contrast .hero h1 span,.a11y-contrast .step::before,.a11y-contrast .glossary dt,.a11y-contrast .timeline b,.a11y-contrast .card-dark .kj,.a11y-contrast .principle .kj{color:#FFEB3B!important}
+.a11y-contrast .btn,.a11y-contrast .mbar a,.a11y-contrast .side-cta{background:#000!important;color:#FFEB3B!important;border:2px solid #FFEB3B!important}
+.a11y-contrast .hero-vert,.a11y-contrast .hero-quote,.a11y-contrast .sched-kanji,.a11y-contrast .side-osu{color:#fff!important}
+.a11y-contrast .box{background:#000!important;color:#fff!important;border-color:#FFEB3B!important}
+.a11y-contrast .box p{color:#fff!important}
+.a11y-links a *{color:#000!important}
+.a11y-contrast.a11y-links a *{color:#FFEB3B!important}
+.a11y-contrast.a11y-links a{background-color:#000!important;color:#FFEB3B!important;text-decoration:underline!important;outline:2px solid #FFEB3B}
+.a11y-contrast .prog-meta,.a11y-contrast .coach-tag{background:#fff!important;color:#000!important}
+.a11y-contrast .field input,.a11y-contrast .field select{background:#000;color:#fff;border-color:#fff}
+.a11y-contrast .table-wrap th{background:#222!important}
+.a11y-contrast .cform,.a11y-contrast .contact-info,.a11y-contrast .champ,.a11y-contrast .result{background:#000!important;color:#fff!important}
+.a11y-contrast .cform,.a11y-contrast .champ,.a11y-contrast .result{border-color:#fff!important}
+.a11y-contrast .champ-num,.a11y-contrast .req,.a11y-contrast .ci-label{color:#FFEB3B!important}
+.a11y-contrast .send-row button,.a11y-contrast .ci-btn,.a11y-contrast .to-top{background:#000!important;color:#FFEB3B!important;border:2px solid #FFEB3B!important}
+.a11y-contrast .field textarea,.a11y-contrast .result textarea{background:#000;color:#fff;border-color:#fff}
+.a11y-contrast .field.invalid input,.a11y-contrast .field.invalid select,.a11y-contrast .field.invalid textarea{background:#000;border-color:#FFEB3B}
+.a11y-contrast .err{color:#FFEB3B!important}
+.a11y-contrast .err.on::before{background:#FFEB3B;color:#000}
+.a11y-contrast :focus-visible{outline-color:#FFEB3B!important}
+
+/* ---------- עמודים משפטיים ---------- */
+.legal{max-width:860px;margin:0 auto;padding:5rem 1.5rem 6rem}
+.legal h1{font-size:3.25rem;line-height:1.1;font-weight:900;margin-bottom:.7rem}
+.legal .meta{margin-bottom:2.2rem;color:var(--ink-3);font-size:.97rem}
+.legal h2{margin:2.5rem 0 .8rem;font-size:1.65rem;line-height:1.3}
+.legal p,.legal li{color:var(--ink-2);line-height:1.8}
+.legal p{margin-bottom:1em}
+.legal ul{margin:0 0 1.2em;padding-inline-start:1.4rem;list-style:disc}
+.legal li{margin-bottom:.4rem}
+.legal .back{display:inline-block;margin-bottom:1.6rem;font-weight:700}
+.legal .box{margin:1.6rem 0;padding:1.2rem 1.4rem;background:var(--paper);border-inline-start:4px solid var(--accent)}
+.legal .box p:last-child{margin-bottom:0}
+
+/* ---------- רספונסיבי ---------- */
+@media (max-width:1100px){
+  .hero h1{font-size:4.5rem}
+  .values{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .coach{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:900px){
+  html{scroll-padding-top:7.5rem;scroll-padding-bottom:5rem}
+  /* בלי JavaScript הכותרת לא דביקה, ולכן אין צורך בריווח לכותרת בגלילה לקטעים */
+  html:not(.js){scroll-padding-top:1rem}
+  .layout{display:block}
+  .side{position:sticky;top:0;width:auto;height:auto;max-height:100vh;max-height:100dvh;padding:.75rem 1rem;gap:0;border-left:0;border-bottom:3px solid var(--accent)}
+  /* בלי JavaScript אין כפתור שמקפל את התפריט: הרשימה גלויה מתחת לשם, באותו סגנון כמו במחשב (מספר, שם ותו יפני), והכותרת לא דביקה */
+  html:not(.js) .side{position:static;max-height:none}
+  html:not(.js) .side-nav{margin-top:.75rem}
+  .side-bottom,.side-osu{display:none!important}
+  /* עם JavaScript התפריט מתקפל מאחורי הכפתור */
+  .js .menu-btn{display:inline-flex}
+  .js .side-nav{display:none}
+  .js .side.open .side-nav{display:flex;margin-top:.75rem}
+  .js .side.open .side-bottom{display:flex!important;margin-top:1.25rem;padding-bottom:.5rem}
+  .train-grid{grid-template-columns:minmax(0,1fr)}
+  .principles{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  body{padding-bottom:calc(3.5rem + env(safe-area-inset-bottom,0px))}
+  .mbar{display:grid}
+  .a11y-root,.to-top{bottom:calc(3.5rem + 14px + env(safe-area-inset-bottom,0px))}
+  .timeline{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:700px){
+  .hero h1{font-size:3.25rem}
+  h2,.sched-copy h2,.join h2{font-size:2.25rem}
+  .hero-in{padding-top:2.25rem;padding-bottom:3rem;gap:2rem}
+  .band-in,.sched-in,.join-in{padding-block:3rem}
+  .band-in{gap:2.5rem}
+  .card-dark,.prog{padding:1.75rem 1.4rem}
+  .champ{padding:1.75rem 1.4rem}
+  .champ-num{font-size:4.25rem}
+  .cform{padding:1.4rem 1.1rem}
+  .hero-art{min-height:0;padding-bottom:5rem}
+  .hero-vert{display:none}
+  .hero-quote{right:0;left:0;max-width:none;bottom:0}
+  .legal h1{font-size:2.25rem}
+}
+@media (max-width:520px){
+  .table-wrap table{min-width:0;font-size:.95rem}
+  .table-wrap th,.table-wrap td,.table-wrap caption{padding:.8rem .75rem}
+  .day{padding:1rem .75rem}
+  .day b{font-size:1.1rem}
+  .day span{font-size:.95rem}
+  .values{grid-template-columns:minmax(0,1fr)}
+  .glossary dl>div{grid-template-columns:4.6rem minmax(0,1fr)}
+  .belt-label{font-size:.8rem}
+  .belt-label small{font-size:.75rem}
+  .stats{gap:1.5rem 2rem}
+}
+/* ---------- גלילה לצד (נייד) ---------- */
+.hs{min-width:0;max-width:100%}
+.hs-stage{display:contents}
+.hs-probe{position:fixed;top:0;left:0;width:1px;height:100vh;height:100svh;visibility:hidden;pointer-events:none}
+[data-hs]{--hs-w:min(82%,20rem)}
+.cards4[data-hs]{--hs-w:min(80%,19rem)}
+.programs[data-hs]{--hs-w:min(82%,19.5rem)}
+.champs[data-hs]{--hs-w:min(80%,18rem)}
+.steps[data-hs]{--hs-w:min(78%,17rem)}
+.days[data-hs]{--hs-w:min(56%,11.5rem)}
+.principles[data-hs]{--hs-w:min(84%,20rem)}
+.values[data-hs]{--hs-w:min(60%,14rem)}
+.timeline[data-hs]{--hs-w:min(80%,18rem)}
+@media (max-width:900px){
+  html.js:not(.a11y-stack) [data-hs]{display:flex;flex-wrap:nowrap;align-items:stretch;gap:1rem;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;margin-inline:calc(var(--hs-s,0px) * -1) calc(var(--hs-e,0px) * -1);padding-block:.25rem .5rem;padding-inline:var(--hs-s,0px) var(--hs-e,0px);scroll-padding-inline:var(--hs-s,0px) var(--hs-e,0px);scrollbar-width:none;-webkit-overflow-scrolling:touch;border:0;background:none}
+  html.js:not(.a11y-stack) [data-hs]::-webkit-scrollbar{display:none}
+  html.js:not(.a11y-stack) [data-hs]:focus-visible{outline:3px solid var(--ink);outline-offset:-4px}
+  html.js:not(.a11y-stack) [data-hs] > *{flex:0 0 var(--hs-w);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+  html.js:not(.a11y-stack) [data-hs].hs-drag{scroll-snap-type:none;cursor:grabbing;user-select:none}
+  /* כרטיסים עצמאיים במקום תאים צמודים */
+  html.js:not(.a11y-stack) .cards4 > .card-dark,html.js:not(.a11y-stack) .principles > .principle,html.js:not(.a11y-stack) .values > li{border:1px solid var(--night-2)}
+  html.js:not(.a11y-stack) .timeline > li{padding:1.4rem;border:1px solid var(--night-2)}
+  html.js:not(.a11y-stack) .days > .day{border:1px solid var(--rule);background:#fff}
+  html.js:not(.a11y-stack) .steps > .step{align-content:start;padding:1.25rem;border:1px solid var(--rule);background:#fff}
+  html.js:not(.a11y-stack) .gloss > dl{flex:none;display:flex;gap:1rem;margin:0}
+  html.js:not(.a11y-stack) .gloss dl > div{flex:0 0 11.5rem;display:flex;flex-direction:column;gap:.5rem;padding:1.1rem;border:1px solid var(--rule);background:#fff;scroll-snap-align:start;scroll-snap-stop:always}
+  html.js:not(.a11y-stack) .gloss dt{font-size:1.6rem}
+  /* A pinned strip: the stage sticks under the header and fills the free screen, with the strip in the middle and an empty room of --hs-g above and below it.
+     The wrapper is as tall as the stage plus the way the cards travel (--hs-d) plus that room twice: the cards move only while the stage holds the
+     whole free screen, so nothing else (the text above, the next section, a background kanji) is moving at the same time. The page scrolls the
+     first --hs-g while the text above leaves, then the cards travel, then the last --hs-g while the next part arrives.
+     The negative margins (--hs-g) give the strip back its normal place before and after the pin, and the stage itself is transparent and takes no taps. */
+  html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d) + var(--hs-g) * 2);margin-block:calc(var(--hs-g) * -1)}
+  html.js:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
+  html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
+  /* A strip that does not fit a short screen is pinned anyway with tighter cards: less padding and smaller number glyphs, the same readable text size. */
+  html.js:not(.a11y-stack) .hs.hs-tight .prog,html.js:not(.a11y-stack) .hs.hs-tight .champ,html.js:not(.a11y-stack) .hs.hs-tight .card-dark,html.js:not(.a11y-stack) .hs.hs-tight .principle{padding-block:1.1rem;gap:.55rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .prog h3{font-size:1.45rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .champ-num{font-size:3rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .kj{font-size:3rem}
+  html.js:not(.a11y-stack) .hs.hs-tight .prog p,html.js:not(.a11y-stack) .hs.hs-tight .champ p,html.js:not(.a11y-stack) .hs.hs-tight .card-dark p,html.js:not(.a11y-stack) .hs.hs-tight .principle p{line-height:1.5}
+}
+@media (max-width:900px) and (pointer:fine){
+  html.js:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
+  /* mouse and touchpad: a pinned strip is moved by the page scroll (and by the keys and the drag, which are script-driven), never by the wheel itself.
+     A touchpad always adds a little sideways drift, and a strip that can scroll sideways would take the whole scroll gesture from the page. */
+  html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{overflow-x:hidden}
+}
+.a11y-contrast [data-hs] > *,.a11y-contrast .gloss dl > div{background:#000!important;color:#fff!important;border-color:#fff!important}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+@media (forced-colors:active){
+  .btn,.a11y-toggle,.a11y-opt,.menu-btn,.side-cta,.send-row button,.ci-btn,.to-top{border:2px solid ButtonText}
+  .belt-bar,.kohaku{forced-color-adjust:none}
+}
+@media print{
+  .side,.mbar,.a11y-root,.hero-art,.to-top,.hs-probe{display:none!important}
+  .layout{display:block}
+  body{padding:0;font-size:12pt}
+  .band-in,.sched-in,.join-in{padding-block:1.2rem}
+  .band-dark,.join,.foot{background:#fff!important;color:#000!important}
+  .join h2,.join-lead,.join-list,.join a{color:#000!important}
+  html.js [data-hs]{display:block!important;overflow:visible!important;margin:0!important;padding:0!important}
+  html.js .hs.hs-pin{height:auto!important;margin-block:0!important}
+  html.js .hs.hs-pin > .hs-stage{display:block!important;position:static!important;height:auto!important}
+  a{color:#000}
+}
