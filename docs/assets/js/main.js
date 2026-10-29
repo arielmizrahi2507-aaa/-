@@ -439,10 +439,11 @@
     root.style.scrollBehavior = prev;
   }
 
-  /* The element the visitor is looking at: the first thing outside the strips, going down from just under the header. A strip and the content
-     after it stay next to each other whether the strip is pinned or not, but the pinning zone (the way the cards travel) sits between the strip
-     and what came before it, so content below the strip is the anchor that does not move when pinning is switched. Inside a zone, with nothing
-     else in sight, the strip's own wrapper is the anchor. The transparent stage of a pinned strip takes no hits, so what lies under it is found. */
+  /* The element the visitor is looking at: the first thing outside the strips, going down from just under the header. When a strip starts or
+     stops being pinned, its zone (the way the cards travel) appears or disappears between the strip and what comes after it, so whatever the
+     visitor sees below it moves by exactly that amount, and scrolling back by the anchor's shift keeps the visitor in place. A strip is not a good
+     anchor: with its zone around it, it fills the screen. Inside a zone, with nothing else in sight, the strip's own wrapper is the anchor.
+     The transparent stage of a pinned strip takes no hits, so what lies under it is found. */
   function pickAnchor() {
     var x = Math.floor(window.innerWidth / 2);
     var inside = null;
@@ -615,11 +616,14 @@
     track.addEventListener('dragstart', function (e) { if (carouselOn()) e.preventDefault(); });
 
     /* ---- pinning the strip while the page scrolls ----
-       A pinned strip moves its cards p pixels sideways for p pixels of page scroll, up to the end of the strip. How far the page scrolled is read from
-       the place of the wrapper on the screen. When the strip is moved by something else (a swipe, the drag, the arrow keys, find in page, focus,
-       a screen reader) the page is scrolled to the matching place, so both directions stay in step. */
+       A pinned strip moves its cards p pixels sideways for p pixels of page scroll, up to the end of the strip, and only while nothing else is moving on
+       the screen: the stage holds the free screen, so the page first scrolls pinG (the text above leaves), then the cards travel, then the page scrolls
+       pinG again (the next part arrives). How far the page scrolled is read from the place of the wrapper on the screen.
+       When the strip is moved by something else (a swipe, the drag, the arrow keys, find in page, focus, a screen reader) the page is scrolled to
+       the matching place, so both directions stay in step. */
     var pinned = false;
     var pinD = 0;
+    var pinG = 0;        /* the empty room above and below the strip inside the stage: the page scrolls this far before and after the cards move */
     var written = 0;     /* the place the script itself wrote, to tell the echo of its own write from the visitor's move */
     var adoptTimer = 0;
     var dirSign = -1;
@@ -645,7 +649,8 @@
         wrap.style.setProperty('--hs-top', pinTop + 'px');
         wrap.style.setProperty('--hs-stage', pinView + 'px');
         wrap.style.setProperty('--hs-d', max + 'px');
-        wrap.style.setProperty('--hs-g', Math.floor((pinView - th) / 2) + 'px');
+        pinG = Math.floor((pinView - th) / 2);
+        wrap.style.setProperty('--hs-g', pinG + 'px');
         dirSign = rtl() ? -1 : 1;
       } else if (pinned) {
         ['--hs-top', '--hs-stage', '--hs-d', '--hs-g'].forEach(function (k) { wrap.style.removeProperty(k); });
@@ -661,7 +666,7 @@
     function pinPlace() {
       if (!pinned) return;
       var r = wrap.getBoundingClientRect();
-      var want = Math.max(0, Math.min(pinD, pinTop - r.top));
+      var want = Math.max(0, Math.min(pinD, pinTop - pinG - r.top));
       if (Math.abs(Math.abs(track.scrollLeft) - want) < 0.75) return;
       written = want;
       track.scrollLeft = dirSign * want;
@@ -674,7 +679,7 @@
       var r = wrap.getBoundingClientRect();
       if (r.bottom < 0 || r.top > window.innerHeight) return;
       var cur = Math.abs(track.scrollLeft);
-      var raw = pinTop - r.top;
+      var raw = pinTop - pinG - r.top;
       /* Already in step, also when the page is beyond the end of the strip (the cards wait at the end there): nothing to move. */
       if (Math.abs(cur - Math.max(0, Math.min(pinD, raw))) < 1) return;
       written = cur;

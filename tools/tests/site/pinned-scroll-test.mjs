@@ -1,5 +1,7 @@
 // Page scroll moves the side-scrolling strips (narrow screens, scripts on, motion allowed): the strip stays put under the header,
 // the cards slide sideways one pixel for every pixel of page scroll, and after the last card the page goes on as usual.
+// The cards move only while nothing else on the screen moves (the text above has left, the next part has not arrived): the page scrolls
+// the strip's empty room first (--hs-g), then the cards travel, then the room again.
 // Also: swipe, keys and "reveal this card" keep the page position in step; the options and screens that must not do this don't;
 // nothing is ever cut off by the header or the bottom bar; wide screens and print are unchanged.
 import { launch, siteUrl } from '../lib.mjs';
@@ -29,8 +31,12 @@ const geom = (p, i) => p.evaluate(i => {
   const pinTop = parseFloat(hs.style.getPropertyValue('--hs-top'));
   const bar = document.querySelector('.mbar');
   const barH = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().height : 0;
-  return { label: t.getAttribute('data-hs'), pinned: hs.classList.contains('hs-pin'), top: hs.getBoundingClientRect().top + scrollY, h: hs.getBoundingClientRect().height, d: t.scrollWidth - t.clientWidth, th: t.offsetHeight, tight: hs.classList.contains('hs-tight'), pinTop, barH, n: (t.classList.contains('gloss') ? t.querySelectorAll('dl > div') : t.children).length };
+  return { label: t.getAttribute('data-hs'), pinned: hs.classList.contains('hs-pin'), top: hs.getBoundingClientRect().top + scrollY, h: hs.getBoundingClientRect().height, d: t.scrollWidth - t.clientWidth, th: t.offsetHeight, tight: hs.classList.contains('hs-tight'), pinTop, barH,
+    g: parseFloat(hs.style.getPropertyValue('--hs-g')) || 0, stageH: hs.querySelector('.hs-stage').getBoundingClientRect().height, n: (t.classList.contains('gloss') ? t.querySelectorAll('dl > div') : t.children).length };
 }, i);
+// the page scroll at which the stage reaches the header, and the one at which the cards start to move (after the empty room above the strip)
+const stuckAt = x => x.top - x.pinTop;
+const slideAt = x => x.top - x.pinTop + x.g;
 const live = (p, i) => p.evaluate(i => {
   const hs = document.querySelectorAll('.hs')[i], t = hs.querySelector('[data-hs]'), st = hs.querySelector('.hs-stage');
   const tr = t.getBoundingClientRect(), hr = hs.getBoundingClientRect(), sr = st.getBoundingClientRect();
@@ -39,8 +45,29 @@ const live = (p, i) => p.evaluate(i => {
   const side = document.querySelector('.side'), bar = document.querySelector('.mbar');
   const headerBottom = side.getBoundingClientRect().bottom;                                                   // measured here, not taken from the script's own numbers
   const barTop = bar && getComputedStyle(bar).display !== 'none' ? bar.getBoundingClientRect().top : innerHeight;
-  return { y: scrollY, left: Math.abs(t.scrollLeft), hsTop: hr.top, hsBottom: hr.bottom, stageTop: sr.top, stageBottom: sr.bottom, trackTop: tr.top, trackBottom: tr.bottom, headerBottom, barTop, seen };
+  return { y: scrollY, left: Math.abs(t.scrollLeft), hsTop: hr.top, hsBottom: hr.bottom, stageTop: sr.top, stageBottom: sr.bottom, trackTop: tr.top, trackBottom: tr.bottom, trackLeft: tr.left, trackRight: tr.right, headerBottom, barTop, seen };
 }, i);
+
+// How many pixels differ between two screenshots outside the given rectangle. A blank page does the comparing (canvas), so no image library is needed.
+const cmpCtx = await b.newContext();
+const cmpPage = await cmpCtx.newPage();
+await cmpPage.goto('about:blank');
+const diffOutside = (bufA, bufB, rect) => cmpPage.evaluate(async ({ a, c, rect }) => {
+  const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = 'data:image/png;base64,' + src; });
+  const [ia, ic] = await Promise.all([load(a), load(c)]);
+  const w = ia.width, h = ia.height;
+  const px = im => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.drawImage(im, 0, 0); return g.getImageData(0, 0, w, h).data; };
+  const A = px(ia), C = px(ic);
+  let n = 0, firstRow = -1;
+  for (let y = 0; y < h; y++) {
+    if (y >= rect.top && y <= rect.bottom) continue;
+    for (let x = 0; x < w; x++) {
+      const k = (y * w + x) * 4;
+      if (Math.abs(A[k] - C[k]) > 10 || Math.abs(A[k + 1] - C[k + 1]) > 10 || Math.abs(A[k + 2] - C[k + 2]) > 10) { n++; if (firstRow < 0) firstRow = y; }
+    }
+  }
+  return { n, firstRow };
+}, { a: bufA.toString('base64'), c: bufB.toString('base64'), rect });
 
 async function open(opts, size = { width: 390, height: 844 }, mobile = size.width < 900) {
   const ctx = await b.newContext({ viewport: size, deviceScaleFactor: 1, isMobile: mobile, hasTouch: mobile, ...opts });
@@ -91,8 +118,10 @@ async function phoneRun(size, name, expectTight) {
   if (tightNow) {
     ok(await p.evaluate(() => [...document.querySelectorAll('.hs-tight')].every(h => [...h.querySelectorAll('p')].every(el => getComputedStyle(el).fontSize === '16px' || getComputedStyle(el).fontSize === '17px'))), `${name}: tightened cards keep the size of the text`);
   }
-  const travel = g.reduce((a, x, i) => a + x.d + (x.th - base.th[i]), 0);
-  ok(near(s.docH - base.docH, travel, 12), `${name}: the page is longer by exactly the way the cards travel (${s.docH - base.docH}px, expected ${travel}px)`);
+  // a pinned strip takes the free screen (the stage) plus the way the cards travel, instead of its own height
+  const travel = g.reduce((a, x, i) => a + x.stageH + x.d - base.th[i], 0);
+  ok(near(s.docH - base.docH, travel, 12), `${name}: the page is longer by the free screen and the way the cards travel, for each strip (${s.docH - base.docH}px, expected ${travel}px)`);
+  ok(g.every(x => x.g >= 8 && near(x.stageH, x.th + 2 * x.g, 2)), `${name}: every strip has empty room above and below it inside its stage (${g.map(x => x.g).join(', ')}px)`);
   const trackTop = await p.evaluate(() => document.querySelector('[data-hs]').getBoundingClientRect().top + scrollY);
   ok(near(trackTop, base.trackTop, 2), `${name}: before it is pinned the first strip sits exactly where it sits without pinning (${Math.round(trackTop)}px, otherwise ${Math.round(base.trackTop)}px)`);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs-stage')].every(st => getComputedStyle(st).pointerEvents === 'none' && getComputedStyle(st.querySelector('[data-hs]')).pointerEvents === 'auto')), `${name}: the stage never takes a tap or a click, only the cards do`);
@@ -103,33 +132,50 @@ async function phoneRun(size, name, expectTight) {
 
   for (let i = 0; i < g.length; i++) {
     const x = g[i], tag = `[${name}: ${x.label}]`;
-    const start = x.top - x.pinTop;           // page scroll at which the stage reaches the header
+    const start = stuckAt(x);                 // page scroll at which the stage reaches the header
+    const slide = slideAt(x);                 // ... and at which the cards start to move, once the text above has left
+    const zoneEnd = slide + x.d + x.g;        // ... and at which the stage lets go again, once the next part has arrived
     await goY(p, Math.max(0, start - 300));
     let s0 = await live(p, i);
     ok(s0.left <= 1, `${tag} before it is reached the strip is at its first card (${s0.left})`);
     ok(s0.stageTop > s0.headerBottom + 100, `${tag} before it is reached it scrolls up with the page (stage ${Math.round(s0.stageTop)}, header ${Math.round(s0.headerBottom)})`);
     ok(near(x.pinTop, s0.headerBottom, 1.5), `${tag} the strip sticks right under the header (${x.pinTop}px, header ends at ${Math.round(s0.headerBottom)}px)`);
     const visited = new Set();
-    let bad = 0, still = 0, outside = 0, short = 0, steps = 0;
-    const step = Math.max(40, Math.round(x.d / 24));
-    for (let y = start; y <= start + x.d + step; y += step) {
-      const yy = Math.min(y, start + x.d);
+    let bad = 0, still = 0, outside = 0, short = 0, steps = 0, moving = 0, changed = 0, firstShot = null, firstRect = null, shots = 0, worstRow = -1;
+    const step = Math.max(40, Math.round((x.d + 2 * x.g) / 24));
+    for (let y = start; y <= zoneEnd + step; y += step) {
+      const yy = Math.min(y, zoneEnd);
       await goY(p, yy);
       const s1 = await live(p, i);
       steps++;
-      if (!near(s1.left, Math.min(x.d, Math.max(0, s1.y - start)), 2.5)) bad++;
+      if (!near(s1.left, Math.min(x.d, Math.max(0, s1.y - slide)), 2.5)) bad++;
       if (!near(s1.stageTop, s1.headerBottom, 1.5)) still++;
       if (s1.trackTop < s1.headerBottom - 1 || s1.trackBottom > s1.barTop + 1) outside++;
       if (!near(s1.stageBottom, s1.barTop, 2.5)) short++;
       s1.seen.forEach((v, k) => { if (v) visited.add(k); });
-      if (yy >= start + x.d) break;
+      // while the cards are on their way, everything outside the strip must look exactly the same in every frame
+      if (s1.left > 1.5 && s1.left < x.d - 1.5) {      // a pixel or two of slack: the real end of the track is a fraction short of the rounded width
+        moving++;
+        if (moving % 3 === 1) {
+          const shot = await p.screenshot();
+          const rect = { top: Math.floor(s1.trackTop) - 1, bottom: Math.ceil(s1.trackBottom) + 1 };
+          if (!firstShot) { firstShot = shot; firstRect = rect; }
+          else {
+            const r = await diffOutside(firstShot, shot, { top: Math.min(rect.top, firstRect.top), bottom: Math.max(rect.bottom, firstRect.bottom) });
+            shots++;
+            if (r.n > 0) { changed++; worstRow = r.firstRow; }
+          }
+        }
+      }
+      if (yy >= zoneEnd) break;
     }
     ok(bad === 0, `${tag} the cards move 1:1 with the page scroll (${bad} of ${steps} positions off)`);
     ok(still === 0, `${tag} the strip stays under the header while the cards move (${still} of ${steps} positions off)`);
     ok(outside === 0, `${tag} the strip is never hidden by the header or the bottom bar (${outside} positions)`);
     ok(short === 0, `${tag} while it is pinned the strip owns the whole free screen, so nothing else shows (${short} positions)`);
     ok(visited.size === x.n, `${tag} every card comes by with plain scrolling (${visited.size} of ${x.n})`);
-    await goY(p, start + x.d + 300);
+    ok(shots >= 1 && changed === 0, `${tag} while the cards slide nothing else on the screen moves (${changed} of ${shots} frames differ outside the strip${changed ? ', first changed row ' + worstRow : ''})`);
+    await goY(p, zoneEnd + 300);
     const s2 = await live(p, i);
     ok(near(s2.left, x.d, 1.5), `${tag} after the last card the strip is at its end (${s2.left} of ${x.d})`);
     ok(s2.stageTop < s2.headerBottom - 100, `${tag} after the last card the strip goes up with the page (stage ${Math.round(s2.stageTop)})`);
@@ -161,7 +207,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   };
   const idx = 1;   // the programs strip
   const x = await geom(p, idx);
-  const start = x.top - x.pinTop;
+  const start = slideAt(x);
   const consistent = async m => { const s = await live(p, idx); ok(near(s.left, Math.min(x.d, Math.max(0, s.y - start)), 3), `${m}: the page and the cards agree (left ${Math.round(s.left)}, page ${Math.round(s.y - start)})`); return s; };
 
   await goY(p, start + 100);
@@ -214,7 +260,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   ok(s.pins >= 5, `a 800x900 window pins the strips that scroll (${s.pins})`);
   const idx = await p.evaluate(() => [...document.querySelectorAll('.hs')].findIndex(h => h.classList.contains('hs-pin') && h.querySelector('.programs')));
   const x = await geom(p, idx);
-  const start = x.top - x.pinTop;
+  const start = slideAt(x);
   await goY(p, start + 50);
   await p.mouse.move(400, 500);
   const a = await live(p, idx);
@@ -233,7 +279,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs-pin [data-hs]')].every(t => getComputedStyle(t).overflowX === 'hidden')), 'with a mouse or touchpad a pinned strip takes no sideways scrolling of its own, the page scroll moves it');
   const idx = await p.evaluate(() => [...document.querySelectorAll('.hs')].findIndex(h => h.querySelector('.gloss')));
   const x = await geom(p, idx);
-  await goY(p, x.top - x.pinTop + 50);
+  await goY(p, slideAt(x) + 50);
   const box = await p.locator('.hs').nth(idx).locator('[data-hs]').boundingBox();
   await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);   // the pointer rests on the strip
   const a = await live(p, idx);
@@ -249,7 +295,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await p.mouse.down(); await p.mouse.move(box.x + 100, box.y + box.height / 2, { steps: 8 }); await p.mouse.up();
   await p.waitForTimeout(700);
   const d1 = await live(p, idx);
-  ok(Math.abs(d1.left - d0.left) > 80 && near(d1.left, Math.min(x.d, Math.max(0, d1.y - (x.top - x.pinTop))), 3), `dragging a pinned strip with the mouse moves the cards and the page follows (${Math.round(d0.left)} to ${Math.round(d1.left)})`);
+  ok(Math.abs(d1.left - d0.left) > 80 && near(d1.left, Math.min(x.d, Math.max(0, d1.y - slideAt(x))), 3), `dragging a pinned strip with the mouse moves the cards and the page follows (${Math.round(d0.left)} to ${Math.round(d1.left)})`);
   await ctx.close();
 }
 
@@ -264,7 +310,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   for (let i = 0; i < n; i++) {
     const x = await geom(p, i);
     if (!x.pinned) continue;
-    await goY(p, x.top - x.pinTop + Math.round(x.d / 2));
+    await goY(p, slideAt(x) + Math.round(x.d / 2));
     const l = await live(p, i);
     if (l.trackTop < l.headerBottom - 1 || l.trackBottom > l.barTop + 1) hidden++;
   }
@@ -308,7 +354,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   let hidden = 0;
   for (let i = 0; i < 9; i++) {
     if (!gs[i].pinned) continue;
-    await goY(p, gs[i].top - gs[i].pinTop + Math.round(gs[i].d / 2));
+    await goY(p, slideAt(gs[i]) + Math.round(gs[i].d / 2));
     const l = await live(p, i);
     if (l.trackTop < l.headerBottom - 1 || l.trackBottom > l.barTop + 1) hidden++;
   }
@@ -325,7 +371,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   for (let i = 0; i < n; i++) {
     const x = await geom(p, i);
     if (!x.pinned) continue;
-    await goY(p, x.top - x.pinTop + Math.round(x.d / 2));
+    await goY(p, slideAt(x) + Math.round(x.d / 2));
     const l = await live(p, i);
     if (l.trackTop < l.headerBottom - 1 || l.trackBottom > l.barTop + 1) hidden++;
   }
@@ -341,7 +387,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs')].every(h => getComputedStyle(h).display !== 'none' && h.style.getPropertyValue('--hs-d') === '')), 'widening the window clears the pinning values');
   await p.setViewportSize({ width: 390, height: 844 }); await p.waitForTimeout(700);
   s = await summary(p);
-  ok(s.pins === 9 && near(s.docH, baseH + (await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].reduce((a, t) => a + t.scrollWidth - t.clientWidth, 0))), 12), `narrowing it again brings the pinning back (${s.pins})`);
+  ok(s.pins === 9 && near(s.docH, baseH + (await p.evaluate(() => [...document.querySelectorAll('.hs-pin')].reduce((a, h) => { const t = h.querySelector('[data-hs]'); return a + h.querySelector('.hs-stage').getBoundingClientRect().height + t.scrollWidth - t.clientWidth - t.offsetHeight; }, 0))), 12), `narrowing it again brings the pinning back (${s.pins})`);
   await ctx.close();
 }
 {

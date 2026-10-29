@@ -535,9 +535,12 @@ html.a11y-gray{filter:grayscale(1)}
   html.js:not(.a11y-stack) .gloss > dl{flex:none;display:flex;gap:1rem;margin:0}
   html.js:not(.a11y-stack) .gloss dl > div{flex:0 0 11.5rem;display:flex;flex-direction:column;gap:.5rem;padding:1.1rem;border:1px solid var(--rule);background:#fff;scroll-snap-align:start;scroll-snap-stop:always}
   html.js:not(.a11y-stack) .gloss dt{font-size:1.6rem}
-  /* A pinned strip: the wrapper is as tall as the stage plus the way the cards travel (--hs-d), and the stage sticks under the header and fills the free screen.
+  /* A pinned strip: the stage sticks under the header and fills the free screen, with the strip in the middle and an empty room of --hs-g above and below it.
+     The wrapper is as tall as the stage plus the way the cards travel (--hs-d) plus that room twice: the cards move only while the stage holds the
+     whole free screen, so nothing else (the text above, the next section, a background kanji) is moving at the same time. The page scrolls the
+     first --hs-g while the text above leaves, then the cards travel, then the last --hs-g while the next part arrives.
      The negative margins (--hs-g) give the strip back its normal place before and after the pin, and the stage itself is transparent and takes no taps. */
-  html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d));margin-block:calc(var(--hs-g) * -1)}
+  html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d) + var(--hs-g) * 2);margin-block:calc(var(--hs-g) * -1)}
   html.js:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
   html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
   /* A strip that does not fit a short screen is pinned anyway with tighter cards: less padding and smaller number glyphs, the same readable text size. */
