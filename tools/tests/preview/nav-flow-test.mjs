@@ -78,6 +78,24 @@ for (const [vname, opts] of viewports) {
     v = await view();
     ok(v.home && !v.menuOpen, 'the menu button "צרו קשר" opens the home page and closes the menu');
     await joinInView('menu button');
+
+    // 6) the statement link in the accessibility panel (the script builds it) opens the statement inside the page, and what was typed stays
+    await f.evaluate(() => { window.__marker = 7; });
+    ok((await f.locator('#jf-name').inputValue()) === 'דוד כהן', 'the form still holds what was typed before the panel is opened');
+    await tap('.a11y-toggle'); await p.waitForTimeout(300);
+    ok(await f.evaluate(() => !document.getElementById('a11y-panel').hidden), 'the accessibility panel opens');
+    await tap('.a11y-foot a').catch(() => {}); await p.waitForTimeout(700);
+    const acc = await f.evaluate(() => ({
+      marker: window.__marker, statement: getComputedStyle(document.getElementById('view-accessibility')).display !== 'none',
+      home: getComputedStyle(document.getElementById('main')).display !== 'none', panelOpen: !document.getElementById('a11y-panel').hidden,
+      name: document.getElementById('jf-name').value,
+    })).catch(() => null);
+    ok(!!acc && acc.statement && !acc.home, 'the statement link in the accessibility panel opens the statement (inside the page, not another page)');
+    ok(!!acc && acc.marker === 7, 'the statement link in the accessibility panel does not replace the page');
+    ok(!!acc && !acc.panelOpen, 'the accessibility panel closes after choosing the statement');
+    ok(!!acc && acc.name === 'דוד כהן', 'what was typed in the form is still there after opening the statement');
+    await openMenu(); await tap('.side-nav a[href="#join"]').catch(() => {}); await p.waitForTimeout(900);
+    ok((await f.locator('#jf-name').inputValue().catch(() => '')) === 'דוד כהן', 'and still there after coming back to the home page');
     await ctx.close();
   }
 }

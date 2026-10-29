@@ -30,6 +30,10 @@ css = read("assets/css/style.css")
 css = re.sub(r'url\("(\.\./fonts/[^"]+\.woff2)"\)',
              lambda m: 'url("data:font/woff2;base64,' + b64(os.path.normpath(os.path.join("assets/css", m.group(1)))) + '")', css)
 js = read("assets/js/main.js")
+# the accessibility panel is built by the script and links to the statement page: in the bundle the statement is a view of the same file
+PANEL_LINK = "{ href: 'accessibility.html' }"
+assert js.count(PANEL_LINK) == 1, "the statement link in the accessibility panel (main.js) changed: update the preview"
+js = js.replace(PANEL_LINK, "{ href: '#view-accessibility' }")
 
 PREVIEW_CSS = """
 /* ---- preview only: pages as views, shown by :target without scripts, or by .shown with scripts ---- */
@@ -88,7 +92,9 @@ var views=[].slice.call(document.querySelectorAll('.view'));
 var side=document.getElementById('side'),menuBtn=document.querySelector('button.menu-btn');
 /* on a phone the open menu covers the screen: close it whenever a page is chosen */
 function closeMenu(){if(side&&menuBtn&&side.classList.contains('open'))menuBtn.click();}
-function show(view){closeMenu();views.forEach(function(v){v.classList.toggle('shown',v===view);});}
+/* the accessibility panel floats over the page: close it when its statement link opens a view */
+function closePanel(){var p=document.getElementById('a11y-panel'),c=document.querySelector('.a11y-close');if(p&&!p.hidden&&c)c.click();}
+function show(view){closeMenu();closePanel();views.forEach(function(v){v.classList.toggle('shown',v===view);});}
 document.addEventListener('click',function(e){
 var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;
 var id=(a.getAttribute('href')||'').slice(1);if(!id)return;
