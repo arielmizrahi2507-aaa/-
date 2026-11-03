@@ -369,6 +369,40 @@
 
   [].slice.call(doc.querySelectorAll('form[data-wa]')).forEach(initForm);
 
+  /* ---------- a link's section once the fonts are in ----------
+     The browser scrolls to the section of a link at once, while the text is still in the fallback font; when Heebo arrives the text above moves by some dozens
+     of pixels. Chrome keeps the section where it was (scroll anchoring), a browser without anchoring does not. So once the fonts are in, and as long as the
+     visitor has not touched the page, the section is aligned once more. A reload or Back is left alone: the browser puts the visitor where they were then. */
+  (function () {
+    var nav = window.performance && performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+    if (!location.hash || !doc.fonts || !doc.fonts.ready || (nav && nav.type !== 'navigate')) return;
+    var touched = false;
+    ['wheel', 'touchstart', 'pointerdown', 'keydown'].forEach(function (type) {
+      window.addEventListener(type, function () { touched = true; }, { capture: true, passive: true, once: true });
+    });
+
+    function align() {
+      if (touched) return;
+      var id;
+      try { id = decodeURIComponent(location.hash.slice(1)); } catch (err) { return; }
+      var target = id ? doc.getElementById(id) : null;
+      if (!target) return;
+      var y = window.pageYOffset;
+      target.scrollIntoView();
+      /* a font moves the text by some dozens of pixels; more than that means the visitor went elsewhere (dragging the scroll bar sends no event): stay there */
+      if (Math.abs(window.pageYOffset - y) > 200) window.scrollTo(0, y);
+    }
+
+    function fontsAreIn() {
+      var next = function () { window.requestAnimationFrame(function () { window.requestAnimationFrame(align); }); };
+      if (doc.fonts.status === 'loading') doc.fonts.ready.then(next, next);
+      else next();
+    }
+
+    if (doc.readyState === 'complete') fontsAreIn();
+    else window.addEventListener('load', fontsAreIn);
+  })();
+
   /* ---------- גלילה לצד בנייד ----------
      קבוצות כרטיסים (data-hs) הופכות לפס שמחליקים בו הצידה: החלקה באצבע, גרירה בעכבר, ובמקלדת מקשי החצים. בלי כפתורים ובלי נקודות.
      בנוסף, כשגוללים את הדף למטה ומגיעים לפס, הוא נעצר במקומו והגלילה הרגילה של הדף מזיזה את הכרטיסים הצידה, ואחרי הכרטיס האחרון

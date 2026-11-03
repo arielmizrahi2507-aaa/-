@@ -31,7 +31,11 @@
 }
 
 *,*::before,*::after{box-sizing:border-box}
-html{font-size:calc(100% * var(--fs,1));scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:1rem}
+html{font-size:calc(100% * var(--fs,1));-webkit-text-size-adjust:100%;scroll-padding-top:1rem}
+/* Smooth scrolling for links only without scripts. With scripts the script scrolls smoothly for a click and the browser's own scrolling is instant:
+   with the CSS rule on, the browser animated restoring the place of a reloaded page and scrolling to a link's section on load, which took long on a slow
+   phone, was cut short by the script's corrections and left the visitor far from the place. */
+@media (prefers-reduced-motion:no-preference){html:not(.js){scroll-behavior:smooth}}
 body{margin:0;background:#fff;color:var(--ink);font:400 1rem/1.7 var(--font);-webkit-font-smoothing:antialiased}
 img,svg{max-width:100%}
 h1,h2,h3,h4,p,ul,ol,dl,dd,figure{margin:0}

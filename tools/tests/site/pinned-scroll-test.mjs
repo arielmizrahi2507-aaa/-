@@ -19,6 +19,23 @@ const summary = p => p.evaluate(() => ({
   docH: document.documentElement.scrollHeight,
   sideways: document.documentElement.scrollWidth > innerWidth,
 }));
+// Waits until a reading stops changing (the fonts are in, the strips are measured) and returns it. It polls instead of guessing a delay,
+// because how long the start of a page takes depends on the machine and on how late the fonts arrive; it gives up after `timeout` and returns the last reading.
+const settled = async (p, read, { quiet = 600, timeout = 12000 } = {}) => {
+  const t0 = Date.now();
+  let last = await read(), since = Date.now();
+  while (Date.now() - t0 < timeout) {
+    await p.waitForTimeout(100);
+    const v = await read();
+    const loaded = await p.evaluate(() => document.readyState === 'complete' && (!document.fonts || document.fonts.status === 'loaded')).catch(() => false);
+    if (JSON.stringify(v) !== JSON.stringify(last)) { last = v; since = Date.now(); }
+    else if (loaded && Date.now() - since >= quiet) return v;
+  }
+  return last;
+};
+// everything that changes while the page measures itself: the height of the page and the numbers of every strip
+const layoutSignature = () => document.documentElement.scrollHeight + '|' + [...document.querySelectorAll('.hs')].map(h => ['--hs-d', '--hs-g', '--hs-stage'].map(k => h.style.getPropertyValue(k)).join(',')).join(';');
+
 // how far the stage of each pinned strip is from the free screen (between the header and the bottom bar)
 const freeFit = () => {
   const side = document.querySelector('.side'), bar = document.querySelector('.mbar');
@@ -77,6 +94,7 @@ async function open(opts, size = { width: 390, height: 844 }, mobile = size.widt
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
   await p.waitForTimeout(400);
+  await settled(p, () => p.evaluate(layoutSignature), { quiet: 400 });
   return { ctx, p, errs };
 }
 
@@ -279,17 +297,26 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs-pin [data-hs]')].every(t => getComputedStyle(t).overflowX === 'hidden')), 'with a mouse or touchpad a pinned strip takes no sideways scrolling of its own, the page scroll moves it');
   const idx = await p.evaluate(() => [...document.querySelectorAll('.hs')].findIndex(h => h.querySelector('.gloss')));
   const x = await geom(p, idx);
-  await goY(p, slideAt(x) + 50);
-  const box = await p.locator('.hs').nth(idx).locator('[data-hs]').boundingBox();
-  await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);   // the pointer rests on the strip
-  const a = await live(p, idx);
-  for (let k = 0; k < 4; k++) { await p.mouse.wheel(0, 100); await p.waitForTimeout(60); }      // a mouse wheel
-  for (let k = 0; k < 6; k++) { await p.mouse.wheel(4, 100); await p.waitForTimeout(60); }      // a touchpad: always a little sideways drift
-  await p.waitForTimeout(700);
-  const a2 = await live(p, idx);
-  ok(near(a2.y - a.y, 1000, 6), `a touchpad that drifts sideways over a strip still scrolls the page (${Math.round(a2.y - a.y)} of 1000px)`);
-  ok(near(a2.left - a.left, a2.y - a.y, 4), `the cards follow the page scroll of a touchpad (${Math.round(a2.left - a.left)}px of ${Math.round(a2.y - a.y)}px)`);
+  // ten wheel ticks over the strip, once as a plain mouse wheel and once with the sideways drift every touchpad adds: the page has to go as far with the drift
+  // as without it (measured against the same wheel in the same browser, so the way a browser turns a tick into pixels does not matter)
+  const wheelOver = async drift => {
+    await goY(p, slideAt(x) + 50);
+    const strip = await p.locator('.hs').nth(idx).locator('[data-hs]').boundingBox();
+    await p.mouse.move(strip.x + strip.width / 2, strip.y + strip.height / 2);   // the pointer rests on the strip
+    const a = await live(p, idx);
+    for (let k = 0; k < 4; k++) { await p.mouse.wheel(0, 100); await p.waitForTimeout(60); }       // a mouse wheel
+    for (let k = 0; k < 6; k++) { await p.mouse.wheel(drift, 100); await p.waitForTimeout(60); }   // a touchpad: always a little sideways drift
+    await settled(p, () => p.evaluate(() => Math.round(scrollY)), { quiet: 400 });
+    return { a, a2: await live(p, idx) };
+  };
+  const plain = await wheelOver(0);
+  const drifting = await wheelOver(4);
+  const dyPlain = plain.a2.y - plain.a.y, dyDrift = drifting.a2.y - drifting.a.y;
+  ok(dyPlain > 900, `a mouse wheel over a strip scrolls the page (${Math.round(dyPlain)}px for ten ticks)`);
+  ok(near(dyDrift, dyPlain, 6), `a touchpad that drifts sideways over a strip still scrolls the page as far as the same wheel without the drift (${Math.round(dyDrift)}px, ${Math.round(dyPlain)}px without)`);
+  ok(near(drifting.a2.left - drifting.a.left, dyDrift, 4), `the cards follow the page scroll of a touchpad (${Math.round(drifting.a2.left - drifting.a.left)}px of ${Math.round(dyDrift)}px)`);
   // dragging the strip with the mouse still works and the page follows
+  const box = await p.locator('.hs').nth(idx).locator('[data-hs]').boundingBox();
   const d0 = await live(p, idx);
   await p.mouse.move(box.x + 250, box.y + box.height / 2);
   await p.mouse.down(); await p.mouse.move(box.x + 100, box.y + box.height / 2, { steps: 8 }); await p.mouse.up();
@@ -321,10 +348,12 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
 // ---------- a frame as tall as the page does not scroll by itself: nothing to pin ----------
 {
   const { ctx, p } = await open({}, { width: 390, height: 900 });
-  ok((await summary(p)).pins === 9, 'a 390x900 window pins the strips');
-  await p.setViewportSize({ width: 390, height: 24000 }); await p.waitForTimeout(900);
+  const pinned = await summary(p);
+  ok(pinned.pins === 9, 'a 390x900 window pins the strips');
+  const frameH = pinned.docH + 400;   // as tall as the pinned page and a little more, whatever the page measures today
+  await p.setViewportSize({ width: 390, height: frameH }); await p.waitForTimeout(900);
   const s = await summary(p);
-  ok(s.pins === 0 && s.docH <= 24100, `a frame that grew to the height of the page pins nothing and leaves no blank scroll space (${s.pins} pinned, page ${s.docH}px)`);
+  ok(s.pins === 0 && s.docH <= frameH + 100, `a frame that grew to the height of the page pins nothing and leaves no blank scroll space (${s.pins} pinned, page ${s.docH}px in a frame of ${frameH}px)`);
   await ctx.close();
 }
 
@@ -420,18 +449,20 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
       const cdp = await ctx.newCDPSession(p);
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
       await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });   // a new page every time, so the pinning really happens after the load starts
-      await p.waitForTimeout(1500);
-      worst = Math.max(worst, Math.abs(await p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h) - 120));
+      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h));   // however long a slow phone takes, it has to end up in the right place
+      worst = Math.max(worst, Math.abs(top - 120));
       await ctx.close();
     }
     ok(worst <= 3, `a link to #${h} opened on a phone four times slower lands under the header (off by ${worst}px at worst)`);
   }
   const { ctx, p } = await open({});
+  ok(await p.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior) === 'auto', 'with scripts the browser scrolls instantly by itself (it restores the place of a reloaded page and goes to a link on load); the script animates the clicks');
   const topOf = id => p.evaluate(id => Math.round(document.getElementById(id).getBoundingClientRect().top), id);
   await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
   const t0 = await topOf('faq');
-  await p.reload({ waitUntil: 'load' }); await p.waitForTimeout(1200);
-  ok(near(await topOf('faq'), t0, 3), `reloading the page keeps the visitor at the same place (${t0}px then ${await topOf('faq')}px)`);
+  await p.reload({ waitUntil: 'load' });
+  const t1 = await settled(p, () => topOf('faq'));
+  ok(near(t1, t0, 3), `reloading the page keeps the visitor at the same place (${t0}px then ${t1}px)`);
   await p.tap('.a11y-toggle'); await p.waitForTimeout(150);
   await p.locator('.a11y-opt', { hasText: 'עצירת אנימציות' }).tap(); await p.waitForTimeout(700);
   ok(near(await topOf('faq'), t0, 3), `turning the pinning off in the accessibility menu keeps the visitor at the same place (${t0}px then ${await topOf('faq')}px)`);
@@ -441,6 +472,51 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await p.waitForTimeout(200);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs')].every(h => getComputedStyle(h.querySelector('.hs-stage')).position === 'static' && Math.abs(h.getBoundingClientRect().height - h.querySelector('[data-hs]').getBoundingClientRect().height) < 2)), 'print: no empty pinning space between the cards');
   await ctx.close();
+}
+
+// ---------- late fonts: the text is laid out in a fallback font first, so the place the browser gave the visitor has to be put right once the fonts are in ----------
+// (a reload restores the offset that was saved with the final text, a link is scrolled to in the fallback text; Chrome's scroll anchoring then keeps the displaced view)
+{
+  for (const delay of [0, 150, 450, 1200]) {
+    const lateFonts = ctx => ctx.route('**/*.woff2', async r => { await new Promise(res => setTimeout(res, delay)); r.continue().catch(() => {}); });
+    const newPhone = () => b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
+    {
+      const ctx = await newPhone();
+      const p = await ctx.newPage();
+      const topOf = () => p.evaluate(() => Math.round(document.getElementById('faq').getBoundingClientRect().top));
+      await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
+      await settled(p, () => p.evaluate(layoutSignature), { quiet: 400 });
+      await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
+      const t0 = await topOf();
+      await lateFonts(ctx);
+      await p.reload({ waitUntil: 'load' });
+      const t1 = await settled(p, topOf);
+      ok(near(t1, t0, 3), `fonts ${delay}ms late: a reload keeps the visitor at the same place (${t0}px then ${t1}px)`);
+      await ctx.close();
+    }
+    for (const h of ['join', 'way']) {
+      const ctx = await newPhone();
+      const p = await ctx.newPage();
+      await lateFonts(ctx);
+      await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });
+      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h));
+      ok(near(top, 120, 3), `fonts ${delay}ms late: a link to #${h} lands under the header (${top}px, expected 120px)`);
+      await ctx.close();
+    }
+    if (delay !== 450) continue;
+    // a browser without scroll anchoring (Safari) does not keep the section where it was when the fonts move the text: the script aligns it once more
+    for (const h of ['join', 'way']) {
+      const ctx = await newPhone();
+      const p = await ctx.newPage();
+      await ctx.route('**/assets/css/style.css', async r => { const res = await r.fetch(); await r.fulfill({ response: res, body: (await res.text()) + '\nhtml{overflow-anchor:none}' }); });
+      await lateFonts(ctx);
+      await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });
+      ok(await p.evaluate(() => getComputedStyle(document.documentElement).overflowAnchor) === 'none', 'the page runs without scroll anchoring for this check');
+      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h));
+      ok(near(top, 120, 3), `fonts ${delay}ms late, no scroll anchoring: a link to #${h} lands under the header (${top}px, expected 120px)`);
+      await ctx.close();
+    }
+  }
 }
 
 console.log(`${checks} checks, ${fails} failures`);
