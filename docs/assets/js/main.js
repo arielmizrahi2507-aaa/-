@@ -388,8 +388,12 @@
       var target = id ? doc.getElementById(id) : null;
       if (!target) return;
       var y = window.pageYOffset;
+      var behavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = 'auto';   /* a correction, not a movement to watch: instant, whatever the stylesheet says */
       target.scrollIntoView();
-      /* a font moves the text by some dozens of pixels; more than that means the visitor went elsewhere (dragging the scroll bar sends no event): stay there */
+      root.style.scrollBehavior = behavior;
+      /* a font moves the text by some dozens of pixels; more than that means the visitor went elsewhere (dragging the scroll bar sends no event, so a drag of less
+         than that in the first second is undone): stay there */
       if (Math.abs(window.pageYOffset - y) > 200) window.scrollTo(0, y);
     }
 

@@ -20,8 +20,8 @@ const summary = p => p.evaluate(() => ({
   sideways: document.documentElement.scrollWidth > innerWidth,
 }));
 // Waits until a reading stops changing (the fonts are in, the strips are measured) and returns it. It polls instead of guessing a delay,
-// because how long the start of a page takes depends on the machine and on how late the fonts arrive; it gives up after `timeout` and returns the last reading.
-const settled = async (p, read, { quiet = 600, timeout = 12000 } = {}) => {
+// because how long the start of a page takes depends on the machine and on how late the fonts arrive; after `timeout` it fails the check that it did not settle and returns the last reading.
+const settled = async (p, read, { quiet = 600, timeout = 12000, what = 'the page' } = {}) => {
   const t0 = Date.now();
   let last = await read(), since = Date.now();
   while (Date.now() - t0 < timeout) {
@@ -31,6 +31,7 @@ const settled = async (p, read, { quiet = 600, timeout = 12000 } = {}) => {
     if (JSON.stringify(v) !== JSON.stringify(last)) { last = v; since = Date.now(); }
     else if (loaded && Date.now() - since >= quiet) return v;
   }
+  ok(false, `${what} did not settle within ${timeout / 1000}s (last reading ${JSON.stringify(last)})`);   // never let a page that keeps changing pass or fail by luck
   return last;
 };
 // everything that changes while the page measures itself: the height of the page and the numbers of every strip
@@ -94,7 +95,7 @@ async function open(opts, size = { width: 390, height: 844 }, mobile = size.widt
   p.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
   await p.waitForTimeout(400);
-  await settled(p, () => p.evaluate(layoutSignature), { quiet: 400 });
+  await settled(p, () => p.evaluate(layoutSignature), { quiet: 400, what: 'the page after it was opened' });
   return { ctx, p, errs };
 }
 
@@ -306,7 +307,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
     const a = await live(p, idx);
     for (let k = 0; k < 4; k++) { await p.mouse.wheel(0, 100); await p.waitForTimeout(60); }       // a mouse wheel
     for (let k = 0; k < 6; k++) { await p.mouse.wheel(drift, 100); await p.waitForTimeout(60); }   // a touchpad: always a little sideways drift
-    await settled(p, () => p.evaluate(() => Math.round(scrollY)), { quiet: 400 });
+    await settled(p, () => p.evaluate(() => Math.round(scrollY)), { quiet: 400, what: 'the scroll position after the wheel' });
     return { a, a2: await live(p, idx) };
   };
   const plain = await wheelOver(0);
@@ -449,7 +450,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
       const cdp = await ctx.newCDPSession(p);
       await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
       await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });   // a new page every time, so the pinning really happens after the load starts
-      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h));   // however long a slow phone takes, it has to end up in the right place
+      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h), { what: `the landing on #${h} on a slow phone` });   // however long a slow phone takes, it has to end up in the right place
       worst = Math.max(worst, Math.abs(top - 120));
       await ctx.close();
     }
@@ -461,7 +462,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
   const t0 = await topOf('faq');
   await p.reload({ waitUntil: 'load' });
-  const t1 = await settled(p, () => topOf('faq'));
+  const t1 = await settled(p, () => topOf('faq'), { what: 'the place after the reload' });
   ok(near(t1, t0, 3), `reloading the page keeps the visitor at the same place (${t0}px then ${t1}px)`);
   await p.tap('.a11y-toggle'); await p.waitForTimeout(150);
   await p.locator('.a11y-opt', { hasText: 'עצירת אנימציות' }).tap(); await p.waitForTimeout(700);
@@ -485,12 +486,12 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
       const p = await ctx.newPage();
       const topOf = () => p.evaluate(() => Math.round(document.getElementById('faq').getBoundingClientRect().top));
       await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
-      await settled(p, () => p.evaluate(layoutSignature), { quiet: 400 });
+      await settled(p, () => p.evaluate(layoutSignature), { quiet: 400, what: 'the page before the reload' });
       await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
       const t0 = await topOf();
       await lateFonts(ctx);
       await p.reload({ waitUntil: 'load' });
-      const t1 = await settled(p, topOf);
+      const t1 = await settled(p, topOf, { what: `the place after the reload (fonts ${delay}ms late)` });
       ok(near(t1, t0, 3), `fonts ${delay}ms late: a reload keeps the visitor at the same place (${t0}px then ${t1}px)`);
       await ctx.close();
     }
@@ -499,11 +500,10 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
       const p = await ctx.newPage();
       await lateFonts(ctx);
       await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });
-      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h));
+      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h), { what: `the landing on #${h} (fonts ${delay}ms late)` });
       ok(near(top, 120, 3), `fonts ${delay}ms late: a link to #${h} lands under the header (${top}px, expected 120px)`);
       await ctx.close();
     }
-    if (delay !== 450) continue;
     // a browser without scroll anchoring (Safari) does not keep the section where it was when the fonts move the text: the script aligns it once more
     for (const h of ['join', 'way']) {
       const ctx = await newPhone();
@@ -512,7 +512,7 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
       await lateFonts(ctx);
       await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });
       ok(await p.evaluate(() => getComputedStyle(document.documentElement).overflowAnchor) === 'none', 'the page runs without scroll anchoring for this check');
-      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h));
+      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h), { what: `the landing on #${h} (fonts ${delay}ms late, no scroll anchoring)` });
       ok(near(top, 120, 3), `fonts ${delay}ms late, no scroll anchoring: a link to #${h} lands under the header (${top}px, expected 120px)`);
       await ctx.close();
     }
