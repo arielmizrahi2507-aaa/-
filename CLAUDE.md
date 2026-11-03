@@ -14,7 +14,7 @@ Code, comments, commit messages and this file are English. The site itself is He
 | `tools/make_preview.py` | One self-contained HTML file of the whole site, for viewers that show a single file. Writes `build/preview/`. |
 | `tools/tests/` | The automated checks (below). |
 | `SITE_README.md` | Hebrew owner documentation: publishing, the source of every fact, items to verify with the club, security notes. Keep it in step with behaviour changes. |
-| `bot.py`, `server.py`, `requirements.txt` | An unrelated older WhatsApp bot. Not part of the site; leave alone. `bot.py` holds a hard-coded credential default which the owner was told to revoke (SITE_README, "ממצאים מחוץ לאתר"). Never print or copy it; `sec-scan` keeps warning about it until it is gone. |
+| `bot.py`, `server.py`, `requirements.txt` | An unrelated older WhatsApp bot. Not part of the site; leave alone. `bot.py` used to hold a hard-coded Green API credential default; it was removed from the file on 2026-11-03 (the same change as branch `claude/beautiful-curie-7ja4ws`, with `README.md` listing the environment variables), but it is still in the git history, so the owner must still revoke it (SITE_README, "ממצאים מחוץ לאתר"). Never print or copy it: `git diff`, `git log -p` or `git show` on `bot.py` before that commit show it, so mask long strings when reading old versions. |
 
 ## Commands
 
