@@ -33,14 +33,15 @@ for (const [name, opts, sandbox] of [
   ok(sched.top >= (touch ? sched.hb - 2 : -2) && sched.top < sched.vh * 0.6, `#schedule scrolled into view (top=${sched.top}, header=${sched.hb})`);
   if (touch) ok(await f.evaluate(() => !document.querySelector('.side.open')), 'menu closes after choosing');
 
-  // carousels inside the sandboxed viewer (phone): a keyboard arrow scrolls the programs strip (touch swipes are covered by the carousel test)
+  // the cards inside the sandboxed viewer (phone): the side-scrolling strips are cancelled, so the four programs are in the page flow, inside the screen
+  // (the strips themselves, swipe and keys, are covered by the carousel test on a build that has them)
   if (touch) {
-    await f.locator('#programs [data-hs]').scrollIntoViewIfNeeded();
-    await f.locator('#programs [data-hs]').focus();
-    await p.keyboard.press('ArrowLeft');
-    await p.waitForTimeout(500);
-    const moved = await f.evaluate(() => Math.abs(Math.round(document.querySelector('#programs [data-hs]').scrollLeft)));
-    ok(moved > 40, `the programs strip scrolls inside the sandbox (${moved}px)`);
+    await f.locator('#programs').scrollIntoViewIfNeeded();
+    const cards = await f.evaluate(() => {
+      const list = [...document.querySelectorAll('#programs .prog')];
+      return { n: list.length, strips: document.querySelectorAll('[data-hs]').length, inside: list.every(c => { const r = c.getBoundingClientRect(); return r.left >= -1 && r.right <= innerWidth + 1; }) };
+    });
+    ok(cards.n === 4 && cards.strips === 0 && cards.inside, `the four programs are in the page flow inside the sandbox, with no strips (${cards.n} cards, ${cards.strips} strips, inside the screen: ${cards.inside})`);
   }
 
   // a legal page via the footer link, and back to the home page

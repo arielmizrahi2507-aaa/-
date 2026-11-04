@@ -5,7 +5,7 @@
 // Also: swipe, keys and "reveal this card" keep the page position in step; the options and screens that must not do this don't;
 // nothing is ever cut off by the header or the bottom bar; wide screens and print are unchanged.
 import { launch, siteUrl } from '../lib.mjs';
-const BASE = await siteUrl();
+const BASE = await siteUrl({ sideScroll: 'pinned' });   // the site as committed has no strips: this suite builds one with the strips pinned to the page scroll
 const b = await launch();
 let fails = 0, checks = 0;
 const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL:', m); } };
@@ -440,30 +440,13 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await ctx.close();
 }
 
-// ---------- landing on a section: a fresh load of a link (also on a slow phone), a reload, and the options ----------
+// ---------- the options and print: the visitor stays where they are when the pinning is switched off and on ----------
+// (where a link or a reload takes the visitor, also with late fonts, is landing-test.mjs, which runs on this build too)
 {
-  for (const h of ['join', 'way']) {
-    let worst = 0;
-    for (let k = 0; k < 2; k++) {
-      const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-      const p = await ctx.newPage();
-      const cdp = await ctx.newCDPSession(p);
-      await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 });
-      await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });   // a new page every time, so the pinning really happens after the load starts
-      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h), { what: `the landing on #${h} on a slow phone` });   // however long a slow phone takes, it has to end up in the right place
-      worst = Math.max(worst, Math.abs(top - 120));
-      await ctx.close();
-    }
-    ok(worst <= 3, `a link to #${h} opened on a phone four times slower lands under the header (off by ${worst}px at worst)`);
-  }
   const { ctx, p } = await open({});
-  ok(await p.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior) === 'auto', 'with scripts the browser scrolls instantly by itself (it restores the place of a reloaded page and goes to a link on load); the script animates the clicks');
   const topOf = id => p.evaluate(id => Math.round(document.getElementById(id).getBoundingClientRect().top), id);
   await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
   const t0 = await topOf('faq');
-  await p.reload({ waitUntil: 'load' });
-  const t1 = await settled(p, () => topOf('faq'), { what: 'the place after the reload' });
-  ok(near(t1, t0, 3), `reloading the page keeps the visitor at the same place (${t0}px then ${t1}px)`);
   await p.tap('.a11y-toggle'); await p.waitForTimeout(150);
   await p.locator('.a11y-opt', { hasText: 'עצירת אנימציות' }).tap(); await p.waitForTimeout(700);
   ok(near(await topOf('faq'), t0, 3), `turning the pinning off in the accessibility menu keeps the visitor at the same place (${t0}px then ${await topOf('faq')}px)`);
@@ -473,50 +456,6 @@ await phoneRun({ width: 390, height: 560 }, '390x560', true);
   await p.waitForTimeout(200);
   ok(await p.evaluate(() => [...document.querySelectorAll('.hs')].every(h => getComputedStyle(h.querySelector('.hs-stage')).position === 'static' && Math.abs(h.getBoundingClientRect().height - h.querySelector('[data-hs]').getBoundingClientRect().height) < 2)), 'print: no empty pinning space between the cards');
   await ctx.close();
-}
-
-// ---------- late fonts: the text is laid out in a fallback font first, so the place the browser gave the visitor has to be put right once the fonts are in ----------
-// (a reload restores the offset that was saved with the final text, a link is scrolled to in the fallback text; Chrome's scroll anchoring then keeps the displaced view)
-{
-  for (const delay of [0, 150, 450, 1200]) {
-    const lateFonts = ctx => ctx.route('**/*.woff2', async r => { await new Promise(res => setTimeout(res, delay)); r.continue().catch(() => {}); });
-    const newPhone = () => b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true });
-    {
-      const ctx = await newPhone();
-      const p = await ctx.newPage();
-      const topOf = () => p.evaluate(() => Math.round(document.getElementById('faq').getBoundingClientRect().top));
-      await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
-      await settled(p, () => p.evaluate(layoutSignature), { quiet: 400, what: 'the page before the reload' });
-      await goY(p, await p.evaluate(() => document.getElementById('faq').getBoundingClientRect().top + scrollY - 200));
-      const t0 = await topOf();
-      await lateFonts(ctx);
-      await p.reload({ waitUntil: 'load' });
-      const t1 = await settled(p, topOf, { what: `the place after the reload (fonts ${delay}ms late)` });
-      ok(near(t1, t0, 3), `fonts ${delay}ms late: a reload keeps the visitor at the same place (${t0}px then ${t1}px)`);
-      await ctx.close();
-    }
-    for (const h of ['join', 'way']) {
-      const ctx = await newPhone();
-      const p = await ctx.newPage();
-      await lateFonts(ctx);
-      await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });
-      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h), { what: `the landing on #${h} (fonts ${delay}ms late)` });
-      ok(near(top, 120, 3), `fonts ${delay}ms late: a link to #${h} lands under the header (${top}px, expected 120px)`);
-      await ctx.close();
-    }
-    // a browser without scroll anchoring (Safari) does not keep the section where it was when the fonts move the text: the script aligns it once more
-    for (const h of ['join', 'way']) {
-      const ctx = await newPhone();
-      const p = await ctx.newPage();
-      await ctx.route('**/assets/css/style.css', async r => { const res = await r.fetch(); await r.fulfill({ response: res, body: (await res.text()) + '\nhtml{overflow-anchor:none}' }); });
-      await lateFonts(ctx);
-      await p.goto(BASE + 'index.html#' + h, { waitUntil: 'load' });
-      ok(await p.evaluate(() => getComputedStyle(document.documentElement).overflowAnchor) === 'none', 'the page runs without scroll anchoring for this check');
-      const top = await settled(p, () => p.evaluate(h => Math.round(document.getElementById(h).getBoundingClientRect().top), h), { what: `the landing on #${h} (fonts ${delay}ms late, no scroll anchoring)` });
-      ok(near(top, 120, 3), `fonts ${delay}ms late, no scroll anchoring: a link to #${h} lands under the header (${top}px, expected 120px)`);
-      await ctx.close();
-    }
-  }
 }
 
 console.log(`${checks} checks, ${fails} failures`);

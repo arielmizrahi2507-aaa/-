@@ -526,39 +526,39 @@ html.a11y-gray{filter:grayscale(1)}
 .values[data-hs]{--hs-w:min(60%,14rem)}
 .timeline[data-hs]{--hs-w:min(80%,18rem)}
 @media (max-width:900px){
-  html.js:not(.a11y-stack) [data-hs]{display:flex;flex-wrap:nowrap;align-items:stretch;gap:1rem;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;margin-inline:calc(var(--hs-s,0px) * -1) calc(var(--hs-e,0px) * -1);padding-block:.25rem .5rem;padding-inline:var(--hs-s,0px) var(--hs-e,0px);scroll-padding-inline:var(--hs-s,0px) var(--hs-e,0px);scrollbar-width:none;-webkit-overflow-scrolling:touch;border:0;background:none}
-  html.js:not(.a11y-stack) [data-hs]::-webkit-scrollbar{display:none}
-  html.js:not(.a11y-stack) [data-hs]:focus-visible{outline:3px solid var(--ink);outline-offset:-4px}
-  html.js:not(.a11y-stack) [data-hs] > *{flex:0 0 var(--hs-w);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
-  html.js:not(.a11y-stack) [data-hs].hs-drag{scroll-snap-type:none;cursor:grabbing;user-select:none}
+  html.js.has-strips:not(.a11y-stack) [data-hs]{display:flex;flex-wrap:nowrap;align-items:stretch;gap:1rem;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x mandatory;margin-inline:calc(var(--hs-s,0px) * -1) calc(var(--hs-e,0px) * -1);padding-block:.25rem .5rem;padding-inline:var(--hs-s,0px) var(--hs-e,0px);scroll-padding-inline:var(--hs-s,0px) var(--hs-e,0px);scrollbar-width:none;-webkit-overflow-scrolling:touch;border:0;background:none}
+  html.js.has-strips:not(.a11y-stack) [data-hs]::-webkit-scrollbar{display:none}
+  html.js.has-strips:not(.a11y-stack) [data-hs]:focus-visible{outline:3px solid var(--ink);outline-offset:-4px}
+  html.js.has-strips:not(.a11y-stack) [data-hs] > *{flex:0 0 var(--hs-w);min-width:0;scroll-snap-align:start;scroll-snap-stop:always}
+  html.js.has-strips:not(.a11y-stack) [data-hs].hs-drag{scroll-snap-type:none;cursor:grabbing;user-select:none}
   /* כרטיסים עצמאיים במקום תאים צמודים */
-  html.js:not(.a11y-stack) .cards4 > .card-dark,html.js:not(.a11y-stack) .principles > .principle,html.js:not(.a11y-stack) .values > li{border:1px solid var(--night-2)}
-  html.js:not(.a11y-stack) .timeline > li{padding:1.4rem;border:1px solid var(--night-2)}
-  html.js:not(.a11y-stack) .days > .day{border:1px solid var(--rule);background:#fff}
-  html.js:not(.a11y-stack) .steps > .step{align-content:start;padding:1.25rem;border:1px solid var(--rule);background:#fff}
-  html.js:not(.a11y-stack) .gloss > dl{flex:none;display:flex;gap:1rem;margin:0}
-  html.js:not(.a11y-stack) .gloss dl > div{flex:0 0 11.5rem;display:flex;flex-direction:column;gap:.5rem;padding:1.1rem;border:1px solid var(--rule);background:#fff;scroll-snap-align:start;scroll-snap-stop:always}
-  html.js:not(.a11y-stack) .gloss dt{font-size:1.6rem}
+  html.js.has-strips:not(.a11y-stack) .cards4 > .card-dark,html.js.has-strips:not(.a11y-stack) .principles > .principle,html.js.has-strips:not(.a11y-stack) .values > li{border:1px solid var(--night-2)}
+  html.js.has-strips:not(.a11y-stack) .timeline > li{padding:1.4rem;border:1px solid var(--night-2)}
+  html.js.has-strips:not(.a11y-stack) .days > .day{border:1px solid var(--rule);background:#fff}
+  html.js.has-strips:not(.a11y-stack) .steps > .step{align-content:start;padding:1.25rem;border:1px solid var(--rule);background:#fff}
+  html.js.has-strips:not(.a11y-stack) .gloss > dl{flex:none;display:flex;gap:1rem;margin:0}
+  html.js.has-strips:not(.a11y-stack) .gloss dl > div{flex:0 0 11.5rem;display:flex;flex-direction:column;gap:.5rem;padding:1.1rem;border:1px solid var(--rule);background:#fff;scroll-snap-align:start;scroll-snap-stop:always}
+  html.js.has-strips:not(.a11y-stack) .gloss dt{font-size:1.6rem}
   /* A pinned strip: the stage sticks under the header and fills the free screen, with the strip in the middle and an empty room of --hs-g above and below it.
      The wrapper is as tall as the stage plus the way the cards travel (--hs-d) plus that room twice: the cards move only while the stage holds the
      whole free screen, so nothing else (the text above, the next section, a background kanji) is moving at the same time. The page scrolls the
      first --hs-g while the text above leaves, then the cards travel, then the last --hs-g while the next part arrives.
      The negative margins (--hs-g) give the strip back its normal place before and after the pin, and the stage itself is transparent and takes no taps. */
-  html.js:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d) + var(--hs-g) * 2);margin-block:calc(var(--hs-g) * -1)}
-  html.js:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
-  html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-pin{height:calc(var(--hs-stage) + var(--hs-d) + var(--hs-g) * 2);margin-block:calc(var(--hs-g) * -1)}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-pin > .hs-stage{display:flex;flex-direction:column;justify-content:center;position:sticky;top:var(--hs-top);height:var(--hs-stage);pointer-events:none}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-pin [data-hs]{flex:none;scroll-snap-type:none;pointer-events:auto}
   /* A strip that does not fit a short screen is pinned anyway with tighter cards: less padding and smaller number glyphs, the same readable text size. */
-  html.js:not(.a11y-stack) .hs.hs-tight .prog,html.js:not(.a11y-stack) .hs.hs-tight .champ,html.js:not(.a11y-stack) .hs.hs-tight .card-dark,html.js:not(.a11y-stack) .hs.hs-tight .principle{padding-block:1.1rem;gap:.55rem}
-  html.js:not(.a11y-stack) .hs.hs-tight .prog h3{font-size:1.45rem}
-  html.js:not(.a11y-stack) .hs.hs-tight .champ-num{font-size:3rem}
-  html.js:not(.a11y-stack) .hs.hs-tight .kj{font-size:3rem}
-  html.js:not(.a11y-stack) .hs.hs-tight .prog p,html.js:not(.a11y-stack) .hs.hs-tight .champ p,html.js:not(.a11y-stack) .hs.hs-tight .card-dark p,html.js:not(.a11y-stack) .hs.hs-tight .principle p{line-height:1.5}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-tight .prog,html.js.has-strips:not(.a11y-stack) .hs.hs-tight .champ,html.js.has-strips:not(.a11y-stack) .hs.hs-tight .card-dark,html.js.has-strips:not(.a11y-stack) .hs.hs-tight .principle{padding-block:1.1rem;gap:.55rem}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-tight .prog h3{font-size:1.45rem}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-tight .champ-num{font-size:3rem}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-tight .kj{font-size:3rem}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-tight .prog p,html.js.has-strips:not(.a11y-stack) .hs.hs-tight .champ p,html.js.has-strips:not(.a11y-stack) .hs.hs-tight .card-dark p,html.js.has-strips:not(.a11y-stack) .hs.hs-tight .principle p{line-height:1.5}
 }
 @media (max-width:900px) and (pointer:fine){
-  html.js:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
+  html.js.has-strips:not(.a11y-stack) [data-hs]:not(:focus-within){cursor:grab}
   /* mouse and touchpad: a pinned strip is moved by the page scroll (and by the keys and the drag, which are script-driven), never by the wheel itself.
      A touchpad always adds a little sideways drift, and a strip that can scroll sideways would take the whole scroll gesture from the page. */
-  html.js:not(.a11y-stack) .hs.hs-pin [data-hs]{overflow-x:hidden}
+  html.js.has-strips:not(.a11y-stack) .hs.hs-pin [data-hs]{overflow-x:hidden}
 }
 .a11y-contrast [data-hs] > *,.a11y-contrast .gloss dl > div{background:#000!important;color:#fff!important;border-color:#fff!important}
 @media (prefers-reduced-motion:reduce){

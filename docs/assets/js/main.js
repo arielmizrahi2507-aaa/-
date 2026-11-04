@@ -407,6 +407,8 @@
     else window.addEventListener('load', fontsAreIn);
   })();
 
+  /* The side-scrolling strips below only act on elements that the generator marks with data-hs (tools/build_site.py, SIDE_SCROLL: off, swipe or pinned);
+     data-hs-pin adds the pinning to the page scroll. The owner cancelled the strips on 2026-11-04, so the default pages have none and all of this is dormant. */
   /* ---------- גלילה לצד בנייד ----------
      קבוצות כרטיסים (data-hs) הופכות לפס שמחליקים בו הצידה: החלקה באצבע, גרירה בעכבר, ובמקלדת מקשי החצים. בלי כפתורים ובלי נקודות.
      בנוסף, כשגוללים את הדף למטה ומגיעים לפס, הוא נעצר במקומו והגלילה הרגילה של הדף מזיזה את הכרטיסים הצידה, ואחרי הכרטיס האחרון
@@ -519,6 +521,7 @@
 
   /* The first run is immediate, before the browser scrolls to a link's section or restores the position of a reloaded page. */
   function hsRefresh() {
+    if (!carousels.length) return;   /* a page without strips (SIDE_SCROLL: off) measures nothing and builds nothing, not even the probe */
     if (hsFirst) { hsFirst = false; hsRun(); return; }
     if (hsRaf) return;
     hsRaf = window.requestAnimationFrame(function () {
@@ -680,7 +683,7 @@
 
     function pinMeasure() {
       var max = track.scrollWidth - track.clientWidth;
-      var th = pinOn() && max > 4 ? pinFits() : 0;
+      var th = track.hasAttribute('data-hs-pin') && pinOn() && max > 4 ? pinFits() : 0;
       if (!th) wrap.classList.remove('hs-tight');
       var want = th > 0;
       if (want) {
@@ -763,6 +766,9 @@
   var KEY = 'jk-a11y';
   var state = { fs: 1, contrast: 0, gray: 0, links: 0, font: 0, spacing: 0, nomotion: 0, stack: 0 };
   var FLAGS = ['contrast', 'gray', 'links', 'font', 'spacing', 'nomotion', 'stack'];
+  /* the option "בלי גלילה לצד" only means something where the page has side-scrolling strips (tools/build_site.py, SIDE_SCROLL) */
+  var hasStrips = !!doc.querySelector('[data-hs]');
+  if (!hasStrips) FLAGS = FLAGS.filter(function (k) { return k !== 'stack'; });
 
   try {
     var saved = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -791,7 +797,7 @@
     { key: 'spacing', label: 'ריווח טקסט', on: 'ריווח טקסט הופעל', off: 'ריווח טקסט כבה' },
     { key: 'nomotion', label: 'עצירת אנימציות', on: 'האנימציות נעצרו', off: 'האנימציות חזרו' },
     { key: 'stack', label: 'בלי גלילה לצד', on: 'התצוגה הרציפה הופעלה, בלי גלילה לצד', off: 'הגלילה לצד חזרה' }
-  ];
+  ].filter(function (o) { return o.key !== 'stack' || hasStrips; });
 
   /* בונים רק בעזרת DOM ו־textContent, בלי innerHTML */
   function el(tag, attrs, content) {

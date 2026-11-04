@@ -54,6 +54,8 @@ def split(html):
     return re.search(r"<head>(.*?)</head>", html, re.S).group(1), re.search(r"<body>(.*)</body>", html, re.S).group(1)
 
 head, body = split(read("index.html"))
+# the class that switches the strips' styles on (only when the site was built with strips) belongs to <html>, which this builder writes itself
+HTML_CLASS = ' class="has-strips"' if re.search(r'<html[^>]*class="has-strips"', read("index.html")) else ""
 head = re.sub(r'<link rel="stylesheet" href="assets/css/style.css">', lambda m: "<style>" + css + PREVIEW_CSS + "</style>", head)
 head = re.sub(r'<link rel="(preload|icon|apple-touch-icon)"[^>]*>', "", head)
 head = re.sub(r'<meta property="og:image[^"]*"[^>]*>', "", head)
@@ -104,7 +106,7 @@ if(!(t.closest&&t.closest('.view')))show(null);
 },true);})();"""
 
 def page(extra_head=""):
-    return ('<!doctype html>\n<html lang="he" dir="rtl">\n<head>' + extra_head + head + "</head>\n<body>" + body +
+    return ('<!doctype html>\n<html lang="he" dir="rtl"' + HTML_CLASS + '>\n<head>' + extra_head + head + "</head>\n<body>" + body +
             "<script>" + router + "</script>\n<script>" + js + "</script>\n</body>\n</html>\n")
 
 os.makedirs(OUT_DIR, exist_ok=True)

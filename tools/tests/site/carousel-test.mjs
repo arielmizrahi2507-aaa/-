@@ -1,7 +1,11 @@
 // The side-scrolling strips (narrow screens): moved by the finger, the mouse or the keyboard, with no arrows, dots or counters.
 // Every card must be reachable, a swipe stops on a card, a drag never follows a link, and wide screens keep their grids.
 import { launch, siteUrl } from '../lib.mjs';
-const BASE = await siteUrl();
+// The site as committed has no strips (the owner cancelled them): this suite builds a variant with them, pinned to the page scroll or, with the argument "swipe",
+// as plain swipe strips:   node tools/tests/site/carousel-test.mjs [pinned|swipe]
+const MODE = process.argv[2] === 'swipe' ? 'swipe' : 'pinned';
+const BASE = await siteUrl({ sideScroll: MODE });
+console.log(`side scrolling: ${MODE}`);
 const b = await launch();
 let fails = 0, checks = 0;
 const ok = (c, m) => { checks++; if (!c) { fails++; console.log('  FAIL:', m); } };

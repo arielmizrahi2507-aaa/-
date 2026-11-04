@@ -2,7 +2,8 @@ import { AXE, launch, siteUrl } from '../lib.mjs';
 const BASE = await siteUrl();
 const pages = ['index.html', 'accessibility.html', 'privacy.html', 'terms.html'];
 const sizes = [['desktop', 1440, 900], ['mobile', 390, 844], ['narrow', 320, 640]];
-const modes = ['', 'a11y-contrast', 'a11y-links', 'a11y-gray', 'a11y-font a11y-spacing', 'a11y-stack'];
+// the display modes of the accessibility menu ("no side scrolling" is gone with the strips: the dormant strips are audited below, on a build that brings them back)
+const modes = ['', 'a11y-contrast', 'a11y-links', 'a11y-gray', 'a11y-font a11y-spacing'];
 const b = await launch();
 let total = 0, runs = 0;
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
@@ -64,17 +65,37 @@ async function states(sizeName, w, h) {
     await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
     await p.tap('.menu-btn'); await p.waitForTimeout(250);
     await audit(p, `home ${sizeName} menu-open`);
-    await p.goto(BASE + 'index.html', { waitUntil: 'networkidle' });
-    await p.evaluate(() => document.querySelectorAll('.hs-next').forEach(b => { b.click(); b.click(); }));
-    await p.waitForTimeout(500);
-    await audit(p, `home ${sizeName} carousels-moved`);
-    await p.evaluate(() => document.documentElement.classList.add('a11y-contrast'));
-    await p.waitForTimeout(200);
-    await audit(p, `home ${sizeName} carousels-moved-contrast`);
   }
   await ctx.close();
 }
 for (const [n, w, h] of sizes) await states(n, w, h);
+
+// The side-scrolling strips are cancelled, so the committed site has none. They are still in the generator (SIDE_SCROLL), and a build that brings them back
+// is audited too: the phone sizes, in the modes that touch them (no side scrolling, high contrast), and with every strip moved to its last card.
+{
+  const strips = await siteUrl({ sideScroll: 'pinned' });
+  for (const [sizeName, w, h] of sizes.filter(x => x[0] !== 'desktop')) {
+    for (const mode of ['', 'a11y-stack', 'a11y-contrast', 'moved', 'moved a11y-contrast']) {
+      const ctx = await b.newContext({ viewport: { width: w, height: h }, reducedMotion: 'reduce', bypassCSP: true, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const p = await ctx.newPage();
+      await p.goto(strips + 'index.html', { waitUntil: 'networkidle' });
+      const n = await p.evaluate(() => document.querySelectorAll('[data-hs]').length);
+      if (n !== 9) { total++; console.log(`  [strips build ${sizeName}] expected nine strips, found ${n}`); }
+      await p.evaluate(m => {
+        const classes = m.split(' ').filter(c => c.startsWith('a11y-'));
+        classes.forEach(c => document.documentElement.classList.add(c));
+        if (m.split(' ').includes('moved')) document.querySelectorAll('[data-hs]').forEach(t => t.scrollTo({ left: -t.scrollWidth, behavior: 'instant' }));   // RTL: the end is negative
+      }, mode);
+      await p.waitForTimeout(500);
+      if (mode.startsWith('moved')) {   // the audit of the moved strips must audit strips that moved
+        const away = await p.evaluate(() => [...document.querySelectorAll('[data-hs]')].filter(t => Math.abs(t.scrollLeft) > 20).length);
+        if (away < 9) { total++; console.log(`  [strips build ${sizeName}] only ${away} of 9 strips moved to their last card`); }
+      }
+      await audit(p, `home ${sizeName} strips-build ${mode || 'default'}`);
+      await ctx.close();
+    }
+  }
+}
 console.log(`\n${runs} axe runs, ${total} violations`);
 await b.close();
 process.exit(total ? 1 : 0);

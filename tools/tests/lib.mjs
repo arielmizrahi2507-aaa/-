@@ -85,12 +85,15 @@ export function tempDir(prefix) {
   return d;
 }
 
-// runs tools/build_site.py into outDir; email '' builds the site without a club address, a value sets it, undefined keeps the committed setting
-export function buildSite(outDir, email) {
+// runs tools/build_site.py into outDir; email '' builds the site without a club address, a value sets it, undefined keeps the committed setting;
+// sideScroll 'off' | 'swipe' | 'pinned' builds the site with that side-scrolling mode (undefined keeps the committed setting, which is off)
+export function buildSite(outDir, email, sideScroll) {
   fs.cpSync(DOCS, outDir, { recursive: true });
   const env = { ...process.env, JK_OUT: outDir };
   if (email !== undefined) env.JK_EMAIL = email;
   else delete env.JK_EMAIL;   // the committed configuration, whatever the caller's environment holds
+  if (sideScroll !== undefined) env.JK_SIDE_SCROLL = sideScroll;
+  else delete env.JK_SIDE_SCROLL;
   const r = spawnSync(PYTHON, [path.join(ROOT, 'tools', 'build_site.py')], { env, encoding: 'utf-8' });
   if (r.status !== 0) throw new Error('tools/build_site.py failed:\n' + (r.stderr || r.stdout));
   return outDir;
@@ -98,12 +101,13 @@ export function buildSite(outDir, email) {
 
 // the address of the site to test. No argument: docs/ as committed (or SITE_URL when the runner already serves it).
 // With { email }: a fresh test build with that club address ('' = none), served on its own port.
-export async function siteUrl({ email } = {}) {
-  if (email === undefined) {
+// With { sideScroll }: a fresh test build with the side-scrolling strips on ('swipe' or 'pinned'; 'off' is the committed site), served on its own port.
+export async function siteUrl({ email, sideScroll } = {}) {
+  if (email === undefined && (sideScroll === undefined || sideScroll === 'off')) {
     if (process.env.SITE_URL) return process.env.SITE_URL.replace(/\/?$/, '/');
     return (await serve(DOCS)).url;
   }
-  return (await serve(buildSite(tempDir('jk-site-'), email))).url;
+  return (await serve(buildSite(tempDir('jk-site-'), email, sideScroll))).url;
 }
 
 // ---- single-file preview -------------------------------------------------------------------------------------------
