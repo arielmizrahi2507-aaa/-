@@ -1,0 +1,3 @@
+# Python packages used by the checks in tools/tests/static (only cjk-scan.py needs them; it is skipped when they are missing)
+fonttools==4.67.0
+brotli==1.2.1
