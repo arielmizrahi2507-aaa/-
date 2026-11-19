@@ -269,8 +269,8 @@ h3{font-weight:900}
 .form-title{font-size:1.625rem;font-weight:900}
 .field{display:flex;flex-direction:column;gap:.5rem}
 .field label{font-size:.9375rem;font-weight:700}
-.field input,.field select,.field textarea{min-height:3rem;padding:.85rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1.0625rem}
-.field input:focus,.field select:focus,.field textarea:focus{outline:3px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
+.field input,.field textarea{min-height:3rem;padding:.85rem 1rem;border:2px solid var(--field);border-radius:2px;background:#fff;color:var(--ink);font:inherit;font-size:1.0625rem}
+.field input:focus,.field textarea:focus{outline:3px solid var(--ink);outline-offset:2px;border-color:var(--ink)}
 .field input[aria-invalid="true"]{border-color:var(--accent-ink)}
 .field textarea{min-height:5.5rem;resize:vertical;line-height:1.6}
 .err{display:none;align-items:flex-start;gap:.45rem;color:var(--accent-ink);font-size:.95rem;font-weight:700;line-height:1.5}
@@ -278,7 +278,7 @@ h3{font-weight:900}
 .err.on::before{content:"!";flex:none;display:grid;place-items:center;width:1.25rem;height:1.25rem;margin-top:.12rem;border-radius:50%;background:var(--accent-ink);color:#fff;font-size:.85rem;line-height:1}
 .opt{margin-inline-start:.4rem;color:var(--ink-3);font-size:.85rem;font-weight:500}
 .req{margin-inline-start:.25rem;color:var(--accent-ink);font-size:1.4em;font-weight:900;line-height:1}
-.field.invalid input,.field.invalid select,.field.invalid textarea{border-color:var(--accent-ink);background:#FFF6F5}
+.field.invalid input,.field.invalid textarea{border-color:var(--accent-ink);background:#FFF6F5}
 .check-row{display:flex;align-items:flex-start;gap:.75rem;padding:.35rem}
 .field .check-row input{flex:none;width:1.5rem;height:1.5rem;min-height:0;margin:.1rem 0 0;padding:0;accent-color:var(--accent-ink);cursor:pointer}
 .check-row label{font-size:1rem;font-weight:500;line-height:1.5;cursor:pointer}
@@ -430,14 +430,14 @@ html.a11y-gray{filter:grayscale(1)}
 .a11y-contrast.a11y-links a *{color:#FFEB3B!important}
 .a11y-contrast.a11y-links a{background-color:#000!important;color:#FFEB3B!important;text-decoration:underline!important;outline:2px solid #FFEB3B}
 .a11y-contrast .prog-meta,.a11y-contrast .coach-tag{background:#fff!important;color:#000!important}
-.a11y-contrast .field input,.a11y-contrast .field select{background:#000;color:#fff;border-color:#fff}
+.a11y-contrast .field input{background:#000;color:#fff;border-color:#fff}
 .a11y-contrast .table-wrap th{background:#222!important}
 .a11y-contrast .cform,.a11y-contrast .contact-info,.a11y-contrast .champ,.a11y-contrast .result{background:#000!important;color:#fff!important}
 .a11y-contrast .cform,.a11y-contrast .champ,.a11y-contrast .result{border-color:#fff!important}
 .a11y-contrast .champ-num,.a11y-contrast .req,.a11y-contrast .ci-label{color:#FFEB3B!important}
 .a11y-contrast .send-row button,.a11y-contrast .ci-btn,.a11y-contrast .to-top{background:#000!important;color:#FFEB3B!important;border:2px solid #FFEB3B!important}
 .a11y-contrast .field textarea,.a11y-contrast .result textarea{background:#000;color:#fff;border-color:#fff}
-.a11y-contrast .field.invalid input,.a11y-contrast .field.invalid select,.a11y-contrast .field.invalid textarea{background:#000;border-color:#FFEB3B}
+.a11y-contrast .field.invalid input,.a11y-contrast .field.invalid textarea{background:#000;border-color:#FFEB3B}
 .a11y-contrast .err{color:#FFEB3B!important}
 .a11y-contrast .err.on::before{background:#FFEB3B;color:#000}
 .a11y-contrast :focus-visible{outline-color:#FFEB3B!important}

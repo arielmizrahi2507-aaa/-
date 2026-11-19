@@ -33,6 +33,12 @@ async function run(label, ctxOpts, page, formId, prefix, fieldsReq, fieldsOpt) {
   const tap = async sel => (ctxOpts.hasTouch ? p.tap(sel) : p.click(sel));
   const submitSel = `#${formId} button[data-channel=wa]`;
 
+  // 0) the form asks for exactly these details. The question about a requested group was removed at the owner's request (2026-11-19): no select, no "group" control
+  const asked = await p.evaluate(id => { const f = document.getElementById(id); return { names: [...f.querySelectorAll('[name]')].map(e => e.getAttribute('name')).sort(), selects: f.querySelectorAll('select').length, labels: [...f.querySelectorAll('label')].map(l => l.textContent) }; }, formId);
+  const expectedNames = [...fieldsReq, ...fieldsOpt, 'consent'].sort();
+  ok(JSON.stringify(asked.names) === JSON.stringify(expectedNames), `the form asks for exactly ${expectedNames.join(', ')} (it asks for ${asked.names.join(', ')})`);
+  ok(asked.selects === 0 && !asked.labels.some(t => /קבוצה/.test(t)), `the form has no question about a requested group (${asked.selects} selects)`);
+
   // 1) everything empty -> asterisk on each required field only
   await p.locator(`#${formId}`).scrollIntoViewIfNeeded();
   await tap(submitSel);
@@ -134,6 +140,7 @@ async function run(label, ctxOpts, page, formId, prefix, fieldsReq, fieldsOpt) {
   ok(!r.hidden && r.focused, 'result panel visible + focused');
   ok(r.text.includes('שם: דוד כהן') && r.text.includes('טלפון: 050-1234567'), 'message contains name and phone');
   if (fieldsReq.includes('age')) ok(r.text.includes('גיל המתאמן או המתאמנת: 8'), 'message contains age');
+  ok(!/קבוצה/.test(r.text), 'the message has no line about a requested group');
   ok(decodeURIComponent(r.href.split('?text=')[1]) === r.text, 'wa.me link carries exactly the message text');
   ok(r.href.startsWith('https://wa.me/972505788781?text='), 'wa.me link has international number format');
   ok(!/[\n ]/.test(r.href), 'wa.me link is fully URL-encoded');

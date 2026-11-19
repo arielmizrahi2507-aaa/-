@@ -263,8 +263,6 @@ def page(filename, title, desc, main, home=False, jsonld=None, og=True, current=
 
 
 # ---------------------------------------------------------------- forms
-GROUP_OPTIONS = ["לא בטוחים, אשמח לייעוץ", "גן וכיתה א׳ (גילאי 4 עד 7)", "כיתה ב׳ ומעלה", "מבוגרים"]
-
 FORM_NOTE = 'נפתחת הודעה מוכנה, והיא נשלחת רק כשלוחצים "שלח" באפליקציה. האתר לא שומר שום מידע.'
 
 
@@ -343,14 +341,12 @@ def nojs_card(p, title, tag):
 def details_form(p, form_id, title, tag, full):
     """The form with all the checks (needs scripts) followed by the plain card for visitors without scripts.
     full: the contact page form (also e-mail and a free message); otherwise the short form of the home page."""
-    options = "".join(f"<option>{o}</option>" for o in GROUP_OPTIONS)
     name = field(p, "name", "שם מלא", ctl(p, "name", "input", 'type="text" maxlength="60" autocomplete="name" enterkeyhint="next" placeholder="שם פרטי ושם משפחה"'), True, "name")
     phone = field(p, "phone", "טלפון", ctl(p, "phone", "input", 'type="tel" maxlength="20" inputmode="tel" autocomplete="tel" enterkeyhint="next" placeholder="050-0000000" class="ltr-input"'), True, "phone")
     email = field(p, "email", "אימייל", ctl(p, "email", "input", 'type="email" maxlength="80" autocomplete="email" enterkeyhint="next" placeholder="כתובת המייל שלכם" class="ltr-input"'), False, "email") if full else ""
     age = field(p, "age", "גיל המתאמן או המתאמנת", ctl(p, "age", "input", 'type="text" maxlength="3" inputmode="numeric" enterkeyhint="next" placeholder="למשל 8" class="ltr-input"'), True, "age")
-    group = field(p, "group", "קבוצה מבוקשת", ctl(p, "group", "select", '', options))
     message = field(p, "message", "הודעה", ctl(p, "message", "textarea", 'rows="4" maxlength="300" placeholder="אפשר לכתוב כאן כל שאלה"')) if full else ""
-    rows = "\n".join(x for x in (name, phone, email, age, group, message, consent_field(p)) if x)
+    rows = "\n".join(x for x in (name, phone, email, age, message, consent_field(p)) if x)
     return f"""<form class="cform" id="{form_id}" data-wa="{WA}" data-email="{EMAIL}" data-subject="{MAIL_SUBJECT}" novalidate>
 <{tag} class="form-title">{title}</{tag}>
 <div class="form-fields">
@@ -367,7 +363,7 @@ def details_form(p, form_id, title, tag, full):
 
 
 def join_form():
-    """The one form of the site (the red band): name, phone, e-mail, age, group, a free message and the consent box."""
+    """The one form of the site (the red band): name, phone, e-mail, age, a free message and the consent box (no question about a requested group: the owner removed it, 2026-11-19)."""
     return details_form("jf", "join-form", "השאירו פרטים", "h3", True)
 
 

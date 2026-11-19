@@ -309,7 +309,6 @@
       if (value('phone')) lines.push('טלפון: ' + value('phone'));
       if (value('email')) lines.push('אימייל: ' + value('email'));
       if (value('age')) lines.push('גיל המתאמן או המתאמנת: ' + value('age'));
-      if (value('group')) lines.push('קבוצה: ' + value('group'));
       var msgEl = form.elements.message;
       if (msgEl && msgEl.value.trim()) lines.push('הודעה: ' + msgEl.value.trim());
       return lines.join('\n');
