@@ -4,8 +4,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime,timedelta
 
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-GREEN_API_ID    = os.environ.get("GREEN_API_ID", "7107665984")
-GREEN_API_TOKEN = os.environ.get("GREEN_API_TOKEN", "b9845f9e53c14dbe805579a2851f8e39291cdbfa4718417f9e")
+GREEN_API_ID    = os.environ.get("GREEN_API_ID")
+GREEN_API_TOKEN = os.environ.get("GREEN_API_TOKEN")
 MY_PHONE        = os.environ.get("MY_PHONE")  # פורמט: 972507747717 (בלי +)
 
 def get_israeli_news():
@@ -93,6 +93,8 @@ def generate_review(results, news):
 
 def send_whatsapp(message, phone):
     """שולח הודעה דרך Green API"""
+    if not GREEN_API_ID or not GREEN_API_TOKEN:
+        raise RuntimeError("חסרים משתני סביבה: GREEN_API_ID, GREEN_API_TOKEN")
     url = f"https://api.green-api.com/waInstance{GREEN_API_ID}/sendMessage/{GREEN_API_TOKEN}"
     payload = {
         "chatId": f"{phone}@c.us",
